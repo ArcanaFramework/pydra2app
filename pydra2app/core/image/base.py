@@ -22,7 +22,7 @@ from pydra2app.core.utils.serialize import (
 from pydra2app.core.utils.misc import (
     DOCKER_HUB,
 )
-from pydra2app.core.data.space import DataSpace
+from frametree.core.space import DataSpace
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from .components import Packages, BaseImage, PipPackage, CondaPackage, Version
 
@@ -43,7 +43,7 @@ class Pydra2AppImage:
         version of the package/pipeline
     org : str
         the organisation the image will be tagged within
-    base_image : pydra2app.core.deploy.image.components.BaseImage, optional
+    base_image : pydra2app.core.image.components.BaseImage, optional
         the base image to build from
     packages : Packages
         System (OS), PyPI, Conda and Neurodocker packages/templates to be installed

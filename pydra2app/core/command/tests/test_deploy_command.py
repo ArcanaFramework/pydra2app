@@ -4,7 +4,7 @@ from functools import reduce
 from operator import mul
 from pathlib import Path
 import pytest
-from pydra2app.testing.data.blueprint import (
+from frametree.testing.blueprint import (
     TestDatasetBlueprint,
     FileSetEntryBlueprint as FileBP,
 )
@@ -12,11 +12,11 @@ import pydra.mark
 from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 from fileformats.core.hook import converter
-from pydra2app.core.data.set import Dataset
-from pydra2app.common import DirTree
-from pydra2app.testing.data import TestDataSpace
-from pydra2app.core.deploy.command.base import ContainerCommand
-from pydra2app.core.exceptions import Pydra2AppDataMatchError
+from frametree.core.set import Dataset
+from frametree.common import DirTree
+from frametree.testing import TestDataSpace
+from pydra2app.core.command.base import ContainerCommand
+from frametree.core.exceptions import FrameTreeDataMatchError
 
 
 # Set up converter between text and encoded-text and back again
@@ -166,7 +166,7 @@ def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
 
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
-    with pytest.raises(Pydra2AppDataMatchError):
+    with pytest.raises(FrameTreeDataMatchError):
         command_spec.execute(
             dataset_locator=saved_dataset.locator,
             input_values=[
@@ -220,7 +220,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
         inputs=[
             {
                 "name": "a_row",
-                "datatype": "pydra2app.core.data.row:DataRow",
+                "datatype": "frametree.core.row:DataRow",
                 "field": "filenumber_row",
                 "help": "dummy",
             },

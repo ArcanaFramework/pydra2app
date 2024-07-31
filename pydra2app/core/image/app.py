@@ -17,7 +17,7 @@ from pydra2app.core.utils.serialize import (
     ObjectListConverter,
     ClassResolver,
 )
-from pydra2app.core.data.space import DataSpace
+from frametree.core.space import DataSpace
 from ..command.base import ContainerCommand
 from .base import Pydra2AppImage
 from .components import ContainerAuthor, License, Docs, PipPackage

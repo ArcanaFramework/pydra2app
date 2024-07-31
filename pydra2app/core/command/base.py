@@ -18,10 +18,10 @@ from pydra2app.core.utils.serialize import (
     ClassResolver,
 )
 from pydra2app.core.utils.misc import show_workflow_errors
-from pydra2app.core.data.row import DataRow
-from pydra2app.core.data.set.base import Dataset
-from pydra2app.core.data.store import DataStore
-from pydra2app.core.data.space import DataSpace
+from frametree.core.row import DataRow
+from frametree.core.set.base import Dataset
+from frametree.core.store import DataStore
+from frametree.core.space import DataSpace
 from pydra2app.core.exceptions import Pydra2AppUsageError
 from .components import CommandInput, CommandOutput, CommandParameter
 
@@ -248,7 +248,7 @@ class ContainerCommand:
             if inpt.datatype is DataRow:
                 logger.info(
                     f"No column added for '{inpt.name}' column as it uses built-in "
-                    "type `pydra2app.core.data.row.DataRow`"
+                    "type `frametree.core.row.DataRow`"
                 )
                 continue
             path, qualifiers = self.extract_qualifiers_from_path(

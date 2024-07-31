@@ -15,23 +15,24 @@ from pydra2app.core.utils.serialize import (
     pydra_asdict,
     ClassResolver,
 )
-from pydra2app.core.deploy.image import Metapackage, App
+from pydra2app.core import __version__
+from pydra2app.core.image import Metapackage, App
 from pydra2app.core.exceptions import Pydra2AppBuildError
-from pydra2app.core.data.set.base import Dataset
-from pydra2app.core.data.store import DataStore
 from pydra2app.core.utils.misc import extract_file_from_docker_image, DOCKER_HUB
-from pydra2app.core.cli.base import cli
-from pydra2app.core.deploy.command import entrypoint_opts
+from pydra2app.core.command import entrypoint_opts
+
 
 logger = logging.getLogger("pydra2app")
 
 
-@cli.group()
-def deploy():
-    pass
+# Define the base CLI entrypoint
+@click.group()
+@click.version_option(version=__version__)
+def cli():
+    """Base command line group, installed as "pydra2app"."""
 
 
-@deploy.command(
+@cli.command(
     name="make-app",
     help="""Construct and build a dockerfile/apptainer-file for containing a pipeline
 
@@ -39,7 +40,7 @@ SPEC_PATH is the file system path to the specification to build, or directory
 containing multiple specifications
 
 TARGET is the type of image to build, e.g. pydra2app.xnat.deploy:XnatApp
-the target should resolve to a class deriviing from pydra2app.core.deploy.App.
+the target should resolve to a class deriviing from pydra2app.core.App.
 If it is located under the `pydra2app.deploy`, then that prefix can be dropped, e.g.
 common:App
 """,
@@ -495,7 +496,7 @@ def make_app(
         sys.exit(1)
 
 
-@deploy.command(
+@cli.command(
     name="list-images",
     help="""Walk through the specification paths and list tags of the images
 that will be build from them.
@@ -519,7 +520,7 @@ def list_images(spec_root, registry):
         click.echo(image_spec.reference)
 
 
-@deploy.command(
+@cli.command(
     name="make-docs",
     help="""Build docs for one or more yaml wrappers
 
@@ -579,7 +580,7 @@ def make_docs(
         logging.info("Successfully created docs for %s", image_spec.path)
 
 
-@deploy.command(
+@cli.command(
     name="required-packages",
     help="""Detect the Python packages required to run the
 specified workflows and return them and their versions""",
@@ -597,7 +598,7 @@ def required_packages(task_locations):
         click.echo(f"{pkg.key}=={pkg.version}")
 
 
-@deploy.command(
+@cli.command(
     name="inspect-docker-exec", help="""Extract the executable from a Docker image"""
 )
 @click.argument("image_tag", type=str)
@@ -619,7 +620,7 @@ def inspect_docker_exec(image_tag):
     click.echo(executable)
 
 
-@deploy.command(
+@cli.command(
     help="""Displays the changelogs found in the release manifest of a deployment build
 
 MANIFEST_JSON is a JSON file containing a list of container images built in the release
@@ -637,62 +638,62 @@ def changelog(manifest_json):
         )
 
 
-@deploy.command(
-    name="install-license",
-    help="""Installs a license within a store (i.e. site-wide) or dataset (project-specific)
-for use in a deployment pipeline
+# @cli.command(
+#     name="install-license",
+#     help="""Installs a license within a store (i.e. site-wide) or dataset (project-specific)
+# for use in a deployment pipeline
 
-LICENSE_NAME the name of the license to upload. Must match the name of the license specified
-in the deployment specification
+# LICENSE_NAME the name of the license to upload. Must match the name of the license specified
+# in the deployment specification
 
-SOURCE_FILE path to the license file to upload
+# SOURCE_FILE path to the license file to upload
 
-INSTALL_LOCATIONS a list of installation locations, which are either the "nickname" of a
-store (as saved by `pydra2app store add`) or the ID of a dataset in form
-<store-nickname>//<dataset-id>[@<dataset-name>], where the dataset ID
-is either the location of the root directory (for file-system based stores) or the
-project ID for managed data repositories.
-""",
-)
-@click.argument("license_name")
-@click.argument("source_file", type=click.Path(exists=True, path_type=Path))
-@click.argument("install_locations", nargs=-1)
-@click.option(
-    "--logfile",
-    default=None,
-    type=click.Path(path_type=Path),
-    help="Log output to file instead of stdout",
-)
-@click.option("--loglevel", default="info", help="The level to display logs at")
-def install_license(install_locations, license_name, source_file, logfile, loglevel):
-    logging.basicConfig(filename=logfile, level=getattr(logging, loglevel.upper()))
+# INSTALL_LOCATIONS a list of installation locations, which are either the "nickname" of a
+# store (as saved by `pydra2app store add`) or the ID of a dataset in form
+# <store-nickname>//<dataset-id>[@<dataset-name>], where the dataset ID
+# is either the location of the root directory (for file-system based stores) or the
+# project ID for managed data repositories.
+# """,
+# )
+# @click.argument("license_name")
+# @click.argument("source_file", type=click.Path(exists=True, path_type=Path))
+# @click.argument("install_locations", nargs=-1)
+# @click.option(
+#     "--logfile",
+#     default=None,
+#     type=click.Path(path_type=Path),
+#     help="Log output to file instead of stdout",
+# )
+# @click.option("--loglevel", default="info", help="The level to display logs at")
+# def install_license(install_locations, license_name, source_file, logfile, loglevel):
+#     logging.basicConfig(filename=logfile, level=getattr(logging, loglevel.upper()))
 
-    if isinstance(source_file, bytes):  # FIXME: This shouldn't be necessary
-        source_file = Path(source_file.decode("utf-8"))
+#     if isinstance(source_file, bytes):  # FIXME: This shouldn't be necessary
+#         source_file = Path(source_file.decode("utf-8"))
 
-    if not install_locations:
-        install_locations = ["dirtree"]
+#     if not install_locations:
+#         install_locations = ["dirtree"]
 
-    for install_loc in install_locations:
-        if "//" in install_loc:
-            dataset = Dataset.load(install_loc)
-            store_name, _, _ = Dataset.parse_id_str(install_loc)
-            msg = f"for '{dataset.name}' dataset on {store_name} store"
-        else:
-            store = DataStore.load(install_loc)
-            dataset = store.site_licenses_dataset()
-            if dataset is None:
-                raise ValueError(
-                    f"{install_loc} store doesn't support the installation of site-wide "
-                    "licenses, please specify a dataset to install it for"
-                )
-            msg = f"site-wide on {install_loc} store"
+#     for install_loc in install_locations:
+#         if "//" in install_loc:
+#             dataset = Dataset.load(install_loc)
+#             store_name, _, _ = Dataset.parse_id_str(install_loc)
+#             msg = f"for '{dataset.name}' dataset on {store_name} store"
+#         else:
+#             store = DataStore.load(install_loc)
+#             dataset = store.site_licenses_dataset()
+#             if dataset is None:
+#                 raise ValueError(
+#                     f"{install_loc} store doesn't support the installation of site-wide "
+#                     "licenses, please specify a dataset to install it for"
+#                 )
+#             msg = f"site-wide on {install_loc} store"
 
-        dataset.install_license(license_name, source_file)
-        logger.info("Successfully installed '%s' license %s", license_name, msg)
+#         dataset.install_license(license_name, source_file)
+#         logger.info("Successfully installed '%s' license %s", license_name, msg)
 
 
-@deploy.command(
+@cli.command(
     name="pipeline-entrypoint",
     help="""Loads/creates a dataset, then applies and launches a pipeline
 in a single command. To be used within the command configuration of an XNAT

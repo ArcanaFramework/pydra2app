@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pydra2app"
-description = "Abstraction of Repository-Centric ANAlysis (Arcana): A rramework for analysing on file-based datasets \"in-place\" (i.e. without manual download)"
+description = "Pydra2App: a tool for quickly turning Pydra tasks and workflows into containerised applications (e.g. BIDS Apps or XNAT pipelines)"
 readme = "README.rst"
 requires-python = ">=3.8"
 dependencies = [
@@ -14,13 +14,11 @@ dependencies = [
     "click-option-group>=0.5.5",
     "deepdiff>=3.3",
     "docker>=5.0.2",
-    "fasteners>=0.18",
     "fileformats >=0.8.5",
     "fileformats-extras >=0.2.0",
     "flit_scm >=1.7.0",
     "hatchling >=1.12.2",
     "hatch-vcs >= 0.3.0",
-    "importlib-metadata>=1.4",
     "neurodocker>=0.9.4",
     "pydra>=0.23.0a0",
     "toml",

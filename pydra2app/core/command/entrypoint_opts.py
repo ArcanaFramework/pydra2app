@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 import typing as ty
 from click_option_group import optgroup
-from pydra2app.core.deploy.image import App
+from pydra2app.core.image import App
 
 
 def data_columns(func):

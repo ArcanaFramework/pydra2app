@@ -6,7 +6,7 @@ from pydra import mark, Workflow
 import fileformats.core
 from fileformats.generic import File
 import fileformats.text
-from pydra2app.core.data.row import DataRow
+from frametree.core.row import DataRow
 
 
 @mark.task

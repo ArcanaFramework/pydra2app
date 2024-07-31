@@ -3,7 +3,7 @@ from pydra2app.core.utils.misc import path2varname, varname2path
 
 
 def test_package_from_module():
-    assert package_from_module("pydra2app.core.data").key == "pydra2app"
+    assert package_from_module("pydra2app.core").key == "pydra2app"
     assert package_from_module("pydra.engine").key == "pydra"
 
 

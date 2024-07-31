@@ -5,13 +5,13 @@ from pydra2app.core.utils.serialize import (
     ObjectConverter,
     ClassResolver,
 )
-from pydra2app.core.analysis.pipeline import (
+from frametree.core.pipeline import (
     PipelineField,
 )
-from pydra2app.core.data.row import DataRow
+from frametree.core.row import DataRow
 from fileformats.core import DataType, Field
 from fileformats.core.exceptions import FormatMismatchError
-from pydra2app.core.data.space import DataSpace
+from frametree.core.space import DataSpace
 from pydra2app.core.utils.misc import add_exc_note
 
 

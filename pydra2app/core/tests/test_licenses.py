@@ -2,9 +2,9 @@ import pytest
 from pathlib import Path
 import docker
 import docker.errors
-from pydra2app.core.utils.misc import show_cli_trace
-from pydra2app.core.cli.deploy import make_app, install_license
-from pydra2app.testing.deploy.licenses import (
+from frametree.core.utils import show_cli_trace
+from pydra2app.core.cli import make_app
+from pydra2app.testing.licenses import (
     get_pipeline_image,
     make_dataset,
     ORG,
@@ -92,66 +92,6 @@ def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_ru
         raise RuntimeError(
             f"Running {image_tag} failed with args = {args}" f"\n\nlogs:\n{logs}",
         )
-
-
-def test_site_runtime_license(license_file, work_dir, pydra2app_home, cli_runner):
-
-    # build_dir = work_dir / "build"
-    dataset_dir = work_dir / "dataset"
-
-    LICENSE_PATH = work_dir / "license_location"
-
-    pipeline_image = get_pipeline_image(LICENSE_PATH)
-
-    # Save it into the new home directory
-    dataset = make_dataset(dataset_dir)
-
-    result = cli_runner(install_license, args=[LICENSE_NAME, str(license_file)])
-    assert result.exit_code == 0, show_cli_trace(result)
-
-    pipeline_image.command.execute(
-        dataset.locator,
-        input_values={LICENSE_INPUT_FIELD: LICENSE_INPUT_PATH},
-        output_values={LICENSE_OUTPUT_FIELD: LICENSE_OUTPUT_PATH},
-        parameter_values={LICENSE_PATH_PARAM: LICENSE_PATH},
-        work_dir=work_dir / "pipeline",
-        raise_errors=True,
-        plugin="serial",
-        loglevel="info",
-    )
-
-
-def test_dataset_runtime_license(license_file, run_prefix, work_dir, cli_runner):
-
-    # build_dir = work_dir / "build"
-    dataset_dir = work_dir / "dataset"
-
-    dataset = make_dataset(dataset_dir)
-
-    LICENSE_PATH = work_dir / "license_location"
-    pipeline_image = get_pipeline_image(LICENSE_PATH)
-
-    result = cli_runner(
-        install_license,
-        args=[
-            LICENSE_NAME,
-            str(license_file),
-            dataset.locator,
-        ],
-    )
-
-    assert result.exit_code == 0, show_cli_trace(result)
-
-    pipeline_image.command.execute(
-        dataset.locator,
-        input_values={LICENSE_INPUT_FIELD: LICENSE_INPUT_PATH},
-        output_values={LICENSE_OUTPUT_FIELD: LICENSE_OUTPUT_PATH},
-        parameter_values={LICENSE_PATH_PARAM: LICENSE_PATH},
-        work_dir=work_dir / "pipeline",
-        raise_errors=True,
-        plugin="serial",
-        loglevel="info",
-    )
 
 
 @pytest.fixture

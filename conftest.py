@@ -8,7 +8,7 @@ from tempfile import mkdtemp
 from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
-from pydra2app.core.data.store import DataStore
+from frametree.core.store import DataStore
 from fileformats.text import Plain as PlainText
 from pydra2app.testing.tasks import (
     concatenate,
@@ -16,14 +16,14 @@ from pydra2app.testing.tasks import (
     TEST_TASKS,
     BASIC_TASKS,
 )
-from pydra2app.testing.data.blueprint import (
+from frametree.testing.blueprint import (
     TestDatasetBlueprint,
     FileSetEntryBlueprint as FileBP,
     TEST_DATASET_BLUEPRINTS,
     GOOD_DATASETS,
 )
-from pydra2app.testing import TestDataSpace, MockRemote, AlternateMockRemote
-from pydra2app.common import DirTree
+from frametree.testing import TestDataSpace, MockRemote, AlternateMockRemote
+from frametree.common import DirTree
 
 # from pydra import set_input_validator
 

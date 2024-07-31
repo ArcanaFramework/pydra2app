@@ -1,6 +1,6 @@
-from pydra2app.core.deploy.image import App
-from pydra2app.core.data.set import Dataset
-from pydra2app.common import DirTree, Samples
+from pydra2app.core.image import App
+from frametree.core.set import Dataset
+from frametree.common import DirTree, Samples
 
 
 def get_pipeline_image(license_path, app_cls=App) -> App:

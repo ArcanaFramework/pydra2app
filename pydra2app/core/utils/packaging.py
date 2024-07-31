@@ -21,7 +21,7 @@ def submodules(package, subpkg=None):
         the package to iterate over
     subpkg : str, optional
         the sub-package (of the sub-packages) to return instead of the first level down.
-        e.g. package=pydra2app, subpkg=data -> pydra2app.common.data, pydra2app.xnat.data, etc...
+        e.g. package=pydra2app, subpkg=data -> frametree.common.data, pydra2app.xnat.data, etc...
     skip : list[str], optional
         submodules to skip
 
@@ -56,7 +56,7 @@ def list_subclasses(package, base_class, subpkg=None):
         the base class
     subpkg : str, optional
         the sub-package (of the sub-packages) to return instead of the first level down.
-        e.g. package=pydra2app, subpkg=data -> pydra2app.common.data, pydra2app.xnat.data, etc...
+        e.g. package=pydra2app, subpkg=data -> frametree.common.data, pydra2app.xnat.data, etc...
 
     Returns
     -------
