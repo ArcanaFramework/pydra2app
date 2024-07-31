@@ -17,6 +17,7 @@ dependencies = [
     "fileformats >=0.8.5",
     "fileformats-extras >=0.2.0",
     "flit_scm >=1.7.0",
+    "frametree >= 0.11.2",
     "hatchling >=1.12.2",
     "hatch-vcs >= 0.3.0",
     "neurodocker>=0.9.4",
