@@ -20,6 +20,7 @@ from pydra2app.core.image import Metapackage, App
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from pydra2app.core.utils import extract_file_from_docker_image, DOCKER_HUB
 from pydra2app.core.command import entrypoint_opts
+from pydra2app.core import PACKAGE_NAME
 
 
 logger = logging.getLogger("pydra2app")
@@ -269,7 +270,7 @@ def make_app(
 
     temp_dir = tempfile.mkdtemp()
 
-    target_cls: App = ClassResolver(App)(target)
+    target_cls: App = ClassResolver(App, package=PACKAGE_NAME)(target)
 
     dc = docker.from_env()
 
