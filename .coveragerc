@@ -1,0 +1,4 @@
+[run]
+omit = */tests/*, pydra2app/core/_version.py
+branch = true
+concurrency = multiprocessing
