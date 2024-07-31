@@ -51,6 +51,7 @@ jobs:
       with:
         fail_ci_if_error: false
         token: ${{ secrets.CODECOV_TOKEN }}
+      # disable fail for now
 
   build:
     needs: [test]
