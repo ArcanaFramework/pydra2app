@@ -13,11 +13,11 @@ import attrs
 from attrs.converters import default_if_none
 import pydra.engine.task
 from pydra.engine.core import TaskBase
-from pydra2app.core.utils.serialize import (
+from frametree.core.serialize import (
     ObjectListConverter,
     ClassResolver,
 )
-from pydra2app.core.utils.misc import show_workflow_errors
+from frametree.core.utils import show_workflow_errors
 from frametree.core.row import DataRow
 from frametree.core.set.base import Dataset
 from frametree.core.store import DataStore

@@ -10,7 +10,7 @@ import click
 import docker
 import docker.errors
 from pydra.engine.core import TaskBase
-from pydra2app.core.utils.serialize import (
+from frametree.core.serialize import (
     package_from_module,
     pydra_asdict,
     ClassResolver,
@@ -18,7 +18,7 @@ from pydra2app.core.utils.serialize import (
 from pydra2app.core import __version__
 from pydra2app.core.image import Metapackage, App
 from pydra2app.core.exceptions import Pydra2AppBuildError
-from pydra2app.core.utils.misc import extract_file_from_docker_image, DOCKER_HUB
+from pydra2app.core.utils import extract_file_from_docker_image, DOCKER_HUB
 from pydra2app.core.command import entrypoint_opts
 
 

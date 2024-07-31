@@ -9,7 +9,7 @@ import site
 import attrs
 from pydra2app.core import PACKAGE_NAME
 from pydra2app.core.exceptions import Pydra2AppBuildError
-from pydra2app.core.utils.serialize import ObjectListConverter
+from frametree.core.serialize import ObjectListConverter
 
 logger = logging.getLogger("pydra2app")
 

@@ -12,7 +12,7 @@ import toml
 from deepdiff import DeepDiff
 from neurodocker.reproenv import DockerRenderer
 from pydra2app.core import __version__
-from pydra2app.core.utils.serialize import (
+from frametree.core.serialize import (
     ObjectConverter,
     ObjectListConverter,
     ClassResolver,

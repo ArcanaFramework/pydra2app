@@ -15,14 +15,12 @@ import docker
 from neurodocker.reproenv import DockerRenderer
 from pydra2app.core import __version__
 from pydra2app.core import PACKAGE_NAME
-from pydra2app.core.utils.serialize import (
+from frametree.core.serialize import (
     ClassResolver,
     ObjectConverter,
 )
-from pydra2app.core.utils.misc import (
-    DOCKER_HUB,
-)
 from frametree.core.space import DataSpace
+from pydra2app.core.utils import DOCKER_HUB
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from .components import Packages, BaseImage, PipPackage, CondaPackage, Version
 

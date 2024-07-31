@@ -1,7 +1,7 @@
 from __future__ import annotations
 import typing as ty
 import attrs
-from pydra2app.core.utils.serialize import (
+from frametree.core.serialize import (
     ObjectConverter,
     ClassResolver,
 )
@@ -12,7 +12,7 @@ from frametree.core.row import DataRow
 from fileformats.core import DataType, Field
 from fileformats.core.exceptions import FormatMismatchError
 from frametree.core.space import DataSpace
-from pydra2app.core.utils.misc import add_exc_note
+from frametree.core.utils import add_exc_note
 
 
 @attrs.define
