@@ -56,7 +56,7 @@ class Pydra2AppImage:
         the version of the specification language used to define the image (i.e. this)
     """
 
-    IN_DOCKER_ARCANA_HOME_DIR = "/pydra2app-home"
+    IN_DOCKER_PYDRA2APP_HOME_DIR = "/pydra2app-home"
     SPEC_VERSION = "1.0"
     PIP_DEPENDENCIES = ()
 
@@ -180,8 +180,8 @@ class Pydra2AppImage:
         self.add_labels(dockerfile)
 
         # Create Pydra2App Home directory
-        dockerfile.run(f"mkdir {self.IN_DOCKER_ARCANA_HOME_DIR}")
-        dockerfile.env(ARCANA_HOME=self.IN_DOCKER_ARCANA_HOME_DIR)
+        dockerfile.run(f"mkdir {self.IN_DOCKER_PYDRA2APP_HOME_DIR}")
+        dockerfile.env(PYDRA2APP_HOME=self.IN_DOCKER_PYDRA2APP_HOME_DIR)
 
         return dockerfile
 

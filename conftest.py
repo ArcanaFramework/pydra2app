@@ -132,14 +132,14 @@ DATA_STORES = ["dirtree", "mock_remote"]
 
 
 @pytest.fixture
-def pydra2app_home(work_dir):
-    pydra2app_home = work_dir / "pydra2app-home"
-    with patch.dict(os.environ, {"ARCANA_HOME": str(pydra2app_home)}):
-        yield pydra2app_home
+def frametree_home(work_dir):
+    frametree_home = work_dir / "frametree-home"
+    with patch.dict(os.environ, {"FRAMETREE_HOME": str(frametree_home)}):
+        yield frametree_home
 
 
 @pytest.fixture(params=DATA_STORES)
-def data_store(work_dir: Path, pydra2app_home: Path, request):
+def data_store(work_dir: Path, frametree_home: Path, request):
     store: DataStore
     if request.param == "dirtree":
         store = DirTree()
@@ -167,7 +167,7 @@ def data_store(work_dir: Path, pydra2app_home: Path, request):
 @pytest.fixture
 def delayed_mock_remote(
     work_dir: Path,
-    pydra2app_home: Path,  # So we save the store definition in the home dir, not ~/.pydra2app
+    frametree_home: Path,  # So we save the store definition in the home dir, not ~/.pydra2app
 ):
     cache_dir = work_dir / "mock-remote-store" / "cache"
     cache_dir.mkdir(parents=True)
