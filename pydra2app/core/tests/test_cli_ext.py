@@ -1,5 +1,5 @@
 from pydra2app.core.cli import ext
-from pydra2app.core.utils import show_cli_trace
+from frametree.core.utils import show_cli_trace
 
 
 def test_cli_ext(cli_runner):
