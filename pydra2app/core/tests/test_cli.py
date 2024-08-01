@@ -342,7 +342,7 @@ a longer description
 ## Command
 |Key|Value|
 |---|-----|
-|Task|frametree.bids.tasks:bids_app|
+|Task|bids:bids_app|
 |Operates on|session|
 #### Inputs
 |Name|Required data-type|Default column data-type|Description|
