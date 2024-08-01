@@ -15,6 +15,8 @@ from frametree.core.serialize import (
     pydra_asdict,
     ClassResolver,
 )
+from frametree.core.packaging import submodules
+import pydra2app
 from pydra2app.core import __version__
 from pydra2app.core.image import Metapackage, App
 from pydra2app.core.exceptions import Pydra2AppBuildError
@@ -723,6 +725,16 @@ def pipeline_entrypoint(
         dataset_locator,
         **kwargs,
     )
+
+
+@cli.group()
+def ext():
+    """Command-line group for extension hooks"""
+
+
+# Ensure that all sub-packages under CLI are loaded so they are added to the
+# base command
+extensions = list(submodules(pydra2app, subpkg="cli"))
 
 
 if __name__ == "__main__":
