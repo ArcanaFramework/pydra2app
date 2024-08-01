@@ -1,6 +1,6 @@
 # Pydra2App
 
-[![Tests](https://github.com/ArcanaFramework/pydra2app/actions/workflows/tests.yml/badge.svg)](https://github.com/ArcanaFramework/pydra2app/actions/workflows/tests.yml)
+[![Tests](https://github.com/ArcanaFramework/pydra2app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ArcanaFramework/pydra2app/actions/workflows/ci-cd.yml)
 [![Codecov](https://codecov.io/gh/ArcanaFramework/pydra2app/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/ArcanaFramework/pydra2app)
 [![Python versions](https://img.shields.io/pypi/pyversions/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
 [![Latest Version](https://img.shields.io/pypi/v/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
