@@ -4,7 +4,7 @@
 [![Codecov](https://codecov.io/gh/ArcanaFramework/pydra2app/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/ArcanaFramework/pydra2app)
 [![Python versions](https://img.shields.io/pypi/pyversions/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
 [![Latest Version](https://img.shields.io/pypi/v/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
-[![Docs](https://github.com/ArcanaFramework/pydra2app/actions/workflows/docs.yml/badge.svg)](https://pydra2appframework.github.io/pydra2app)
+[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://pydra2appframework.github.io/pydra2app)
 
 Pydra2App is a tool for quickly turning Pydra tasks and workflows into containerised
 applications (e.g. BIDS Apps or XNAT pipelines)
