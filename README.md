@@ -16,10 +16,11 @@ Detailed documentation on Arcana can be found at [https://pydra2app.readthedocs.
 
 ## Quick Installation
 
-Pydra2App can be installed for Python 3 using *pip*::
+Pydra2App can be installed for Python 3 using *pip*:
 
-   $ python3 -m pip install pydra2app
-
+```bash
+$ python3 -m pip install pydra2app
+```
 
 ## License
 
@@ -27,8 +28,6 @@ This work is licensed under a
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 [![Creative Commons License: Attribution-NonCommercial-ShareAlike 4.0 International](https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png)](http://creativecommons.org/licenses/by-nc-sa/4.0/)
-
-|
 
 
 ## Acknowledgements
