@@ -48,8 +48,8 @@ def test_deploy_make_cli(command_spec, cli_runner, work_dir):
     result = cli_runner(
         make,
         [
-            str(spec_path),
             "common:App",
+            str(spec_path),
             "--build-dir",
             str(build_dir),
             "--registry",
@@ -92,8 +92,8 @@ def test_deploy_remake_cli(command_spec, docker_registry, cli_runner, run_prefix
         result = cli_runner(
             make,
             [
-                str(spec_path),
                 "common:App",
+                str(spec_path),
                 "--build-dir",
                 str(build_dir),
                 "--registry",
