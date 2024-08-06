@@ -30,19 +30,29 @@ def extract_file_from_docker_image(
     if out_path is None:
         out_path = tmp_dir / "extracted-dir"
     dc = docker.from_env()
-    try:
-        dc.api.pull(image_tag)
-    except docker.errors.APIError as e:
-        if e.response.status_code == 404:
-            return None
-        elif e.response.status_code == 500:
-            logger.warning(
-                "Could not pull %s image from registry, attempting to check changes "
-                "with local version",
-                image_tag,
-            )
-        else:
-            raise
+
+    def get_image(tag):
+        for img in dc.images.list():
+            if tag in img.tags:
+                return img
+        return None
+
+    img = get_image(image_tag)
+
+    if img is None:
+        try:
+            dc.api.pull(image_tag)
+        except docker.errors.APIError as e:
+            if e.response.status_code == 404:
+                return None
+            elif e.response.status_code == 500:
+                logger.warning(
+                    "Could not pull %s image from registry, attempting to check changes "
+                    "with local version",
+                    image_tag,
+                )
+            else:
+                raise
     try:
         container = dc.containers.get(dc.api.create_container(image_tag)["Id"])
     except docker.errors.APIError as e:
@@ -65,7 +75,7 @@ def extract_file_from_docker_image(
         container.remove()
     with tarfile.open(tarfile_path) as f:
         f.extractall(out_path)
-    return out_path
+    return out_path / PosixPath(file_path).name
 
 
 DOCKER_HUB = "docker.io"

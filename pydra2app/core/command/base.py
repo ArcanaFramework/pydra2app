@@ -24,6 +24,7 @@ from frametree.core.store import DataStore
 from frametree.core.space import DataSpace
 from pydra2app.core.exceptions import Pydra2AppUsageError
 from .components import CommandInput, CommandOutput, CommandParameter
+from pydra2app.core import PACKAGE_NAME
 
 
 if ty.TYPE_CHECKING:
@@ -60,7 +61,9 @@ class ContainerCommand:
     DATA_SPACE = None
 
     task: pydra.engine.task.TaskBase = attrs.field(
-        converter=ClassResolver(TaskBase, alternative_types=[ty.Callable])
+        converter=ClassResolver(
+            TaskBase, alternative_types=[ty.Callable], package=PACKAGE_NAME
+        )
     )
     row_frequency: ty.Optional[DataSpace] = None
     inputs: ty.List[CommandInput] = attrs.field(

@@ -597,9 +597,9 @@ specified workflows and return them and their versions""",
 def required_packages(task_locations):
     required_modules = set()
     for task_location in task_locations:
-        workflow = ClassResolver(TaskBase, alternative_types=[ty.Callable])(
-            task_location
-        )
+        workflow = ClassResolver(
+            TaskBase, alternative_types=[ty.Callable], package=PACKAGE_NAME
+        )(task_location)
         pydra_asdict(workflow, required_modules)
 
     for pkg in package_from_module(required_modules):
