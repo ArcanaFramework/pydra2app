@@ -35,8 +35,6 @@ class Pydra2AppImage:
 
     name : str
         name of the package/pipeline
-    pydra2app_spec_version : str
-        the version of the "schema" the specification used to define the image.
     version : Version
         version of the package/pipeline
     org : str
@@ -52,12 +50,12 @@ class Pydra2AppImage:
         text to include in the image README file
     labels : dict[str, str]
         labels to add into the built image
-    pydra2app_spec_version : str
+    schema_version : str
         the version of the specification language used to define the image (i.e. this)
     """
 
     IN_DOCKER_FRAMETREE_HOME_DIR = "/frametree-home"
-    SPEC_VERSION = "1.0"
+    SCHEMA_VERSION = "1.0"
     PIP_DEPENDENCIES = ()
 
     name: str
@@ -72,7 +70,7 @@ class Pydra2AppImage:
     registry: str = DOCKER_HUB
     readme: ty.Optional[str] = None
     labels: ty.Dict[str, str] = None
-    pydra2app_spec_version: str = SPEC_VERSION
+    schema_version: str = SCHEMA_VERSION
 
     @property
     def reference(self):
@@ -158,6 +156,8 @@ class Pydra2AppImage:
             raise Pydra2AppBuildError(
                 f"Build dir '{str(build_dir)}' is not a valid directory"
             )
+
+        build_dir = build_dir.absolute()
 
         dockerfile = self.init_dockerfile()
 

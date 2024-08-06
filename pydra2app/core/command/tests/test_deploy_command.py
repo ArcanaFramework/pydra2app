@@ -328,7 +328,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
     duplicates = 1
 
     command_spec = ContainerCommand(
-        task="pydra2app.common:shell_cmd",
+        task="pydra2app.common:shell",
         row_frequency=bp.space.default(),
         inputs=[
             {

@@ -7,6 +7,7 @@ import typing as ty
 from traceback import format_exc
 import tempfile
 import click
+import yaml
 import docker
 import docker.errors
 from pydra.engine.core import TaskBase
@@ -36,20 +37,20 @@ def cli():
 
 
 @cli.command(
-    name="make-app",
-    help="""Construct and build a dockerfile/apptainer-file for containing a pipeline
+    name="make",
+    help="""Construct and build a docker image containing a pipeline to be run on data
+stored in a data repository or structure (e.g. XNAT Container Service Pipeline or BIDS App)
+
+TARGET is the type of image to build. For standard images just the pydra2app
+sub-package is required (e.g. 'xnat' or 'common'). However, specific App subclasses can
+be specified using <module-path>:<app-class-name> format, e.g. pydra2app.xnat:XnatApp
 
 SPEC_PATH is the file system path to the specification to build, or directory
 containing multiple specifications
-
-TARGET is the type of image to build, e.g. pydra2app.xnat.deploy:XnatApp
-the target should resolve to a class deriviing from pydra2app.core.App.
-If it is located under the `pydra2app.deploy`, then that prefix can be dropped, e.g.
-common:App
 """,
 )
-@click.argument("spec_path", type=click.Path(exists=True, path_type=Path))
 @click.argument("target", type=str)
+@click.argument("spec_path", type=click.Path(exists=True, path_type=Path))
 @click.option(
     "--registry",
     default=DOCKER_HUB,
@@ -112,7 +113,7 @@ common:App
     ),
 )
 @click.option(
-    "--use-test-config/--dont-use-test-config",
+    "--for-localhost/--not-for-localhost",
     type=bool,  # FIXME: This should be replaced with option to set XNAT CS IP address
     default=False,
     help=(
@@ -199,7 +200,8 @@ common:App
     "--export-file",
     "-e",
     "export_files",
-    type=tuple,
+    type=str,
+    nargs=2,
     multiple=True,
     default=(),
     metavar="<internal-dir> <external-dir>",
@@ -208,7 +210,7 @@ common:App
         "files can be specified by repeating the option."
     ),
 )
-def make_app(
+def make(
     target,
     spec_path: Path,
     registry,
@@ -222,7 +224,7 @@ def make_app(
     install_extras,
     raise_errors,
     generate_only,
-    use_test_config,
+    for_localhost,
     license,
     license_to_download,
     check_registry,
@@ -238,6 +240,8 @@ def make_app(
     if spec_root is None:
         if spec_path.is_dir():
             spec_root = spec_path
+        elif spec_path.is_relative_to(Path.cwd()):
+            spec_root = Path.cwd()
         else:
             spec_root = spec_path.parent
             if not spec_root.name:
@@ -250,7 +254,7 @@ def make_app(
             str(spec_root),
         )
 
-    package_name = spec_root.name
+    package_name = spec_path.relative_to(spec_root).parts[0]
 
     if isinstance(spec_path, bytes):  # FIXME: This shouldn't be necessary
         spec_path = Path(spec_path.decode("utf-8"))
@@ -365,7 +369,7 @@ def make_app(
         try:
             image_spec.make(
                 build_dir=spec_build_dir,
-                use_test_config=use_test_config,
+                for_localhost=for_localhost,
                 use_local_packages=use_local_packages,
                 generate_only=generate_only,
                 no_cache=clean_up,
@@ -482,7 +486,8 @@ def make_app(
                 json.dump(manifest, f, indent="    ")
 
     for src_path, dest_path in export_files:
-        dest_path.mkdir(parents=True, exist_ok=True)
+        dest_path = Path(dest_path)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
         full_src_path = build_dir / src_path
         if not full_src_path.exists():
             logger.warning(
@@ -592,9 +597,9 @@ specified workflows and return them and their versions""",
 def required_packages(task_locations):
     required_modules = set()
     for task_location in task_locations:
-        workflow = ClassResolver(TaskBase, alternative_types=[ty.Callable])(
-            task_location
-        )
+        workflow = ClassResolver(
+            TaskBase, alternative_types=[ty.Callable], package=PACKAGE_NAME
+        )(task_location)
         pydra_asdict(workflow, required_modules)
 
     for pkg in package_from_module(required_modules):
@@ -731,6 +736,64 @@ def pipeline_entrypoint(
 def ext():
     """Command-line group for extension hooks"""
 
+    @click.command(
+        name="bootstrap",
+        help="""Generate a YAML specification file for a Pydra2App App""",
+    )
+    @click.argument("output_file", type=click.Path(path_type=Path))
+    @click.option("--title", type=str, help="The title of the image")
+    @click.option("--name", type=str, help="The name of the image")
+    @click.option("--version", type=str, help="The version of the image")
+    @click.option("--description", type=str, help="The description of the image")
+    @click.option("--author", type=str, help="The author of the image")
+    @click.option("--command", type=str, help="The command to execute in the image")
+    @click.option(
+        "--packages-pip",
+        type=(str, str),
+        multiple=True,
+        help="Packages to install via pip",
+    )
+    @click.option(
+        "--packages-apt",
+        type=(str, str),
+        multiple=True,
+        help="Packages to install via apt",
+    )
+    @click.option(
+        "--inputs",
+        type=(str, str),
+        multiple=True,
+        help="Input specifications",
+    )
+    def bootstrap(
+        output_file: str,
+        title: str,
+        name: str,
+        version: str,
+        description: str,
+        author: str,
+        command: str,
+        packages_pip: ty.List[ty.Tuple[str, str]],
+        packages_apt: ty.List[ty.Tuple[str, str]],
+        inputs: ty.List[ty.Tuple[str, str]],
+    ):
+        spec = {
+            "name": name,
+            "title": title,
+            "version": version,
+            "description": description,
+            "author": author,
+            "command": command,
+            "packages": {
+                "pip": dict(packages_pip),
+                "apt": dict(packages_apt),
+            },
+            "inputs": dict(inputs),
+        }
+
+        with open(output_file, "w") as f:
+            yaml.dump(spec, f)
+
 
 # Ensure that all sub-packages under CLI are loaded so they are added to the
 # base command
@@ -738,4 +801,4 @@ extensions = list(submodules(pydra2app, subpkg="cli"))
 
 
 if __name__ == "__main__":
-    make_app(sys.argv[1:])
+    make(sys.argv[1:])

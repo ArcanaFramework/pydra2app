@@ -10,14 +10,14 @@ import attrs
 import pytest
 import docker
 from pydra2app.core.cli import (
-    make_app,
+    make,
     make_docs,
 )
 from frametree.core.utils import show_cli_trace
 from pydra2app.core.exceptions import Pydra2AppBuildError
 
 
-def test_deploy_make_app_cli(command_spec, cli_runner, work_dir):
+def test_deploy_make_cli(command_spec, cli_runner, work_dir):
 
     DOCKER_ORG = "testorg"
     DOCKER_REGISTRY = "test.registry.org"
@@ -46,10 +46,10 @@ def test_deploy_make_app_cli(command_spec, cli_runner, work_dir):
         yaml.dump(concatenate_spec, f)
 
     result = cli_runner(
-        make_app,
+        make,
         [
-            str(spec_path),
             "common:App",
+            str(spec_path),
             "--build-dir",
             str(build_dir),
             "--registry",
@@ -60,7 +60,7 @@ def test_deploy_make_app_cli(command_spec, cli_runner, work_dir):
             "--install-extras",
             "test",
             "--raise-errors",
-            "--use-test-config",
+            "--for-localhost",
             "--dont-check-registry",
         ],
     )
@@ -74,7 +74,7 @@ def test_deploy_make_app_cli(command_spec, cli_runner, work_dir):
 
 
 @pytest.mark.xfail(reason="Need to fix the test handle invalid docker tag name used")
-def test_deploy_remake_app_cli(command_spec, docker_registry, cli_runner, run_prefix):
+def test_deploy_remake_cli(command_spec, docker_registry, cli_runner, run_prefix):
     """Tests the check to see whether"""
 
     IMAGE_GROUP_NAME = "testpkg-rebuild" + run_prefix
@@ -90,10 +90,10 @@ def test_deploy_remake_app_cli(command_spec, docker_registry, cli_runner, run_pr
             yaml.dump(spec, f)
 
         result = cli_runner(
-            make_app,
+            make,
             [
-                str(spec_path),
                 "common:App",
+                str(spec_path),
                 "--build-dir",
                 str(build_dir),
                 "--registry",
@@ -105,7 +105,7 @@ def test_deploy_remake_app_cli(command_spec, docker_registry, cli_runner, run_pr
                 "test",
                 "--raise-errors",
                 "--check-registry",
-                "--use-test-config",
+                "--for-localhost",
             ],
             **kwargs,
         )
