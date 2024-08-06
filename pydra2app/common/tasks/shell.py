@@ -187,7 +187,7 @@ class ShellCmdOutput(ShellCmdField):
     #     return tp
 
 
-def shell_cmd(
+def shell(
     name: str,
     inputs: ty.List[ty.Union[ShellCmdInput, ty.Dict[str, str]]],
     outputs: ty.List[ty.Union[ShellCmdOutput, ty.Dict[str, str]]],

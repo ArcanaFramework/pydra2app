@@ -1,10 +1,10 @@
-from pydra2app.common.tasks import shell_cmd
+from pydra2app.common.tasks import shell
 from fileformats.generic import Directory
 
 
-def test_shell_cmd(work_dir):
+def test_shell(work_dir):
 
-    cp = shell_cmd(
+    cp = shell(
         name="copy",
         executable="cp",
         inputs=[

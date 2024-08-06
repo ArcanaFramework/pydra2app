@@ -3,7 +3,7 @@ from pathlib import Path
 import docker
 import docker.errors
 from frametree.core.utils import show_cli_trace
-from pydra2app.core.cli import make_app
+from pydra2app.core.cli import make
 from pydra2app.testing.licenses import (
     get_pipeline_image,
     make_dataset,
@@ -42,7 +42,7 @@ def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_ru
     make_dataset(dataset_dir)
 
     result = cli_runner(
-        make_app,
+        make,
         args=[
             str(spec_path),
             "common:App",
