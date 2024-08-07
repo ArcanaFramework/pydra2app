@@ -9,9 +9,11 @@ from pathlib import Path
 import attrs
 import pytest
 import docker
+from pydra2app.core.image import App
 from pydra2app.core.cli import (
     make,
     make_docs,
+    bootstrap,
 )
 from frametree.core.utils import show_cli_trace
 from pydra2app.core.exceptions import Pydra2AppBuildError
@@ -431,3 +433,54 @@ def _make_docs(
             file.relative_to(out_dir).as_posix(): file.read_text().strip()
             for file in out_dir.glob("*.md")
         }
+
+
+def test_bootstrap(cli_runner, work_dir):
+
+    out_yaml = work_dir / "out-spec.yaml"
+
+    result = cli_runner(
+        bootstrap,
+        [
+            str(out_yaml),
+            "--name",
+            "mri_convert",
+            "--author",
+            "An Author",
+            "$an.author@a.institution",
+            "--version",
+            "7.1.1",
+            "--base-image",
+            "vnmd/freesurfer_7.1.1",
+            "20211216",
+            "apt",
+            "--packages-pip",
+            "fileformats-medimage-extras",
+            "0.8.0",
+            "--packages-neurodocker",
+            "dcm2niix",
+            "v1.0.20201102",
+            "--command-task",
+            "common:shell",
+            "--command-input",
+            "head",
+            "datatype=medimage/nifti-gz,configuration.position=-2,configuration.argstr=''",
+            "--command-output",
+            "brain",
+            "datatype=medimage/nifti-gz,configuration.position=-1,configuration.argstr=''",
+            "--command-configuration",
+            "executable",
+            "mri_convert",
+            "--title",
+            "MRI Convert",
+            "--license",
+            "freesurfer",
+            "/opt/freesurfer/license.txt",
+            "https://surfer.nmr.mgh.harvard.edu/registration.html",
+        ],
+    )
+
+    assert result.exit_code == 0, show_cli_trace(result)
+
+    # Check that the YAML loads properly
+    App.load(out_yaml)

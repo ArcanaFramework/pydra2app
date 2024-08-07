@@ -245,13 +245,15 @@ class App(Pydra2AppImage):
             yml_dict = cls._load_yaml(yml)
             if not isinstance(yml_dict, dict):
                 raise ValueError(f"{yml!r} didn't contain a dict!")
+            if yml.is_relative_to(root_dir):
+                rel_parts = yml.relative_to(root_dir).parent.parts + (yml.stem,)
+                if "name" not in yml_dict:
+                    yml_dict["name"] = ".".join(rel_parts[1:])
 
-            rel_parts = yml.relative_to(root_dir).parent.parts + (yml.stem,)
-            if "name" not in yml_dict:
-                yml_dict["name"] = ".".join(rel_parts[1:])
-
-            if "org" not in yml_dict:
-                yml_dict["org"] = rel_parts[0]
+                if "org" not in yml_dict:
+                    yml_dict["org"] = rel_parts[0]
+            else:
+                yml_dict["name"] = yml.stem
 
             yml_dict["loaded_from"] = yml.absolute()
         else:
