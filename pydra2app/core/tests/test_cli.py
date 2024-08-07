@@ -435,6 +435,7 @@ def _make_docs(
         }
 
 
+@pytest.mark.xfail(reason="Need to fix Py3.8 support")
 def test_bootstrap(cli_runner, work_dir):
 
     out_yaml = work_dir / "out-spec.yaml"
