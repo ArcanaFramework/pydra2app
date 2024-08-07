@@ -738,7 +738,7 @@ def ext():
     """Command-line group for extension hooks"""
 
 
-@click.command(
+@cli.command(
     name="bootstrap",
     help="""Generate a YAML specification file for a Pydra2App App""",
 )
