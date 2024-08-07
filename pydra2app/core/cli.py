@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 import json
 import typing as ty
+from collections import defaultdict
 from traceback import format_exc
 import tempfile
 import click
@@ -736,63 +737,207 @@ def pipeline_entrypoint(
 def ext():
     """Command-line group for extension hooks"""
 
-    @click.command(
-        name="bootstrap",
-        help="""Generate a YAML specification file for a Pydra2App App""",
-    )
-    @click.argument("output_file", type=click.Path(path_type=Path))
-    @click.option("--title", type=str, help="The title of the image")
-    @click.option("--name", type=str, help="The name of the image")
-    @click.option("--version", type=str, help="The version of the image")
-    @click.option("--description", type=str, help="The description of the image")
-    @click.option("--author", type=str, help="The author of the image")
-    @click.option("--command", type=str, help="The command to execute in the image")
-    @click.option(
-        "--packages-pip",
-        type=(str, str),
-        multiple=True,
-        help="Packages to install via pip",
-    )
-    @click.option(
-        "--packages-apt",
-        type=(str, str),
-        multiple=True,
-        help="Packages to install via apt",
-    )
-    @click.option(
-        "--inputs",
-        type=(str, str),
-        multiple=True,
-        help="Input specifications",
-    )
-    def bootstrap(
-        output_file: str,
-        title: str,
-        name: str,
-        version: str,
-        description: str,
-        author: str,
-        command: str,
-        packages_pip: ty.List[ty.Tuple[str, str]],
-        packages_apt: ty.List[ty.Tuple[str, str]],
-        inputs: ty.List[ty.Tuple[str, str]],
-    ):
-        spec = {
-            "name": name,
-            "title": title,
-            "version": version,
-            "description": description,
-            "author": author,
-            "command": command,
-            "packages": {
-                "pip": dict(packages_pip),
-                "apt": dict(packages_apt),
-            },
-            "inputs": dict(inputs),
-        }
 
-        with open(output_file, "w") as f:
-            yaml.dump(spec, f)
+@click.command(
+    name="bootstrap",
+    help="""Generate a YAML specification file for a Pydra2App App""",
+)
+@click.argument("output_file", type=click.Path(path_type=Path))
+@click.option("--title", type=str, default=None, help="The title of the image")
+@click.option("--name", type=str, default=None, help="The name of the image")
+@click.option(
+    "--org", type=str, default=None, help="The Docker organisation of the image"
+)
+@click.option(
+    "--registry", type=str, default="docker.io", help="The Docker registry of the image"
+)
+@click.option(
+    "--description", type=str, default=None, help="The description of the image"
+)
+@click.option(
+    "--author",
+    "authors",
+    nargs=2,
+    multiple=True,
+    type=str,
+    metavar="<name> <email>",
+    help="The name of the author of the image",
+)
+@click.option(
+    "--base-image",
+    type=str,
+    nargs=3,
+    default=(None, None, None),
+    metavar="<name> <tag> <package-manager>",
+    help="The package manager used by the image (i.e. 'apt' or 'yum')",
+)
+@click.option("--version", type=str, default="0.1", help="The version of the image")
+@click.option(
+    "--command-task", type=str, default=None, help="The command to execute in the image"
+)
+@click.option(
+    "--packages-pip",
+    type=str,
+    multiple=True,
+    nargs=2,
+    metavar="<package-name> <version>",
+    help="Packages to install via pip",
+)
+@click.option(
+    "--packages-system",
+    type=str,
+    multiple=True,
+    nargs=2,
+    metavar="<package-name> <version>",
+    help="Packages to install via the system package manager",
+)
+@click.option(
+    "--packages-neurodocker",
+    type=str,
+    multiple=True,
+    nargs=2,
+    metavar="<package-name> <version>",
+    help="Packages to install via NeuroDocker",
+)
+@click.option(
+    "--command-input",
+    "command_inputs",
+    type=str,
+    multiple=True,
+    nargs=2,
+    metavar="<name> <attrs>",
+    help=(
+        "Input specifications, name and attribute pairs. Attributes are comma-separated "
+        "name/value pairs, e.g. 'datatype=str,help=The input image'"
+    ),
+)
+@click.option(
+    "--command-output",
+    "command_outputs",
+    type=str,
+    multiple=True,
+    nargs=2,
+    metavar="<name> <attrs>",
+    help=(
+        "Output specifications, name and attribute pairs. Attributes are comma-separated "
+        "name/value pairs, e.g. 'datatype=str,help=The output image'"
+    ),
+)
+@click.option(
+    "--command-parameter",
+    "command_parameters",
+    type=str,
+    multiple=True,
+    nargs=2,
+    metavar="<name> <attrs>",
+    help=(
+        "Parameter specifications, name and attribute pairs. Attributes are comma-separated "
+        "name/value pairs, e.g. 'datatype=str,help='compression level'"
+    ),
+)
+@click.option(
+    "--command-configuration",
+    type=str,
+    multiple=True,
+    nargs=2,
+    metavar="<name> <value>",
+    help="Command configuration value",
+)
+@click.option(
+    "--command-row-frequency",
+    type=str,
+    default="common:Clinical[session]",
+    help="The row frequency of the command",
+)
+@click.option(
+    "--license",
+    "licenses",
+    nargs=3,
+    multiple=True,
+    type=str,
+    metavar="<license-name> <path-to-license-file-within-image> <info-url>",
+    help=("Licenses that are required at runtime within the image"),
+)
+def bootstrap(
+    output_file: str,
+    title: str,
+    name: str,
+    org: str,
+    registry: str,
+    authors: ty.List[ty.Tuple[str, str]],
+    base_image: ty.Tuple[str, str, str],
+    version: str,
+    description: str,
+    command_task: str,
+    packages_pip: ty.List[ty.Tuple[str, str]],
+    packages_system: ty.List[ty.Tuple[str, str]],
+    packages_neurodocker: ty.List[ty.Tuple[str, str]],
+    command_inputs: ty.List[ty.Tuple[str, str, str]],
+    command_outputs: ty.List[ty.Tuple[str, str, str]],
+    command_parameters: ty.List[ty.Tuple[str, str, str]],
+    command_configuration: ty.List[ty.Tuple[str, str]],
+    command_row_frequency: str,
+    licenses: ty.List[ty.Tuple[str, str]],
+):
+    def unwrap_fields(fields: ty.List[ty.Tuple[str, str, str]]):
+        fields_dict = {}
+        for field_name, attrs_str in fields:
+            attrs = [a.split("=") for a in attrs_str.split(",")]
+            unwrap_attrs = defaultdict(dict)
+            for name, value in attrs:
+                if "." in name:
+                    parts = name.split(".")
+                    dct = unwrap_attrs[parts[0]]
+                    for part in parts[1:-1]:
+                        dct = dct[part]
+                    dct[parts[-1]] = value
+                else:
+                    unwrap_attrs[name] = value
+            unwrap_attrs["help"] = ""
+            fields_dict[field_name] = dict(unwrap_attrs)
+        return fields_dict
+
+    spec = {
+        "schema_version": App.SCHEMA_VERSION,
+        "name": name,
+        "title": title,
+        "version": {
+            "package": version,
+            "build": 1,
+        },
+        "org": org,
+        "registry": registry,
+        "docs": {
+            "description": description,
+            "info_url": "http://example.com",
+        },
+        "authors": [{"name": a[0], "email": a[1]} for a in authors],
+        "base_image": {
+            "name": base_image[0],
+            "tag": base_image[1],
+            "package_manager": base_image[2],
+        },
+        "packages": {
+            "pip": dict(packages_pip),
+            "system": dict(packages_system),
+            "neurodocker": dict(packages_neurodocker),
+        },
+        "command": {
+            "task": command_task,
+            "row_frequency": command_row_frequency,
+            "inputs": unwrap_fields(command_inputs),
+            "outputs": unwrap_fields(command_outputs),
+            "parameters": unwrap_fields(command_parameters),
+            "configuration": dict(command_configuration),
+        },
+        "licenses": {
+            lc[0]: {"destination": lc[1], "info_url": lc[2], "description": ""}
+            for lc in licenses
+        },
+    }
+
+    with open(output_file, "w") as f:
+        yaml.dump(spec, f)
 
 
 # Ensure that all sub-packages under CLI are loaded so they are added to the

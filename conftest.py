@@ -269,7 +269,7 @@ def command_spec():
             }
         },
         "parameters": {
-            "number_of_duplicates": {
+            "duplicates": {
                 "field": "duplicates",
                 "default": 2,
                 "datatype": "field/integer",
