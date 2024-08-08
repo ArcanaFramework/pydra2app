@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 import json
 import typing as ty
+import re
 from collections import defaultdict
 from traceback import format_exc
 import tempfile
@@ -744,9 +745,17 @@ def ext():
 )
 @click.argument("output_file", type=click.Path(path_type=Path))
 @click.option("--title", type=str, default=None, help="The title of the image")
-@click.option("--name", type=str, default=None, help="The name of the image")
 @click.option(
-    "--org", type=str, default=None, help="The Docker organisation of the image"
+    "--docs-description",
+    type=str,
+    default="",
+    help=("A longer form description of the tool/workflow implemented in the pipeline"),
+)
+@click.option(
+    "--docs-url",
+    type=str,
+    default="https://place-holder.url",
+    help="URL explaining the tool/workflow that is being wrapped into an app",
 )
 @click.option(
     "--registry", type=str, default="docker.io", help="The Docker registry of the image"
@@ -808,7 +817,8 @@ def ext():
     metavar="<name> <attrs>",
     help=(
         "Input specifications, name and attribute pairs. Attributes are comma-separated "
-        "name/value pairs, e.g. 'datatype=str,help=The input image'"
+        "name/value pairs, e.g. "
+        "'datatype=str,configuration.argstr=,configuration.position=0,help=The input image''"
     ),
 )
 @click.option(
@@ -820,7 +830,8 @@ def ext():
     metavar="<name> <attrs>",
     help=(
         "Output specifications, name and attribute pairs. Attributes are comma-separated "
-        "name/value pairs, e.g. 'datatype=str,help=The output image'"
+        "name/value pairs, e.g. "
+        "'datatype=str,configuration.argstr=,configuration.position=1,help=The output image'"
     ),
 )
 @click.option(
@@ -847,22 +858,33 @@ def ext():
     "--command-row-frequency",
     type=str,
     default="common:Clinical[session]",
-    help="The row frequency of the command",
+    help=(
+        "The level in the data tree that the pipeline will operate on, e.g. "
+        "common:Clinical[session] designates that the pipeline runs on 'sessions' "
+        "as opposed to 'subjects'"
+    ),
 )
 @click.option(
     "--license",
     "licenses",
-    nargs=3,
+    nargs=4,
     multiple=True,
     type=str,
-    metavar="<license-name> <path-to-license-file-within-image> <info-url>",
-    help=("Licenses that are required at runtime within the image"),
+    metavar="<license-name> <path-to-license-file> <info-url> <description>",
+    help=(
+        "Licenses that are required at runtime within the image. The name is used to "
+        "refer to the license, when providing a license file at build time or alternatively "
+        "installing the license in the data store. The path to the license file is where the "
+        "license will be installed within the image. The info URL is where the details of the "
+        "license can be found and where it can be acquired from. The description gives a brief "
+        "description of the license and what it is required for"
+    ),
 )
 def bootstrap(
     output_file: str,
     title: str,
-    name: str,
-    org: str,
+    docs_url: str,
+    docs_description: str,
     registry: str,
     authors: ty.List[ty.Tuple[str, str]],
     base_image: ty.Tuple[str, str, str],
@@ -877,7 +899,7 @@ def bootstrap(
     command_parameters: ty.List[ty.Tuple[str, str, str]],
     command_configuration: ty.List[ty.Tuple[str, str]],
     command_row_frequency: str,
-    licenses: ty.List[ty.Tuple[str, str]],
+    licenses: ty.List[ty.Tuple[str, str, str, str]],
 ):
 
     # Make the output directory if it doesn't exist
@@ -886,9 +908,16 @@ def bootstrap(
     def unwrap_fields(fields: ty.List[ty.Tuple[str, str, str]]):
         fields_dict = {}
         for field_name, attrs_str in fields:
-            attrs = [a.split("=") for a in attrs_str.split(",")]
+            attrs = [re.split(r"(?<!\\)=", a) for a in re.split(r"(?<!\\),", attrs_str)]
             unwrap_attrs = defaultdict(dict)
             for name, value in attrs:
+                try:
+                    value = int(value)
+                except ValueError:
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        pass
                 if "." in name:
                     parts = name.split(".")
                     dct = unwrap_attrs[parts[0]]
@@ -903,17 +932,15 @@ def bootstrap(
 
     spec = {
         "schema_version": App.SCHEMA_VERSION,
-        "name": name,
         "title": title,
         "version": {
             "package": version,
             "build": 1,
         },
-        "org": org,
         "registry": registry,
         "docs": {
-            "description": description,
-            "info_url": "http://example.com",
+            "description": docs_description,
+            "info_url": docs_url,
         },
         "authors": [{"name": a[0], "email": a[1]} for a in authors],
         "base_image": {
@@ -935,7 +962,7 @@ def bootstrap(
             "configuration": dict(command_configuration),
         },
         "licenses": {
-            lc[0]: {"destination": lc[1], "info_url": lc[2], "description": ""}
+            lc[0]: {"destination": lc[1], "info_url": lc[2], "description": lc[3]}
             for lc in licenses
         },
     }
