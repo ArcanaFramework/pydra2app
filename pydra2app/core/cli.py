@@ -879,6 +879,10 @@ def bootstrap(
     command_row_frequency: str,
     licenses: ty.List[ty.Tuple[str, str]],
 ):
+
+    # Make the output directory if it doesn't exist
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+
     def unwrap_fields(fields: ty.List[ty.Tuple[str, str, str]]):
         fields_dict = {}
         for field_name, attrs_str in fields:
