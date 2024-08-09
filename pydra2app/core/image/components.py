@@ -86,7 +86,7 @@ class Version:
         if self.prerelease:
             tag += "-" + self.prerelease
         if self.build:
-            tag += "-" + self.build
+            tag += "-" + str(self.build)
         return tag
 
     def __repr__(self):
