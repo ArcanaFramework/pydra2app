@@ -6,6 +6,7 @@ from pydra import ShellCommandTask
 from pydra.engine.specs import SpecInfo, ShellSpec, ShellOutSpec
 from frametree.core.serialize import ClassResolver, ObjectListConverter
 from fileformats.core import FileSet, DataType, Field
+from pydra2app.core import PACKAGE_NAME
 
 
 @attrs.define(kw_only=True)
@@ -109,7 +110,7 @@ class ShellCmdInput(ShellCmdField):
     readonly: ty.Optional[bool] = None
     formatter: ty.Callable = attrs.field(
         default=None,
-        converter=ClassResolver(allow_none=True),
+        converter=ClassResolver(allow_none=True, package=PACKAGE_NAME),
     )
 
 
@@ -155,10 +156,12 @@ class ShellCmdOutput(ShellCmdField):
     keep_extension: bool = attrs.field(default=None, metadata={"input": True})
     requires: ty.Optional[list] = None
     formatter: ty.Callable = attrs.field(
-        default=None, converter=ClassResolver(allow_none=True), metadata={"input": True}
+        default=None,
+        converter=ClassResolver(allow_none=True, package=PACKAGE_NAME),
+        metadata={"input": True},
     )
     callable: ty.Callable = attrs.field(
-        default=None, converter=ClassResolver(allow_none=True)
+        default=None, converter=ClassResolver(allow_none=True, package=PACKAGE_NAME)
     )
 
     @output_file_template.default

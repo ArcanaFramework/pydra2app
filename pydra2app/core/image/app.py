@@ -4,7 +4,6 @@ from pathlib import Path
 from itertools import chain
 import re
 import logging
-import shlex
 import shutil
 import attrs
 import yaml
@@ -90,11 +89,9 @@ class App(Pydra2AppImage):
         self.command.image = self
 
     def add_entrypoint(self, dockerfile: DockerRenderer, build_dir: Path):
-        command_line = (
-            self.command.activate_conda_cmd() + "pydra2app pipeline-entrypoint"
+        dockerfile.entrypoint(
+            self.activate_conda() + ["pydra2app", "pipeline-entrypoint"]
         )
-
-        dockerfile.entrypoint(shlex.split(command_line))
 
     def construct_dockerfile(self, build_dir: Path, **kwargs) -> DockerRenderer:
         """Constructs a dockerfile that wraps a with dependencies
@@ -203,7 +200,7 @@ class App(Pydra2AppImage):
         default_data_space: ty.Type[DataSpace] = None,
         source_packages: ty.Sequence[Path] = (),
         **kwargs,
-    ):
+    ) -> "Self":
         """Loads a deploy-build specification from a YAML file
 
         Parameters

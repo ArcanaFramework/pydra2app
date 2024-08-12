@@ -32,12 +32,8 @@ class Metapackage(Pydra2AppImage):
         dockerfile.copy(["./manifest.json"], "/manifest.json")
 
         dockerfile.entrypoint(
-            [
-                "conda",
-                "run",
-                "--no-capture-output",
-                "-n",
-                "pydra2app",
+            self.activate_conda()
+            + [
                 "pydra2app",
                 "ext",
                 "xnat",

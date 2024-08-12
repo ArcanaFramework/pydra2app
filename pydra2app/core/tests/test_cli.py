@@ -19,7 +19,7 @@ from frametree.core.utils import show_cli_trace
 from pydra2app.core.exceptions import Pydra2AppBuildError
 
 
-@pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
+# @pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
 def test_deploy_make_cli(command_spec, cli_runner, work_dir):
 
     DOCKER_ORG = "testorg"
@@ -76,7 +76,7 @@ def test_deploy_make_cli(command_spec, cli_runner, work_dir):
     dc.images.remove(tag)
 
 
-@pytest.mark.xfail(reason="Need to fix the test handle invalid docker tag name used")
+# @pytest.mark.xfail(reason="Need to fix the test handle invalid docker tag name used")
 def test_deploy_remake_cli(command_spec, docker_registry, cli_runner, run_prefix):
     """Tests the check to see whether"""
 
