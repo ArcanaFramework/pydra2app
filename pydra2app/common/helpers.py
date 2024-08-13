@@ -24,5 +24,5 @@ def value_from_stdout(field, stdout):
     else:
         value = re.match(regex, stdout)
     if field.type:
-        value = field.type
+        value = field.type(value)
     return value

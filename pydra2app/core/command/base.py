@@ -298,6 +298,8 @@ class ContainerCommand:
             if output_config := output.config_dict:
                 output_configs.append(output_config)
 
+        dataset.save()  # Save definitions of the newly added columns
+
         kwargs = copy(self.configuration)
 
         param_configs = []

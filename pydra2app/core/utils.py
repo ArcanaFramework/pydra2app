@@ -78,4 +78,28 @@ def extract_file_from_docker_image(
     return out_path / PosixPath(file_path).name
 
 
+def is_relative_to(a: Path, b: Path) -> bool:
+    """Check if path a is relative to path b. Only required for Python < 3.9, after 3.8
+    support is dropped can use pathlib.Path.is_relative_to instead.
+
+    Parameters
+    ----------
+    a : Path
+        the path to check if it is relative to b
+    b : Path
+        the path to check if a is relative to
+
+    Returns
+    -------
+    bool
+        True if a is relative to b, False otherwise
+    """
+    try:
+        a.relative_to(b)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
 DOCKER_HUB = "docker.io"

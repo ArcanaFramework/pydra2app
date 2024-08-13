@@ -236,32 +236,36 @@ def make(
     source_package: ty.Sequence[Path],
     export_files: ty.Sequence[ty.Tuple[Path, Path]],
 ):
-    if tag_latest and not release:
-        raise ValueError("'--tag-latest' flag requires '--release'")
-
-    if spec_root is None:
-        if spec_path.is_dir():
-            spec_root = spec_path
-        elif spec_path.is_relative_to(Path.cwd()):
-            spec_root = Path.cwd()
-        else:
-            spec_root = spec_path.parent
-            if not spec_root.name:
-                raise ValueError(
-                    "Spec paths must be placed within a directory, which will "
-                    f"be interpreted as the name of the overall package ({spec_path})"
-                )
-        logger.info(
-            "`--spec-root` was not explicitly provided so assuming the same as spec path '%s'",
-            str(spec_root),
-        )
-
-    package_name = spec_path.relative_to(spec_root).parts[0]
 
     if isinstance(spec_path, bytes):  # FIXME: This shouldn't be necessary
         spec_path = Path(spec_path.decode("utf-8"))
     if isinstance(build_dir, bytes):  # FIXME: This shouldn't be necessary
         build_dir = Path(build_dir.decode("utf-8"))
+
+    if tag_latest and not release:
+        raise ValueError("'--tag-latest' flag requires '--release'")
+
+    if spec_root is None:
+        if spec_path.is_file():
+            spec_root = spec_path.parent.parent
+        else:
+            spec_root = spec_path.parent
+        logger.info(
+            "`--spec-root` was not explicitly provided so assuming it is the parent '%s'",
+            str(spec_root),
+        )
+
+    path_parts = spec_path.relative_to(spec_root).parts
+
+    if spec_path.is_file() and len(path_parts) < 2:
+        raise ValueError(
+            f"Spec paths ({spec_path}) must be placed within (a) nested director(y|ies) "
+            "from the spec root. The top-level nested directory will be interpreted as "
+            "the name of the Docker package and subsequent directories will be used to "
+            "qualify the image name with '.' separated prefixes"
+        )
+
+    package_name = path_parts[0]
 
     if build_dir is None:
         if spec_path.is_file():
@@ -309,10 +313,10 @@ def make(
         conflicting = {}
         to_build = []
         for image_spec in image_specs:
-            extracted_dir = extract_file_from_docker_image(
+            extracted_file = extract_file_from_docker_image(
                 image_spec.reference, image_spec.IN_DOCKER_SPEC_PATH
             )
-            if extracted_dir is None:
+            if extracted_file is None:
                 logger.info(
                     f"Did not find existing image matching {image_spec.reference}"
                 )
@@ -321,9 +325,7 @@ def make(
                 logger.info(
                     f"Comparing build spec with that of existing image {image_spec.reference}"
                 )
-                built_spec = image_spec.load(
-                    extracted_dir / Path(image_spec.IN_DOCKER_SPEC_PATH).name
-                )
+                built_spec = image_spec.load(extracted_file)
 
                 changelog = image_spec.compare_specs(built_spec, check_version=True)
 
@@ -775,10 +777,14 @@ def ext():
 @click.option(
     "--base-image",
     type=str,
-    nargs=3,
-    default=(None, None, None),
-    metavar="<name> <tag> <package-manager>",
-    help="The package manager used by the image (i.e. 'apt' or 'yum')",
+    nargs=2,
+    multiple=True,
+    metavar="<attr> <value>",
+    help=(
+        "Set one of the attributes of the base-image, e.g. '--base-image name debian', "
+        "'--base-image package_manager apt', '--base-image tag focal', "
+        "'--base-image conda_env base', or '--base-image python /usr/bin/python3.7'"
+    ),
 )
 @click.option("--version", type=str, default="0.1", help="The version of the image")
 @click.option(
@@ -855,7 +861,7 @@ def ext():
     help="Command configuration value",
 )
 @click.option(
-    "--command-row-frequency",
+    "--frequency",
     type=str,
     default="common:Clinical[session]",
     help=(
@@ -887,7 +893,7 @@ def bootstrap(
     docs_description: str,
     registry: str,
     authors: ty.List[ty.Tuple[str, str]],
-    base_image: ty.Tuple[str, str, str],
+    base_image: ty.List[ty.Tuple[str, str]],
     version: str,
     description: str,
     command_task: str,
@@ -898,7 +904,7 @@ def bootstrap(
     command_outputs: ty.List[ty.Tuple[str, str, str]],
     command_parameters: ty.List[ty.Tuple[str, str, str]],
     command_configuration: ty.List[ty.Tuple[str, str]],
-    command_row_frequency: str,
+    frequency: str,
     licenses: ty.List[ty.Tuple[str, str, str, str]],
 ):
 
@@ -943,11 +949,7 @@ def bootstrap(
             "info_url": docs_url,
         },
         "authors": [{"name": a[0], "email": a[1]} for a in authors],
-        "base_image": {
-            "name": base_image[0],
-            "tag": base_image[1],
-            "package_manager": base_image[2],
-        },
+        "base_image": dict(base_image),
         "packages": {
             "pip": dict(packages_pip),
             "system": dict(packages_system),
@@ -955,7 +957,7 @@ def bootstrap(
         },
         "command": {
             "task": command_task,
-            "row_frequency": command_row_frequency,
+            "row_frequency": frequency,
             "inputs": unwrap_fields(command_inputs),
             "outputs": unwrap_fields(command_outputs),
             "parameters": unwrap_fields(command_parameters),
