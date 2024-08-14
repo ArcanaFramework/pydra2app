@@ -107,7 +107,7 @@ def test_native_python_install(tmp_path):
             parts[1] = parts[1].split(".")[0]
         except IndexError:
             pass
-        return "+".join(parts)
+        return "+".join(parts).strip()
 
     assert (
         strip_ver_timestamp(dataset[OUTPUT_COL_NAME][SAMPLE_INDEX])
