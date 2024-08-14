@@ -161,7 +161,7 @@ class Pydra2AppImage:
 
         dockerfile = self.init_dockerfile()
 
-        dockerfile.user(self.base_image.user)
+        dockerfile.user("root")
 
         self.install_system_packages(dockerfile)
 
@@ -179,8 +179,10 @@ class Pydra2AppImage:
 
         self.add_labels(dockerfile)
 
-        # Create Pydra2App Home directory
-        dockerfile.run(f"mkdir {self.IN_DOCKER_FRAMETREE_HOME_DIR}")
+        # Create writable directories
+        for dpath in (self.IN_DOCKER_FRAMETREE_HOME_DIR, "/.cache"):
+            dockerfile.run(f"mkdir {dpath}")
+            dockerfile.run(f"chmod 777 {dpath}")
         dockerfile.env(FRAMETREE_HOME=self.IN_DOCKER_FRAMETREE_HOME_DIR)
 
         return dockerfile

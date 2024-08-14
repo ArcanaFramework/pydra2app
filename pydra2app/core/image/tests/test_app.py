@@ -1,3 +1,4 @@
+import os
 import docker
 from frametree.common import DirTree, Samples
 from pydra2app.core.image import App
@@ -90,6 +91,7 @@ def test_native_python_install(tmp_path):
             command=args,
             stderr=True,
             volumes=[volume_mount],
+            user=f"{os.getuid()}:{os.getgid()}",
         )
     except docker.errors.ContainerError as e:
         raise RuntimeError(
@@ -99,7 +101,15 @@ def test_native_python_install(tmp_path):
 
     dataset = DirTree().load_dataset(dataset_dir)
 
+    def strip_ver_timestamp(ver_str):
+        parts = str(ver_str).split("+")
+        try:
+            parts[1] = parts[1].split(".")[0]
+        except IndexError:
+            pass
+        return "+".join(parts)
+
     assert (
-        str(dataset[OUTPUT_COL_NAME][SAMPLE_INDEX])
-        == f"{PACKAGE_NAME}, version {__version__}\n"
+        strip_ver_timestamp(dataset[OUTPUT_COL_NAME][SAMPLE_INDEX])
+        == f"{PACKAGE_NAME}, version {strip_ver_timestamp(__version__)}"
     )
