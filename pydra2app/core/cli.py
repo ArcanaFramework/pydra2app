@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 import json
 import typing as ty
+import re
 from collections import defaultdict
 from traceback import format_exc
 import tempfile
@@ -235,32 +236,36 @@ def make(
     source_package: ty.Sequence[Path],
     export_files: ty.Sequence[ty.Tuple[Path, Path]],
 ):
-    if tag_latest and not release:
-        raise ValueError("'--tag-latest' flag requires '--release'")
-
-    if spec_root is None:
-        if spec_path.is_dir():
-            spec_root = spec_path
-        elif spec_path.is_relative_to(Path.cwd()):
-            spec_root = Path.cwd()
-        else:
-            spec_root = spec_path.parent
-            if not spec_root.name:
-                raise ValueError(
-                    "Spec paths must be placed within a directory, which will "
-                    f"be interpreted as the name of the overall package ({spec_path})"
-                )
-        logger.info(
-            "`--spec-root` was not explicitly provided so assuming the same as spec path '%s'",
-            str(spec_root),
-        )
-
-    package_name = spec_path.relative_to(spec_root).parts[0]
 
     if isinstance(spec_path, bytes):  # FIXME: This shouldn't be necessary
         spec_path = Path(spec_path.decode("utf-8"))
     if isinstance(build_dir, bytes):  # FIXME: This shouldn't be necessary
         build_dir = Path(build_dir.decode("utf-8"))
+
+    if tag_latest and not release:
+        raise ValueError("'--tag-latest' flag requires '--release'")
+
+    if spec_root is None:
+        if spec_path.is_file():
+            spec_root = spec_path.parent.parent
+        else:
+            spec_root = spec_path.parent
+        logger.info(
+            "`--spec-root` was not explicitly provided so assuming it is the parent '%s'",
+            str(spec_root),
+        )
+
+    path_parts = spec_path.relative_to(spec_root).parts
+
+    if spec_path.is_file() and len(path_parts) < 2:
+        raise ValueError(
+            f"Spec paths ({spec_path}) must be placed within (a) nested director(y|ies) "
+            "from the spec root. The top-level nested directory will be interpreted as "
+            "the name of the Docker package and subsequent directories will be used to "
+            "qualify the image name with '.' separated prefixes"
+        )
+
+    package_name = path_parts[0]
 
     if build_dir is None:
         if spec_path.is_file():
@@ -308,10 +313,10 @@ def make(
         conflicting = {}
         to_build = []
         for image_spec in image_specs:
-            extracted_dir = extract_file_from_docker_image(
+            extracted_file = extract_file_from_docker_image(
                 image_spec.reference, image_spec.IN_DOCKER_SPEC_PATH
             )
-            if extracted_dir is None:
+            if extracted_file is None:
                 logger.info(
                     f"Did not find existing image matching {image_spec.reference}"
                 )
@@ -320,9 +325,7 @@ def make(
                 logger.info(
                     f"Comparing build spec with that of existing image {image_spec.reference}"
                 )
-                built_spec = image_spec.load(
-                    extracted_dir / Path(image_spec.IN_DOCKER_SPEC_PATH).name
-                )
+                built_spec = image_spec.load(extracted_file)
 
                 changelog = image_spec.compare_specs(built_spec, check_version=True)
 
@@ -744,9 +747,17 @@ def ext():
 )
 @click.argument("output_file", type=click.Path(path_type=Path))
 @click.option("--title", type=str, default=None, help="The title of the image")
-@click.option("--name", type=str, default=None, help="The name of the image")
 @click.option(
-    "--org", type=str, default=None, help="The Docker organisation of the image"
+    "--docs-description",
+    type=str,
+    default="",
+    help=("A longer form description of the tool/workflow implemented in the pipeline"),
+)
+@click.option(
+    "--docs-url",
+    type=str,
+    default="https://place-holder.url",
+    help="URL explaining the tool/workflow that is being wrapped into an app",
 )
 @click.option(
     "--registry", type=str, default="docker.io", help="The Docker registry of the image"
@@ -766,10 +777,14 @@ def ext():
 @click.option(
     "--base-image",
     type=str,
-    nargs=3,
-    default=(None, None, None),
-    metavar="<name> <tag> <package-manager>",
-    help="The package manager used by the image (i.e. 'apt' or 'yum')",
+    nargs=2,
+    multiple=True,
+    metavar="<attr> <value>",
+    help=(
+        "Set one of the attributes of the base-image, e.g. '--base-image name debian', "
+        "'--base-image package_manager apt', '--base-image tag focal', "
+        "'--base-image conda_env base', or '--base-image python /usr/bin/python3.7'"
+    ),
 )
 @click.option("--version", type=str, default="0.1", help="The version of the image")
 @click.option(
@@ -808,7 +823,8 @@ def ext():
     metavar="<name> <attrs>",
     help=(
         "Input specifications, name and attribute pairs. Attributes are comma-separated "
-        "name/value pairs, e.g. 'datatype=str,help=The input image'"
+        "name/value pairs, e.g. "
+        "'datatype=str,configuration.argstr=,configuration.position=0,help=The input image''"
     ),
 )
 @click.option(
@@ -820,7 +836,8 @@ def ext():
     metavar="<name> <attrs>",
     help=(
         "Output specifications, name and attribute pairs. Attributes are comma-separated "
-        "name/value pairs, e.g. 'datatype=str,help=The output image'"
+        "name/value pairs, e.g. "
+        "'datatype=str,configuration.argstr=,configuration.position=1,help=The output image'"
     ),
 )
 @click.option(
@@ -844,28 +861,39 @@ def ext():
     help="Command configuration value",
 )
 @click.option(
-    "--command-row-frequency",
+    "--frequency",
     type=str,
     default="common:Clinical[session]",
-    help="The row frequency of the command",
+    help=(
+        "The level in the data tree that the pipeline will operate on, e.g. "
+        "common:Clinical[session] designates that the pipeline runs on 'sessions' "
+        "as opposed to 'subjects'"
+    ),
 )
 @click.option(
     "--license",
     "licenses",
-    nargs=3,
+    nargs=4,
     multiple=True,
     type=str,
-    metavar="<license-name> <path-to-license-file-within-image> <info-url>",
-    help=("Licenses that are required at runtime within the image"),
+    metavar="<license-name> <path-to-license-file> <info-url> <description>",
+    help=(
+        "Licenses that are required at runtime within the image. The name is used to "
+        "refer to the license, when providing a license file at build time or alternatively "
+        "installing the license in the data store. The path to the license file is where the "
+        "license will be installed within the image. The info URL is where the details of the "
+        "license can be found and where it can be acquired from. The description gives a brief "
+        "description of the license and what it is required for"
+    ),
 )
 def bootstrap(
     output_file: str,
     title: str,
-    name: str,
-    org: str,
+    docs_url: str,
+    docs_description: str,
     registry: str,
     authors: ty.List[ty.Tuple[str, str]],
-    base_image: ty.Tuple[str, str, str],
+    base_image: ty.List[ty.Tuple[str, str]],
     version: str,
     description: str,
     command_task: str,
@@ -876,15 +904,26 @@ def bootstrap(
     command_outputs: ty.List[ty.Tuple[str, str, str]],
     command_parameters: ty.List[ty.Tuple[str, str, str]],
     command_configuration: ty.List[ty.Tuple[str, str]],
-    command_row_frequency: str,
-    licenses: ty.List[ty.Tuple[str, str]],
+    frequency: str,
+    licenses: ty.List[ty.Tuple[str, str, str, str]],
 ):
+
+    # Make the output directory if it doesn't exist
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+
     def unwrap_fields(fields: ty.List[ty.Tuple[str, str, str]]):
         fields_dict = {}
         for field_name, attrs_str in fields:
-            attrs = [a.split("=") for a in attrs_str.split(",")]
+            attrs = [re.split(r"(?<!\\)=", a) for a in re.split(r"(?<!\\),", attrs_str)]
             unwrap_attrs = defaultdict(dict)
             for name, value in attrs:
+                try:
+                    value = int(value)
+                except ValueError:
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        pass
                 if "." in name:
                     parts = name.split(".")
                     dct = unwrap_attrs[parts[0]]
@@ -899,24 +938,18 @@ def bootstrap(
 
     spec = {
         "schema_version": App.SCHEMA_VERSION,
-        "name": name,
         "title": title,
         "version": {
             "package": version,
             "build": 1,
         },
-        "org": org,
         "registry": registry,
         "docs": {
-            "description": description,
-            "info_url": "http://example.com",
+            "description": docs_description,
+            "info_url": docs_url,
         },
         "authors": [{"name": a[0], "email": a[1]} for a in authors],
-        "base_image": {
-            "name": base_image[0],
-            "tag": base_image[1],
-            "package_manager": base_image[2],
-        },
+        "base_image": dict(base_image),
         "packages": {
             "pip": dict(packages_pip),
             "system": dict(packages_system),
@@ -924,14 +957,14 @@ def bootstrap(
         },
         "command": {
             "task": command_task,
-            "row_frequency": command_row_frequency,
+            "row_frequency": frequency,
             "inputs": unwrap_fields(command_inputs),
             "outputs": unwrap_fields(command_outputs),
             "parameters": unwrap_fields(command_parameters),
             "configuration": dict(command_configuration),
         },
         "licenses": {
-            lc[0]: {"destination": lc[1], "info_url": lc[2], "description": ""}
+            lc[0]: {"destination": lc[1], "info_url": lc[2], "description": lc[3]}
             for lc in licenses
         },
     }

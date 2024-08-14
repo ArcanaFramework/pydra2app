@@ -120,17 +120,6 @@ class ContainerCommand:
     def data_space(self):
         return type(self.row_frequency)
 
-    def activate_conda_cmd(self):
-        """Generate the preamble to a command line that activates the conda environment
-
-        Returns
-        -------
-        str
-            part of a command line, which activates the conda environment
-        """
-
-        return f"conda run --no-capture-output -n {self.image.CONDA_ENV} "  # activate conda
-
     def configuration_args(self):
 
         # Set up fixed arguments used to configure the workflow at initialisation
@@ -308,6 +297,8 @@ class ContainerCommand:
                 )
             if output_config := output.config_dict:
                 output_configs.append(output_config)
+
+        dataset.save()  # Save definitions of the newly added columns
 
         kwargs = copy(self.configuration)
 

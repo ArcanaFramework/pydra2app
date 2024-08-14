@@ -4,7 +4,6 @@ from pathlib import Path
 from itertools import chain
 import re
 import logging
-import shlex
 import shutil
 import attrs
 import yaml
@@ -18,6 +17,7 @@ from frametree.core.serialize import (
     ClassResolver,
 )
 from frametree.core.space import DataSpace
+from pydra2app.core.utils import is_relative_to
 from ..command.base import ContainerCommand
 from .base import Pydra2AppImage
 from .components import ContainerAuthor, License, Docs, PipPackage
@@ -90,11 +90,9 @@ class App(Pydra2AppImage):
         self.command.image = self
 
     def add_entrypoint(self, dockerfile: DockerRenderer, build_dir: Path):
-        command_line = (
-            self.command.activate_conda_cmd() + "pydra2app pipeline-entrypoint"
+        dockerfile.entrypoint(
+            self.activate_conda() + ["pydra2app", "pipeline-entrypoint"]
         )
-
-        dockerfile.entrypoint(shlex.split(command_line))
 
     def construct_dockerfile(self, build_dir: Path, **kwargs) -> DockerRenderer:
         """Constructs a dockerfile that wraps a with dependencies
@@ -203,7 +201,7 @@ class App(Pydra2AppImage):
         default_data_space: ty.Type[DataSpace] = None,
         source_packages: ty.Sequence[Path] = (),
         **kwargs,
-    ):
+    ) -> "Self":
         """Loads a deploy-build specification from a YAML file
 
         Parameters
@@ -245,7 +243,7 @@ class App(Pydra2AppImage):
             yml_dict = cls._load_yaml(yml)
             if not isinstance(yml_dict, dict):
                 raise ValueError(f"{yml!r} didn't contain a dict!")
-            if yml.is_relative_to(root_dir):
+            if is_relative_to(yml, root_dir):
                 rel_parts = yml.relative_to(root_dir).parent.parts + (yml.stem,)
                 if "name" not in yml_dict:
                     yml_dict["name"] = ".".join(rel_parts[1:])

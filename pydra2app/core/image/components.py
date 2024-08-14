@@ -17,11 +17,17 @@ logger = logging.getLogger("pydra2app")
 @attrs.define(kw_only=True)
 class BaseImage:
 
-    name: str = attrs.field(default="ubuntu")
+    DEFAULT_IMAGE = "ubuntu"
+    DEFAULT_UBUNTU_TAG = "jammy"  # FIXME: Should revert to latest LTS "jammy"
+    DEFAULT_CONDA_ENV = "pydra2app"
+    DEFAULT_USER = "root"
+
+    name: str = attrs.field(default=DEFAULT_IMAGE)
     tag: str = attrs.field()
     package_manager: str = attrs.field()
-
-    DEFAULT_UBUNTU_TAG = "jammy"  # FIXME: Should revert to latest LTS "jammy"
+    python: str = attrs.field(default=None)
+    conda_env: str = attrs.field(default=DEFAULT_CONDA_ENV)
+    user: str = attrs.field(default=DEFAULT_USER)
 
     @property
     def reference(self):
@@ -86,7 +92,7 @@ class Version:
         if self.prerelease:
             tag += "-" + self.prerelease
         if self.build:
-            tag += "-" + self.build
+            tag += "-" + str(self.build)
         return tag
 
     def __repr__(self):
@@ -359,7 +365,9 @@ class SystemPackage(BasePackage):
 @attrs.define
 class CondaPackage(BasePackage):
 
-    REQUIRED = ["numpy", "traits"]  # FIXME: Not sure if traits is actually required
+    pass
+
+    # REQUIRED = ["numpy", "traits"]  # FIXME: Not sure if traits is actually required
 
 
 @attrs.define

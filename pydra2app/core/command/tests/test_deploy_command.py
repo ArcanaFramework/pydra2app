@@ -321,20 +321,21 @@ def test_command_execute_with_converter_args(
         assert dec_contents == unencoded_contents
 
 
-@pytest.mark.skip
+@pytest.mark.xfail(
+    reason="'>' operator isn't supported by shell-command task any more (it perhaps should be)"
+)
 def test_shell_command_execute(saved_dataset, work_dir):
     # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
     command_spec = ContainerCommand(
-        task="pydra2app.common:shell",
+        task="shell",
         row_frequency=bp.space.default(),
         inputs=[
             {
                 "name": "source1",
                 "datatype": "text/text-file",
-                "field": "in_file1",
                 "help": "dummy",
                 "configuration": {
                     "argstr": "",
@@ -344,7 +345,6 @@ def test_shell_command_execute(saved_dataset, work_dir):
             {
                 "name": "source2",
                 "datatype": "text/text-file",
-                "field": "in_file2",
                 "help": "dummy",
                 "configuration": {
                     "argstr": "",
@@ -356,7 +356,6 @@ def test_shell_command_execute(saved_dataset, work_dir):
             {
                 "name": "sink1",
                 "datatype": "text/text-file",
-                "field": "out_file",
                 "help": "dummy",
                 "configuration": {
                     "argstr": ">{sink1}",

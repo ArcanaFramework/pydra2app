@@ -19,7 +19,7 @@ from frametree.core.utils import show_cli_trace
 from pydra2app.core.exceptions import Pydra2AppBuildError
 
 
-@pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
+# @pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
 def test_deploy_make_cli(command_spec, cli_runner, work_dir):
 
     DOCKER_ORG = "testorg"
@@ -76,7 +76,7 @@ def test_deploy_make_cli(command_spec, cli_runner, work_dir):
     dc.images.remove(tag)
 
 
-@pytest.mark.xfail(reason="Need to fix the test handle invalid docker tag name used")
+# @pytest.mark.xfail(reason="Need to fix the test handle invalid docker tag name used")
 def test_deploy_remake_cli(command_spec, docker_registry, cli_runner, run_prefix):
     """Tests the check to see whether"""
 
@@ -369,7 +369,6 @@ a longer description
 }
 
 
-@pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
 @pytest.mark.parametrize("fixture", docs_fixtures.items(), ids=lambda x: x[0])
 def test_make_docs_cli(
     cli_runner, run_prefix, work_dir: Path, fixture: Tuple[str, DocsFixture]
@@ -418,7 +417,7 @@ def _make_docs(
             specs_dir.as_posix(),
             out_dir.as_posix(),
             "--spec-root",
-            str(org_dir),
+            str(work_dir),
         ]
         + (["--flatten" if flatten else "--no-flatten"] if flatten is not None else [])
         + list(args),
@@ -435,7 +434,6 @@ def _make_docs(
         }
 
 
-@pytest.mark.xfail(reason="Need to fix Py3.8 support")
 def test_bootstrap(cli_runner, work_dir):
 
     out_yaml = work_dir / "out-spec.yaml"
@@ -444,16 +442,19 @@ def test_bootstrap(cli_runner, work_dir):
         bootstrap,
         [
             str(out_yaml),
-            "--name",
-            "mri_convert",
             "--author",
             "An Author",
             "$an.author@a.institution",
             "--version",
             "7.1.1",
             "--base-image",
+            "name",
             "vnmd/freesurfer_7.1.1",
+            "--base-image",
+            "tag",
             "20211216",
+            "--base-image",
+            "package_manager",
             "apt",
             "--packages-pip",
             "fileformats-medimage-extras",
@@ -478,6 +479,7 @@ def test_bootstrap(cli_runner, work_dir):
             "freesurfer",
             "/opt/freesurfer/license.txt",
             "https://surfer.nmr.mgh.harvard.edu/registration.html",
+            "The freesurfer license that is required to run any tool within the package",
         ],
     )
 
