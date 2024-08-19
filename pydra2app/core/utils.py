@@ -43,9 +43,7 @@ def extract_file_from_docker_image(
         try:
             dc.api.pull(image_tag)
         except docker.errors.APIError as e:
-            if e.response.status_code == 404:
-                return None
-            elif e.response.status_code == 500:
+            if e.response.status_code == 500:
                 logger.warning(
                     "Could not pull %s image from registry, attempting to check changes "
                     "with local version",

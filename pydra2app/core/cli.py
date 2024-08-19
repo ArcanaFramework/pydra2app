@@ -746,27 +746,31 @@ def ext():
     help="""Generate a YAML specification file for a Pydra2App App""",
 )
 @click.argument("output_file", type=click.Path(path_type=Path))
-@click.option("--title", type=str, default=None, help="The title of the image")
-@click.option(
-    "--docs-description",
-    type=str,
-    default="",
-    help=("A longer form description of the tool/workflow implemented in the pipeline"),
-)
+@click.option("--title", "-t", type=str, default=None, help="The title of the image")
 @click.option(
     "--docs-url",
+    "-u",
     type=str,
     default="https://place-holder.url",
     help="URL explaining the tool/workflow that is being wrapped into an app",
 )
 @click.option(
-    "--registry", type=str, default="docker.io", help="The Docker registry of the image"
+    "--registry",
+    "-r",
+    type=str,
+    default="docker.io",
+    help="The Docker registry of the image",
 )
 @click.option(
-    "--description", type=str, default=None, help="The description of the image"
+    "--description",
+    "-d",
+    type=str,
+    default=None,
+    help="A longer form description of the tool/workflow implemented in the pipeline",
 )
 @click.option(
     "--author",
+    "-a",
     "authors",
     nargs=2,
     multiple=True,
@@ -776,6 +780,7 @@ def ext():
 )
 @click.option(
     "--base-image",
+    "-b",
     type=str,
     nargs=2,
     multiple=True,
@@ -786,36 +791,43 @@ def ext():
         "'--base-image conda_env base', or '--base-image python /usr/bin/python3.7'"
     ),
 )
-@click.option("--version", type=str, default="0.1", help="The version of the image")
 @click.option(
-    "--command-task", type=str, default=None, help="The command to execute in the image"
+    "--version", "-v", type=str, default="0.1", help="The version of the image"
+)
+@click.option(
+    "--command-task",
+    "-t",
+    type=str,
+    default=None,
+    help="The command to execute in the image",
 )
 @click.option(
     "--packages-pip",
+    "-y",
     type=str,
     multiple=True,
-    nargs=2,
-    metavar="<package-name> <version>",
+    metavar="<package-name>[==<version>]",
     help="Packages to install via pip",
 )
 @click.option(
     "--packages-system",
+    "-s",
     type=str,
     multiple=True,
-    nargs=2,
-    metavar="<package-name> <version>",
+    metavar="<package-name>[==<version>]",
     help="Packages to install via the system package manager",
 )
 @click.option(
     "--packages-neurodocker",
+    "-n",
     type=str,
     multiple=True,
-    nargs=2,
-    metavar="<package-name> <version>",
+    metavar="<package-name>[==<version>]",
     help="Packages to install via NeuroDocker",
 )
 @click.option(
     "--command-input",
+    "-i",
     "command_inputs",
     type=str,
     multiple=True,
@@ -829,6 +841,7 @@ def ext():
 )
 @click.option(
     "--command-output",
+    "-o",
     "command_outputs",
     type=str,
     multiple=True,
@@ -842,6 +855,7 @@ def ext():
 )
 @click.option(
     "--command-parameter",
+    "-p",
     "command_parameters",
     type=str,
     multiple=True,
@@ -854,6 +868,7 @@ def ext():
 )
 @click.option(
     "--command-configuration",
+    "-c",
     type=str,
     multiple=True,
     nargs=2,
@@ -862,6 +877,7 @@ def ext():
 )
 @click.option(
     "--frequency",
+    "-f",
     type=str,
     default="common:Clinical[session]",
     help=(
@@ -872,6 +888,7 @@ def ext():
 )
 @click.option(
     "--license",
+    "-l",
     "licenses",
     nargs=4,
     multiple=True,
@@ -890,7 +907,6 @@ def bootstrap(
     output_file: str,
     title: str,
     docs_url: str,
-    docs_description: str,
     registry: str,
     authors: ty.List[ty.Tuple[str, str]],
     base_image: ty.List[ty.Tuple[str, str]],
@@ -936,6 +952,14 @@ def bootstrap(
             fields_dict[field_name] = dict(unwrap_attrs)
         return fields_dict
 
+    ver_split_re = re.compile(r">=|<=|==|>|<")
+
+    def split_versions(packages):
+        return dict(
+            ver_split_re.split(p, maxsplit=1) if "=" in p else [p, None]
+            for p in packages
+        )
+
     spec = {
         "schema_version": App.SCHEMA_VERSION,
         "title": title,
@@ -945,15 +969,15 @@ def bootstrap(
         },
         "registry": registry,
         "docs": {
-            "description": docs_description,
+            "description": description,
             "info_url": docs_url,
         },
         "authors": [{"name": a[0], "email": a[1]} for a in authors],
         "base_image": dict(base_image),
         "packages": {
-            "pip": dict(packages_pip),
-            "system": dict(packages_system),
-            "neurodocker": dict(packages_neurodocker),
+            "pip": split_versions(packages_pip),
+            "system": split_versions(packages_system),
+            "neurodocker": split_versions(packages_neurodocker),
         },
         "command": {
             "task": command_task,
