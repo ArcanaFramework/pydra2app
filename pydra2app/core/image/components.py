@@ -26,7 +26,7 @@ class BaseImage:
     tag: str = attrs.field()
     package_manager: str = attrs.field()
     python: str = attrs.field(default=None)
-    conda_env: str = attrs.field(default=DEFAULT_CONDA_ENV)
+    conda_env: str = attrs.field()
     user: str = attrs.field(default=DEFAULT_USER)
 
     @property
@@ -76,6 +76,14 @@ class BaseImage:
                 f"Unsupported package manager '{package_manager}' provided. Only 'apt' "
                 "and 'yum' package managers are currently supported by Neurodocker"
             )
+
+    @conda_env.default
+    def conda_env_default(self):
+        if self.python:
+            conda_env = None
+        else:
+            conda_env = self.DEFAULT_CONDA_ENV
+        return conda_env
 
 
 @attrs.define

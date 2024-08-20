@@ -20,7 +20,6 @@ from pydra2app.testing.licenses import (
 )
 
 
-@pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
 def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_runner):
 
     # Create pipeline

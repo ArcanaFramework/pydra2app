@@ -317,9 +317,10 @@ class Pydra2AppImage:
             )
 
         if self.base_image.python:
+            activate_conda = self.activate_conda() if self.base_image.conda_env else []
             dockerfile.run(
                 " ".join(
-                    self.activate_conda()
+                    activate_conda
                     + [self.base_image.python, "-m", "pip", "install"]
                     + pip_strs
                 )
@@ -339,7 +340,8 @@ class Pydra2AppImage:
             f"{p.name}={p.version}" if p.version else p.name
             for p in self.packages.system
         ]
-        dockerfile.install(pkg_strs)
+        if pkg_strs:
+            dockerfile.install(pkg_strs)
 
     def install_package_templates(
         self,
