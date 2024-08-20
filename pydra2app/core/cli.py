@@ -318,6 +318,8 @@ def make(
                     image_spec.reference, image_spec.IN_DOCKER_SPEC_PATH
                 )
             except docker.errors.NotFound:
+                extracted_file = None
+            if extracted_file is None:
                 logger.info(
                     f"Did not find existing image matching {image_spec.reference}"
                 )
