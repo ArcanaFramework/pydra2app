@@ -313,10 +313,11 @@ def make(
         conflicting = {}
         to_build = []
         for image_spec in image_specs:
-            extracted_file = extract_file_from_docker_image(
-                image_spec.reference, image_spec.IN_DOCKER_SPEC_PATH
-            )
-            if extracted_file is None:
+            try:
+                extracted_file = extract_file_from_docker_image(
+                    image_spec.reference, image_spec.IN_DOCKER_SPEC_PATH
+                )
+            except docker.errors.NotFound:
                 logger.info(
                     f"Did not find existing image matching {image_spec.reference}"
                 )
