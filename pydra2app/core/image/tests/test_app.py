@@ -1,6 +1,6 @@
 import os
 import docker
-from frametree.common import DirTree, Samples
+from frametree.common import FileSystem, Samples
 from pydra2app.core.image import App
 from pydra2app.core import __version__, PACKAGE_NAME
 
@@ -16,7 +16,7 @@ def test_native_python_install(tmp_path):
     sample_file = sample_dir / "sample.txt"
     sample_file.write_text("sample")
 
-    dataset = DirTree().define_dataset(dataset_dir, space=Samples)
+    dataset = FileSystem().define_dataset(dataset_dir, space=Samples)
     dataset.save()
 
     test_spec = {
@@ -99,7 +99,7 @@ def test_native_python_install(tmp_path):
             + e.stderr.decode("utf-8")
         )
 
-    dataset = DirTree().load_dataset(dataset_dir)
+    dataset = FileSystem().load_dataset(dataset_dir)
 
     def strip_ver_timestamp(ver_str):
         parts = str(ver_str).split("+")

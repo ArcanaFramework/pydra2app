@@ -21,7 +21,7 @@ Stores
 ------
 
 Support for different file storage systems (e.g. `XNAT <https://xnat.org>`__, `BIDS <https://bids.neuroimaging.io>`__)
-is provided by sub-classes of :class:`.DataStore`. Data store
+is provided by sub-classes of :class:`.Store`. Data store
 classes not only encapsulate where the data are stored, e.g. on local disk or
 remote repository, but also how the data are accessed, e.g. whether to assume that
 they are in BIDS format, or whether files in an XNAT archive mount can be
@@ -30,7 +30,7 @@ accessed directly (i.e. as exposed to the container service), or only via the AP
 There are currently four supported store classes in the main, `pydra2app-bids` and `pydra2app-xnat`
 packages
 
-* :class:`.DirTree` - access data organised within an arbitrary directory tree on the file system
+* :class:`.FileSystem` - access data organised within an arbitrary directory tree on the file system
 * :class:`.Bids` - access data on file systems organised in the `Brain Imaging Data Structure (BIDS) <https://bids.neuroimaging.io/>`__
 * :class:`.Xnat` - access data stored in XNAT_ repositories vi its REST API
 * :class:`.XnatViaCS` - access data stored in XNAT_ via its `container service <https://wiki.xnat.org/container-service/using-the-container-service-122978908.html>`_
@@ -83,7 +83,7 @@ data store classes directly.
     xnat_store.save('xnat-central')
 
     # Reload store from configuration file
-    reloaded = DataStore.load('xnat-central')
+    reloaded = Store.load('xnat-central')
 
 .. note::
 
@@ -199,7 +199,7 @@ For example, a project called "MYXNATPROJECT" stored in
 created in the :ref:`Stores` Section, would be ``xnat-central//MYXNATPROJECT``.
 
 Alternatively, dataset objects can be created directly via the Python API using
-the :meth:`.DataStore.dataset` method. For example, to define a new dataset
+the :meth:`.Store.dataset` method. For example, to define a new dataset
 corresponding to *MYXNATPROJECT*
 
 .. code-block:: python
@@ -341,7 +341,7 @@ operator
 .. code-block:: python
 
     import matplotlib.pyplot as plt
-    from pydra2app.core.data.set import Dataset
+    from pydra2app.core.set import Dataset
 
     # Get a column containing all T1-weighted MRI images across the dataset
     xnat_dataset = Dataset.load('xnat-central//MYXNATPROJECT')
@@ -470,7 +470,7 @@ potential categories to make them more general.
 .. TODO: another 3D grid plot
 
 All combinations of the data spaces axes are given a name within
-:class:`.DataSpace` enums. In the case of the :class:`.medimage.Clinical`
+:class:`.Axes` enums. In the case of the :class:`.medimage.Clinical`
 data space, the members are
 
 * **group** (group)
@@ -550,7 +550,7 @@ axes
 .. and how the layers add to one another
 
 For stores that support datasets with arbitrary tree structures
-(i.e. :class:`.DirTree`), the "data space" and the hierarchy of layers
+(i.e. :class:`.FileSystem`), the "data space" and the hierarchy of layers
 in the data tree needs to be provided. Data spaces are explained in more
 detail in :ref:`data_spaces`. However, for the majority of datasets in the
 medical imaging field, the :class:`pydra2app.medimage.data.Clinical` space is
@@ -558,10 +558,10 @@ appropriate.
 
 .. code-block:: python
 
-    from pydra2app.dirtree import DirTree
+    from pydra2app.file_system import FileSystem
     from pydra2app.common import Clinical
 
-    fs_dataset = DirTree().dataset(
+    fs_dataset = FileSystem().dataset(
         id='/data/imaging/my-project',
         # Define the hierarchy of the dataset in which imaging session
         # sub-directories are separated into directories via their study group

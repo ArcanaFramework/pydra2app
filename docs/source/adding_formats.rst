@@ -23,7 +23,7 @@ Data spaces
 -----------
 
 New data spaces (see :ref:`data_spaces`) are defined by extending the
-:class:`.DataSpace` abstract base class. :class:`.DataSpace` subclasses are be
+:class:`.Axes` abstract base class. :class:`.Axes` subclasses are be
 `enums <https://docs.python.org/3/library/enum.html>`_ with binary string
 values of consistent length (i.e. all of length 2 or all of length 3, etc...).
 The length of the binary string defines the rank of the data space,
@@ -39,7 +39,7 @@ visualise the imaging sessions arranged in a 3-D grid along the `group`, `member
 time-point can still be represented in this space, and just be singleton along
 the corresponding axis.
 
-All axes should be included as members of a DataSpace subclass
+All axes should be included as members of a Axes subclass
 enum with orthogonal binary vector values, e.g.::
 
     member = 0b001
@@ -84,9 +84,9 @@ axes for the date and weather station of the recordings, with the following code
 
 .. code-block:: python
 
-    from pydra2app.core.data.space import DataSpace
+    from pydra2app.core.data.space import Axes
 
-    class Weather(DataSpace):
+    class Weather(Axes):
 
         # Define the axes of the dataspace
         timepoint = 0b01

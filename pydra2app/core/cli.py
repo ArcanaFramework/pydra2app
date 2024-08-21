@@ -687,7 +687,7 @@ def changelog(manifest_json):
 #         source_file = Path(source_file.decode("utf-8"))
 
 #     if not install_locations:
-#         install_locations = ["dirtree"]
+#         install_locations = ["file_system"]
 
 #     for install_loc in install_locations:
 #         if "//" in install_loc:
@@ -695,7 +695,7 @@ def changelog(manifest_json):
 #             store_name, _, _ = Dataset.parse_id_str(install_loc)
 #             msg = f"for '{dataset.name}' dataset on {store_name} store"
 #         else:
-#             store = DataStore.load(install_loc)
+#             store = Store.load(install_loc)
 #             dataset = store.site_licenses_dataset()
 #             if dataset is None:
 #                 raise ValueError(

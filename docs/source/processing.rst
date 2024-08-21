@@ -193,13 +193,13 @@ methods, and takes the columns the pipeline outputs are connected to as argument
     import pydra
     from some.example.pydra.tasks import Preprocess, ExtractFromJson, MakeImage
     from pydra2app.core.mark import analysis, pipeline, parameter
-    from pydra2app.example.data import ExampleDataSpace
+    from pydra2app.example.data import ExampleAxes
     from fileformats.application import Zip
     from fileformats.generic import Directory
     from fileformats.application import Json
     from fileformats.image import Png, Gif
 
-    @analysis(ExampleDataSpace)
+    @analysis(ExampleAxes)
     class ExampleAnalysis():
 
         # Define the columns for the dataset along with their formats.
@@ -285,7 +285,7 @@ parameters.
 
 .. code-block:: python
 
-  from pydra2app.core.data.set import Dataset
+  from pydra2app.core.set import Dataset
   from fileformats.application import Yaml
   from pydra2app.examples import ExampleAnalysis
 

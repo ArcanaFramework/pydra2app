@@ -11,7 +11,7 @@ from frametree.core.pipeline import (
 from frametree.core.row import DataRow
 from fileformats.core import DataType, Field
 from fileformats.core.exceptions import FormatMismatchError
-from frametree.core.space import DataSpace
+from frametree.core.axes import Axes
 from frametree.core.utils import add_exc_note
 
 
@@ -24,7 +24,7 @@ class ColumnDefaults:
     ----------
     datatype : str
         the type the data items will be stored in (e.g. file-format)
-    row_frequency : DataSpace
+    row_frequency : Axes
         the "row-frequency" of the input column to be added
     path : str
         path to where the data will be placed in the repository
@@ -38,7 +38,7 @@ class ColumnDefaults:
             alternative_types=[DataRow],
         ),
     )
-    row_frequency: ty.Optional[DataSpace] = None
+    row_frequency: ty.Optional[Axes] = None
     path: ty.Optional[str] = None
 
 

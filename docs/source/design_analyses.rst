@@ -42,7 +42,7 @@ in the ``desc`` keyword arg.
 
 .. code-block:: python
 
-    @analysis(ExampleDataSpace)
+    @analysis(ExampleAxes)
     class ExampleAnalysis():
 
         recorded_datafile: DatFile  = column(

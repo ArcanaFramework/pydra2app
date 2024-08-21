@@ -19,7 +19,7 @@ from frametree.core.serialize import (
     ClassResolver,
     ObjectConverter,
 )
-from frametree.core.space import DataSpace
+from frametree.core.axes import Axes
 from pydra2app.core.utils import DOCKER_HUB
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from .components import Packages, BaseImage, PipPackage, Version
@@ -482,7 +482,7 @@ class Pydra2AppImage:
                     value_serializer=serializer,
                     filter=filter,
                 )
-            elif isinstance(value, DataSpace):
+            elif isinstance(value, Axes):
                 if hasattr(self, "command") and self.command.DATA_SPACE:
                     value = str(value)
                 else:

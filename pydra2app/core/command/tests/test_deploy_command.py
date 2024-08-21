@@ -13,8 +13,8 @@ from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 from fileformats.core.hook import converter
 from frametree.core.set import Dataset
-from frametree.common import DirTree
-from frametree.testing import TestDataSpace
+from frametree.common import FileSystem
+from frametree.testing import TestAxes
 from pydra2app.core.command.base import ContainerCommand
 from frametree.core.exceptions import FrameTreeDataMatchError
 
@@ -52,7 +52,7 @@ def encoded_text_converter():
 
 
 def test_command_execute(concatenate_task, saved_dataset, work_dir):
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
@@ -125,7 +125,7 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
 
 
 def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
@@ -194,7 +194,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
     # from 0 to 4
     filenumbers = list(range(5))
     bp = TestDatasetBlueprint(
-        space=TestDataSpace,
+        space=TestAxes,
         hierarchy=[
             "abcd"
         ],  # e.g. XNAT where session ID is unique in project but final layer is organised by timepoint
@@ -205,7 +205,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
         ],
     )
     dataset_path = work_dir / "numbered_dataset"
-    dataset = bp.make_dataset(DirTree(), dataset_path)
+    dataset = bp.make_dataset(FileSystem(), dataset_path)
     dataset.save()
 
     def get_dataset_filenumbers():
@@ -252,7 +252,7 @@ def test_command_execute_with_converter_args(
     "qualifiers", e.g. 'converter.shift=3' using the pydra2app-run-pipeline CLI
     tool (as used in the XNAT CS commands)
     """
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
@@ -325,7 +325,7 @@ def test_command_execute_with_converter_args(
     reason="'>' operator isn't supported by shell-command task any more (it perhaps should be)"
 )
 def test_shell_command_execute(saved_dataset, work_dir):
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 

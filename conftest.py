@@ -8,7 +8,7 @@ from tempfile import mkdtemp
 from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
-from frametree.core.store import DataStore
+from frametree.core.store import Store
 from fileformats.text import Plain as PlainText
 from pydra2app.testing.tasks import (
     concatenate,
@@ -22,8 +22,8 @@ from frametree.testing.blueprint import (
     TEST_DATASET_BLUEPRINTS,
     GOOD_DATASETS,
 )
-from frametree.testing import TestDataSpace, MockRemote, AlternateMockRemote
-from frametree.common import DirTree
+from frametree.testing import TestAxes, MockRemote, AlternateMockRemote
+from frametree.common import FileSystem
 
 # from pydra import set_input_validator
 
@@ -128,7 +128,7 @@ def pydra_task(request):
 # Pytest fixtures and helper functions
 # ------------------------------------
 
-DATA_STORES = ["dirtree", "mock_remote"]
+DATA_STORES = ["file_system", "mock_remote"]
 
 
 @pytest.fixture
@@ -140,9 +140,9 @@ def frametree_home(work_dir):
 
 @pytest.fixture(params=DATA_STORES)
 def data_store(work_dir: Path, frametree_home: Path, request):
-    store: DataStore
-    if request.param == "dirtree":
-        store = DirTree()
+    store: Store
+    if request.param == "file_system":
+        store = FileSystem()
     elif request.param.endswith("mock_remote"):
         cache_dir = work_dir / "mock-remote-store" / "cache"
         cache_dir.mkdir(parents=True)
@@ -191,7 +191,7 @@ def dataset(work_dir, data_store, request):
     dataset_name = request.param
     blueprint = TEST_DATASET_BLUEPRINTS[dataset_name]
     dataset_path = work_dir / dataset_name
-    dataset_id = dataset_path if isinstance(data_store, DirTree) else dataset_name
+    dataset_id = dataset_path if isinstance(data_store, FileSystem) else dataset_name
     dataset = blueprint.make_dataset(data_store, dataset_id)
     yield dataset
     # shutil.rmtree(dataset.id)
@@ -203,7 +203,7 @@ def simple_dataset_blueprint():
         hierarchy=[
             "abcd"
         ],  # e.g. XNAT where session ID is unique in project but final layer is organised by timepoint
-        space=TestDataSpace,
+        space=TestAxes,
         dim_lengths=[1, 1, 1, 1],
         entries=[
             FileBP(path="file1", datatype=PlainText, filenames=["file1.txt"]),
@@ -214,7 +214,7 @@ def simple_dataset_blueprint():
 
 @pytest.fixture
 def saved_dataset(data_store, simple_dataset_blueprint, work_dir):
-    if isinstance(data_store, DirTree):
+    if isinstance(data_store, FileSystem):
         dataset_id = work_dir / "saved-dataset"
     else:
         dataset_id = "saved_dataset"

@@ -192,7 +192,7 @@ class Pydra2AppBadlyFormattedIDError(Pydra2AppDataTreeConstructionError):
     "Error attempting to extract an ID from a tree path using a user provided regex"
 
 
-class Pydra2AppWrongDataSpaceError(Pydra2AppError):
+class Pydra2AppWrongAxesError(Pydra2AppError):
     "Provided row_frequency is not a valid member of the dataset's dimensions"
 
 

@@ -20,8 +20,8 @@ from frametree.core.serialize import (
 from frametree.core.utils import show_workflow_errors
 from frametree.core.row import DataRow
 from frametree.core.set.base import Dataset
-from frametree.core.store import DataStore
-from frametree.core.space import DataSpace
+from frametree.core.store import Store
+from frametree.core.axes import Axes
 from pydra2app.core.exceptions import Pydra2AppUsageError
 from .components import CommandInput, CommandOutput, CommandParameter
 from pydra2app.core import PACKAGE_NAME
@@ -43,7 +43,7 @@ class ContainerCommand:
     ----------
     task : pydra.engine.task.TaskBase or str
         the task to run or the location of the class
-    row_frequency: DataSpace, optional
+    row_frequency: Axes, optional
         the frequency that the command operates on
     inputs: ty.List[CommandInput]
         inputs of the command
@@ -57,7 +57,7 @@ class ContainerCommand:
         back-reference to the image the command is installed in
     """
 
-    STORE_TYPE = "dirtree"
+    STORE_TYPE = "file_system"
     DATA_SPACE = None
 
     task: pydra.engine.task.TaskBase = attrs.field(
@@ -65,7 +65,7 @@ class ContainerCommand:
             TaskBase, alternative_types=[ty.Callable], package=PACKAGE_NAME
         )
     )
-    row_frequency: ty.Optional[DataSpace] = None
+    row_frequency: ty.Optional[Axes] = None
     inputs: ty.List[CommandInput] = attrs.field(
         factory=list,
         converter=ObjectListConverter(CommandInput),
@@ -87,11 +87,11 @@ class ContainerCommand:
     image: ty.Optional[App] = None
 
     def __attrs_post_init__(self):
-        if isinstance(self.row_frequency, DataSpace):
+        if isinstance(self.row_frequency, Axes):
             pass
         elif isinstance(self.row_frequency, str):
             try:
-                self.row_frequency = DataSpace.fromstr(self.row_frequency)
+                self.row_frequency = Axes.fromstr(self.row_frequency)
             except ValueError:
                 if self.DATA_SPACE:
                     self.row_frequency = self.DATA_SPACE[self.row_frequency]
@@ -489,7 +489,7 @@ class ContainerCommand:
             if dataset_name is not None:
                 name = dataset_name
 
-            store = DataStore.load(store_name, cache_dir=cache_dir)
+            store = Store.load(store_name, cache_dir=cache_dir)
 
             if dataset_hierarchy is None:
                 hierarchy = self.data_space.default().span()

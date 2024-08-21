@@ -16,7 +16,7 @@ from frametree.core.serialize import (
     ObjectListConverter,
     ClassResolver,
 )
-from frametree.core.space import DataSpace
+from frametree.core.axes import Axes
 from pydra2app.core.utils import is_relative_to
 from ..command.base import ContainerCommand
 from .base import Pydra2AppImage
@@ -198,7 +198,7 @@ class App(Pydra2AppImage):
         root_dir: ty.Optional[Path] = None,
         license_paths: ty.Dict[str, Path] = None,
         licenses_to_download: set[str] = None,
-        default_data_space: ty.Type[DataSpace] = None,
+        default_data_space: ty.Type[Axes] = None,
         source_packages: ty.Sequence[Path] = (),
         **kwargs,
     ) -> "Self":
@@ -220,7 +220,7 @@ class App(Pydra2AppImage):
             None (i.e. how to access required licenses are to be specified) then required
             licenses that are not in license_paths need to be explicitly listed in
             `licenses_to_download` otherwise an error is raised
-        default_data_space : type[DataSpace]
+        default_data_space : type[Axes]
             the default data space to assume when one isn't explicitly defined
         source_packages : Sequence[Path]
             Paths to source packages to include in the image, will be used to determine
