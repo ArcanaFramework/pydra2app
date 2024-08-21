@@ -1,5 +1,5 @@
 from pydra2app.core.image import App
-from frametree.core.set import Dataset
+from frametree.core.grid import Grid
 from frametree.common import FileSystem, Samples
 
 
@@ -56,7 +56,7 @@ def get_pipeline_image(license_path, app_cls=App) -> App:
     )
 
 
-def make_dataset(dataset_dir) -> Dataset:
+def make_dataset(dataset_dir) -> Grid:
 
     contents_dir = dataset_dir / "sample1"
     contents_dir.mkdir(parents=True)
@@ -64,7 +64,7 @@ def make_dataset(dataset_dir) -> Dataset:
     with open(contents_dir / (LICENSE_INPUT_PATH + ".txt"), "w") as f:
         f.write(LICENSE_CONTENTS)
 
-    dataset = FileSystem().define_dataset(dataset_dir, space=Samples)
+    dataset = FileSystem().define_grid(dataset_dir, space=Samples)
     dataset.save()
     return dataset
 

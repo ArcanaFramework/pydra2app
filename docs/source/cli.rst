@@ -28,7 +28,7 @@ Commands used to access remove data stores and save them for further use
    :prog: pydra2app store ls
 
 
-Dataset
+Grid
 -------
 
 Commands used to define and work with datasets

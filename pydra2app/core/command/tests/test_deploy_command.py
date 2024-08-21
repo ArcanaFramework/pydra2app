@@ -12,7 +12,7 @@ import pydra.mark
 from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 from fileformats.core.hook import converter
-from frametree.core.set import Dataset
+from frametree.core.grid import Grid
 from frametree.common import FileSystem
 from frametree.testing import TestAxes
 from pydra2app.core.command.base import ContainerCommand
@@ -58,7 +58,7 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
 
     command_spec = ContainerCommand(
         task="pydra2app.testing.tasks:" + concatenate_task.__name__,
-        row_frequency=bp.space.default(),
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source1",
@@ -131,7 +131,7 @@ def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
 
     command_spec = ContainerCommand(
         task="pydra2app.testing.tasks:" + concatenate_task.__name__,
-        row_frequency=bp.space.default(),
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source1",
@@ -216,7 +216,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
 
     command_spec = ContainerCommand(
         task="pydra2app.testing.tasks:plus_10_to_filenumbers",
-        row_frequency=bp.space.default(),
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "a_row",
@@ -246,7 +246,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
 
 
 def test_command_execute_with_converter_args(
-    saved_dataset: Dataset, work_dir: Path, encoded_text_converter
+    saved_dataset: Grid, work_dir: Path, encoded_text_converter
 ):
     """Test passing arguments to file format converter tasks via input/output
     "qualifiers", e.g. 'converter.shift=3' using the pydra2app-run-pipeline CLI
@@ -258,7 +258,7 @@ def test_command_execute_with_converter_args(
     # Add source to loaded dataset
     command_spec = ContainerCommand(
         task="pydra2app.testing.tasks:identity_file",
-        row_frequency=bp.space.default(),
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source",
@@ -331,7 +331,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
 
     command_spec = ContainerCommand(
         task="shell",
-        row_frequency=bp.space.default(),
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source1",

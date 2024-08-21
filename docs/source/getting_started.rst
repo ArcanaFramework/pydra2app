@@ -108,12 +108,12 @@ Alternatively, the same steps can be performed using the Python API:
 
     # Import pydra2app module
     from pydra.tasks.fsl.preprocess.bet import BET
-    from pydra2app.core.data import Dataset
+    from pydra2app.core.data import Grid
     from pydra2app.medimage.data import Clinical
     from fileformats.medimage.data import Dicom, NiftiGz
 
     # Define dataset
-    my_dataset = Dataset.load('/data/my-dataset', space=Clinical,
+    my_dataset = Grid.load('/data/my-dataset', space=Clinical,
                               hierarchy=['subject', 'session'])
 
     # Add source column to select a single T1-weighted image in each session subdirectory

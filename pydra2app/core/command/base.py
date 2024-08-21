@@ -19,7 +19,7 @@ from frametree.core.serialize import (
 )
 from frametree.core.utils import show_workflow_errors
 from frametree.core.row import DataRow
-from frametree.core.set.base import Dataset
+from frametree.core.grid.base import Grid
 from frametree.core.store import Store
 from frametree.core.axes import Axes
 from pydra2app.core.exceptions import Pydra2AppUsageError
@@ -168,7 +168,7 @@ class ContainerCommand:
 
         Parameters
         ----------
-        dataset : Dataset
+        dataset : Grid
             dataset ID str (<store-nickname>//<dataset-id>:<dataset-name>)
         input_values : dict[str, str]
             values passed to the inputs of the command
@@ -215,7 +215,7 @@ class ContainerCommand:
         store_cache_dir = work_dir / "store-cache"
         pipeline_cache_dir = work_dir / "pydra"
 
-        dataset = self.load_dataset(
+        dataset = self.load_grid(
             dataset_locator, store_cache_dir, dataset_hierarchy, dataset_name
         )
 
@@ -455,7 +455,7 @@ class ContainerCommand:
             path = user_input
         return path, qualifiers
 
-    def load_dataset(
+    def load_grid(
         self,
         dataset_locator: str,
         cache_dir: Path,
@@ -481,10 +481,10 @@ class ContainerCommand:
             _description_
         """
         try:
-            dataset = Dataset.load(dataset_locator)
+            dataset = Grid.load(dataset_locator)
         except KeyError:
 
-            store_name, id, name = Dataset.parse_id_str(dataset_locator)
+            store_name, id, name = Grid.parse_id_str(dataset_locator)
 
             if dataset_name is not None:
                 name = dataset_name
@@ -497,11 +497,11 @@ class ContainerCommand:
                 hierarchy = dataset_hierarchy.split(",")
 
             try:
-                dataset = store.load_dataset(
+                dataset = store.load_grid(
                     id, name
                 )  # FIXME: Does this need to be here or this covered by L253??
             except KeyError:
-                dataset = store.define_dataset(
+                dataset = store.define_grid(
                     id, hierarchy=hierarchy, space=self.data_space
                 )
         return dataset

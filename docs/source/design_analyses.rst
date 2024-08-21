@@ -58,7 +58,7 @@ in the ``desc`` keyword arg.
             desc="A summary metric extracted from the derived image",
             row_frequency='dataset')
 
-The column spec descriptions will be shown to the user when they use the :meth:`.Dataset.menu()`
+The column spec descriptions will be shown to the user when they use the :meth:`.Grid.menu()`
 or ``pydra2app menu`` CLI command. The row row_frequency of the column (e.g. per-session,
 per-subject, per-group, once per-dataset etc..., see :ref:`data_spaces` and
 :ref:`data_columns`) is specified by the ``row_frequency``

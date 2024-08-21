@@ -68,7 +68,7 @@ def parameterisation(func):
                 type=str,
                 default=None,
                 help=(
-                    "The name of the dataset. Will be created if not present. Dataset names "
+                    "The name of the dataset. Will be created if not present. Grid names "
                     "are used to separate different analyses performed on the same data "
                     "into different namespaces"
                 ),

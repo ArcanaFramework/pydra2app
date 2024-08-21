@@ -312,7 +312,7 @@ commands to add columns to a dataset using the CLI.
       medimage/nifti-gz --row-frequency group
 
 
-Alternatively, the :meth:`.Dataset.add_source` and :meth:`.Dataset.add_sink`
+Alternatively, the :meth:`.Grid.add_source` and :meth:`.Grid.add_sink`
 methods can be used directly to add sources and sinks via the Python API.
 
 .. code-block:: python
@@ -335,16 +335,16 @@ methods can be used directly to add sources and sinks via the Python API.
         row_frequency='group'
     )
 
-To access the data in the columns once they are defined use the ``Dataset[]``
+To access the data in the columns once they are defined use the ``Grid[]``
 operator
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
-    from pydra2app.core.set import Dataset
+    from pydra2app.core.grid import Grid
 
     # Get a column containing all T1-weighted MRI images across the dataset
-    xnat_dataset = Dataset.load('xnat-central//MYXNATPROJECT')
+    xnat_dataset = Grid.load('xnat-central//MYXNATPROJECT')
     t1w = xnat_dataset['T1w']
 
     # Plot a slice of the image data from a Subject sub01's imaging session

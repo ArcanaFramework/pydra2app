@@ -691,8 +691,8 @@ def changelog(manifest_json):
 
 #     for install_loc in install_locations:
 #         if "//" in install_loc:
-#             dataset = Dataset.load(install_loc)
-#             store_name, _, _ = Dataset.parse_id_str(install_loc)
+#             dataset = Grid.load(install_loc)
+#             store_name, _, _ = Grid.parse_id_str(install_loc)
 #             msg = f"for '{dataset.name}' dataset on {store_name} store"
 #         else:
 #             store = Store.load(install_loc)
