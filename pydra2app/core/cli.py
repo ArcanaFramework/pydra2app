@@ -19,23 +19,23 @@ from frametree.core.serialize import (
     ClassResolver,
 )
 from frametree.core.packaging import submodules
-import pydra2app
-from pydra2app.core import __version__
-from pydra2app.core.image import Metapackage, App
-from pydra2app.core.exceptions import Pydra2AppBuildError
-from pydra2app.core.utils import extract_file_from_docker_image, DOCKER_HUB
-from pydra2app.core.command import entrypoint_opts
-from pydra2app.core import PACKAGE_NAME
+import pipeline2app
+from pipeline2app.core import __version__
+from pipeline2app.core.image import Metapackage, App
+from pipeline2app.core.exceptions import Pydra2AppBuildError
+from pipeline2app.core.utils import extract_file_from_docker_image, DOCKER_HUB
+from pipeline2app.core.command import entrypoint_opts
+from pipeline2app.core import PACKAGE_NAME
 
 
-logger = logging.getLogger("pydra2app")
+logger = logging.getLogger("pipeline2app")
 
 
 # Define the base CLI entrypoint
 @click.group()
 @click.version_option(version=__version__)
 def cli():
-    """Base command line group, installed as "pydra2app"."""
+    """Base command line group, installed as "pipeline2app"."""
 
 
 @cli.command(
@@ -43,9 +43,9 @@ def cli():
     help="""Construct and build a docker image containing a pipeline to be run on data
 stored in a data repository or structure (e.g. XNAT Container Service Pipeline or BIDS App)
 
-TARGET is the type of image to build. For standard images just the pydra2app
+TARGET is the type of image to build. For standard images just the pipeline2app
 sub-package is required (e.g. 'xnat' or 'common'). However, specific App subclasses can
-be specified using <module-path>:<app-class-name> format, e.g. pydra2app.xnat:XnatApp
+be specified using <module-path>:<app-class-name> format, e.g. pipeline2app.xnat:XnatApp
 
 SPEC_PATH is the file system path to the specification to build, or directory
 containing multiple specifications
@@ -659,7 +659,7 @@ def changelog(manifest_json):
 # SOURCE_FILE path to the license file to upload
 
 # INSTALL_LOCATIONS a list of installation locations, which are either the "nickname" of a
-# store (as saved by `pydra2app store add`) or the ID of a dataset in form
+# store (as saved by `pipeline2app store add`) or the ID of a dataset in form
 # <store-nickname>//<dataset-id>[@<dataset-name>], where the dataset ID
 # is either the location of the root directory (for file-system based stores) or the
 # project ID for managed data repositories.
@@ -997,7 +997,7 @@ def bootstrap(
 
 # Ensure that all sub-packages under CLI are loaded so they are added to the
 # base command
-extensions = list(submodules(pydra2app, subpkg="cli"))
+extensions = list(submodules(pipeline2app, subpkg="cli"))
 
 
 if __name__ == "__main__":

@@ -22,16 +22,16 @@ from frametree.core.row import DataRow
 from frametree.core.frameset.base import FrameSet
 from frametree.core.store import Store
 from frametree.core.axes import Axes
-from pydra2app.core.exceptions import Pydra2AppUsageError
+from pipeline2app.core.exceptions import Pydra2AppUsageError
 from .components import CommandInput, CommandOutput, CommandParameter
-from pydra2app.core import PACKAGE_NAME
+from pipeline2app.core import PACKAGE_NAME
 
 
 if ty.TYPE_CHECKING:
     from ..image import App
 
 
-logger = logging.getLogger("pydra2app")
+logger = logging.getLogger("pipeline2app")
 
 
 @attrs.define(kw_only=True)

@@ -58,8 +58,8 @@ Outputs do not show up in the XNAT dialog and are specified by a 3-tuple:
 .. .. code-block:: python
 
 ..     import json
-..     from pydra2app.xnat.deploy import XnatCommand
-..     from pydra2app.medimage.data import Clinical
+..     from pipeline2app.xnat.deploy import XnatCommand
+..     from pipeline2app.medimage.data import Clinical
 ..     from fileformats.medimage.data import NiftiGz
 
 ..     xnat_command = XnatCommand(
@@ -110,7 +110,7 @@ Dockerfiles for pipeline images are created using Neurodocker_
 and can therefore work with any Debian/Ubuntu or Red-Hat based images
 (ensuring that the value for ``base_image>package_manager`` is set to the correct value,
 i.e.  ``"apt"`` for Debian based or ``"yum"`` for Red-Hat based). Arcana installs
-itself into the Docker image within an Anaconda_ environment named "pydra2app". Therefore,
+itself into the Docker image within an Anaconda_ environment named "pipeline2app". Therefore,
 it shouldn't conflict with packages on existing Docker images for third-party
 pipelines.
 
@@ -168,14 +168,14 @@ the full configuration required to build an XNAT docker image looks like
             output_biasfield: true
             bias_lowpass: 5.0
         row_frequency: session
-    pydra2app_spec_version: 1.0
+    pipeline2app_spec_version: 1.0
 
 
 The CLI command to build the image from the YAML_ configuration is
 
 .. code-block:: console
 
-    $ pydra2app deploy make-app xnat:XnatApp 'your-pipeline-config.yml'
+    $ pipeline2app deploy make-app xnat:XnatApp 'your-pipeline-config.yml'
     Successfully built "FSL" image with ["fast"] commands
 
 To build a suite of pipelines from a series of YAML_ files stored in a directory tree
@@ -184,7 +184,7 @@ and attempt to build any YAML_ files it finds, e.g.
 
 .. code-block:: console
 
-    $ pydra2app deploy make-app xnat:XnatApp 'config-root-dir'
+    $ pipeline2app deploy make-app xnat:XnatApp 'config-root-dir'
     ./config-root-dir/mri/neuro/fsl.yml: FSL [fast]
     ./config-root-dir/mri/neuro/mrtrix3.yml: MRtrix3 [dwi2fod, dwi2tensor, tckgen]
     ./config-root-dir/mri/neuro/freesurfer.yml: Freesurfer [recon-all]
@@ -250,13 +250,13 @@ file and the data directory containing the test data, e.g.
 
 .. code-block:: console
 
-    $ pydra2app deploy test ./fast.yml ./fast-data
+    $ pipeline2app deploy test ./fast.yml ./fast-data
     Pipeline test 'test1' ran successfully and outputs matched saved
     Pipeline test 'test2' ran successfully and outputs matched saved
 
 To run tests over a suite of image configurations in a directory containing a
 number of YAML_ configuration files (i.e. same as building) simply provide the
-directory to ``pydra2app deploy test`` instead of the path to the YAML_ config
+directory to ``pipeline2app deploy test`` instead of the path to the YAML_ config
 file and supply a directory tree containing the test data, with matching
 sub-directory structure to the configuration dir. For example, given the following
 directory structure for the configuration files
@@ -310,7 +310,7 @@ a suite of image/command configurations is.
 
 .. code-block:: console
 
-    $ pydra2app deploy test ./mri ./mri-data --output test-results.json
+    $ pipeline2app deploy test ./mri ./mri-data --output test-results.json
     ...E..F..
 
 While not strictly necessary, it is strongly advised to store test data alongside
@@ -331,7 +331,7 @@ pipeline configuration YAML_ files (see :ref:`Building`) using
 
 .. code-block:: console
 
-    $ pydra2app deploy docs <path-to-yaml-or-directory> <docs-output-dir>
+    $ pipeline2app deploy docs <path-to-yaml-or-directory> <docs-output-dir>
 
 Generated HTML documents will be placed in the output dir, with pipelines
 organised hierarchically to match the structure of the source directory.

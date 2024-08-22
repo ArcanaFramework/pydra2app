@@ -27,7 +27,7 @@ remote repository, but also how the data are accessed, e.g. whether to assume th
 they are in BIDS format, or whether files in an XNAT archive mount can be
 accessed directly (i.e. as exposed to the container service), or only via the API.
 
-There are currently four supported store classes in the main, `pydra2app-bids` and `pydra2app-xnat`
+There are currently four supported store classes in the main, `pipeline2app-bids` and `pipeline2app-xnat`
 packages
 
 * :class:`.FileSystem` - access data organised within an arbitrary directory tree on the file system
@@ -37,30 +37,30 @@ packages
 
 For instructions on how to add support for new systems see :ref:`alternative_stores`.
 
-To configure access to a store via the CLI use the ':ref:`pydra2app store add`' command.
+To configure access to a store via the CLI use the ':ref:`pipeline2app store add`' command.
 The store type is specified by the path to the data store sub-class,
-*<module-path>:<class-name>*,  e.g. ``pydra2app.xnat:Xnat``.
-However, if the store is in a submodule of ``pydra2app`` then that
+*<module-path>:<class-name>*,  e.g. ``pipeline2app.xnat:Xnat``.
+However, if the store is in a submodule of ``pipeline2app`` then that
 prefix can be dropped for convenience, e.g. ``xnat:Xnat``.
 
 .. code-block:: console
 
-    $ pydra2app store add xnat-central xnat:Xnat https://central.xnat.org \
+    $ pipeline2app store add xnat-central xnat:Xnat https://central.xnat.org \
       --user user123 --cache /work/xnat-cache
     Password:
 
 This command will create a YAML configuration file for the store in the
-`~/.pydra2app/stores/` directory. Authentication tokens are saved in the config
+`~/.pipeline2app/stores/` directory. Authentication tokens are saved in the config
 file instead of usernames and passwords, and will need to be
-refreshed when they expire (see ':ref:`pydra2app store refresh`').
+refreshed when they expire (see ':ref:`pipeline2app store refresh`').
 
 The CLI also contains commands for working with store entries that have already
 been created
 
-* :ref:`pydra2app store ls` - list saved stores
-* :ref:`pydra2app store rename` - rename a store
-* :ref:`pydra2app store remove` - remove a store
-* :ref:`pydra2app store refresh` - refreshes authentication tokens saved for the store
+* :ref:`pipeline2app store ls` - list saved stores
+* :ref:`pipeline2app store rename` - rename a store
+* :ref:`pipeline2app store remove` - remove a store
+* :ref:`pipeline2app store refresh` - refreshes authentication tokens saved for the store
 
 Alternatively, data stores can be configured via the Python API by initialising the
 data store classes directly.
@@ -68,7 +68,7 @@ data store classes directly.
 .. code-block:: python
 
     import os
-    from pydra2app.xnat import Xnat
+    from pipeline2app.xnat import Xnat
 
     # Initialise the data store object
     xnat_store = Xnat(
@@ -78,7 +78,7 @@ data store classes directly.
         cache_dir='/work/xnat-cache'
     )
 
-    # Save it to the configuration file stored at '~/.pydra2app/stores.yaml' with
+    # Save it to the configuration file stored at '~/.pipeline2app/stores.yaml' with
     # the nickname 'xnat-central'
     xnat_store.save('xnat-central')
 
@@ -183,7 +183,7 @@ the subject level of the tree sit in special *SUBJECT* branches
 
 
 In the CLI, datasets are referred to by ``<store-nickname>//<dataset-id>[@<dataset-name>]``,
-where *<store-name>* is the nickname of the store as saved by ':ref:`pydra2app store add`'
+where *<store-name>* is the nickname of the store as saved by ':ref:`pipeline2app store add`'
 (see :ref:`Stores`), and *<dataset-id>* is
 
 * the file-system path to the data directory for file-system (and BIDS) stores
@@ -212,7 +212,7 @@ Entries
 -----
 
 Atomic entries within a dataset contain either file-based data or text/numeric fields.
-In Arcana, these data items are represented using `fileformats <https://pydra2appframework.github.io/fileformats/>`__
+In Arcana, these data items are represented using `fileformats <https://pipeline2appframework.github.io/fileformats/>`__
 classes, :class:`.FileSet`, (i.e. single files, files + header/side-cars or directories)
 and :class:`.Field` (e.g. integer, decimal, text, boolean, or arrays thereof), respectively.
 
@@ -299,16 +299,16 @@ Each column is assigned a name when it is created, which is used when
 connecting pipeline inputs and outputs to the dataset and accessing the data directly.
 The column name is used as the default value for the path of sink columns.
 
-Use the ':ref:`pydra2app dataset add-source`' and ':ref:`pydra2app dataset add-sink`'
+Use the ':ref:`pipeline2app dataset add-source`' and ':ref:`pipeline2app dataset add-sink`'
 commands to add columns to a dataset using the CLI.
 
 .. code-block:: console
 
-    $ pydra2app dataset add-source 'xnat-central//MYXNATPROJECT' T1w \
+    $ pipeline2app dataset add-source 'xnat-central//MYXNATPROJECT' T1w \
       medimage/dicom-series --path '.*t1_mprage.*' \
       --order 1 --quality usable --regex
 
-    $ pydra2app dataset add-sink '/data/imaging/my-project' fmri_activation_map \
+    $ pipeline2app dataset add-sink '/data/imaging/my-project' fmri_activation_map \
       medimage/nifti-gz --row-frequency group
 
 
@@ -317,7 +317,7 @@ methods can be used directly to add sources and sinks via the Python API.
 
 .. code-block:: python
 
-    from pydra2app.common import Clinical
+    from pipeline2app.common import Clinical
     from fileformats.medimage import DicomSeries, NiftiGz
 
     xnat_dataset.add_source(
@@ -341,7 +341,7 @@ operator
 .. code-block:: python
 
     import matplotlib.pyplot as plt
-    from pydra2app.core.frameset import FrameSet
+    from pipeline2app.core.frameset import FrameSet
 
     # Get a column containing all T1-weighted MRI images across the dataset
     xnat_dataset = FrameSet.load('xnat-central//MYXNATPROJECT')
@@ -360,7 +360,7 @@ initialised.
 
 .. code-block:: python
 
-    from pydra2app.bids import Bids
+    from pipeline2app.bids import Bids
 
     bids_dataset = Bids().dataset(
         id='/data/openneuro/ds00014')
@@ -553,13 +553,13 @@ For stores that support datasets with arbitrary tree structures
 (i.e. :class:`.FileSystem`), the "data space" and the hierarchy of layers
 in the data tree needs to be provided. Data spaces are explained in more
 detail in :ref:`data_spaces`. However, for the majority of datasets in the
-medical imaging field, the :class:`pydra2app.medimage.data.Clinical` space is
+medical imaging field, the :class:`pipeline2app.medimage.data.Clinical` space is
 appropriate.
 
 .. code-block:: python
 
-    from pydra2app.file_system import FileSystem
-    from pydra2app.common import Clinical
+    from pipeline2app.file_system import FileSystem
+    from pipeline2app.common import Clinical
 
     fs_dataset = FileSystem().dataset(
         id='/data/imaging/my-project',
@@ -606,7 +606,7 @@ the IDs to be inferred, e.g.
 
 .. code-block:: console
 
-    $ pydra2app dataset define 'xnat-central//MYXNATPROJECT' \
+    $ pipeline2app dataset define 'xnat-central//MYXNATPROJECT' \
       --id-inference subject '(?P<group>[A-Z]+)_(?P<member>\d+)' \
       --id-inference session '[A-Z0-9]+_MR(?P<visit>\d+)'
 
@@ -638,7 +638,7 @@ a dataset.
 
 .. code-block:: console
 
-    $ pydra2app dataset define '/data/imaging/my-project@manually_qcd' \
+    $ pipeline2app dataset define '/data/imaging/my-project@manually_qcd' \
       common:Clinical subject session \
       --exclude member 03,11,27
 
@@ -650,7 +650,7 @@ frequencies.
 
 .. code-block:: console
 
-    $ pydra2app dataset define '/data/imaging/my-project@manually_qcd' \
+    $ pipeline2app dataset define '/data/imaging/my-project@manually_qcd' \
       common:Clinical subject session \
       --exclude member 03,11,27 \
       --include visit 1,2
@@ -665,11 +665,11 @@ CLI, append the name to the dataset's ID string separated by '::', e.g.
 
 .. code-block:: console
 
-    $ pydra2app dataset define '/data/imaging/my-project@training' \
+    $ pipeline2app dataset define '/data/imaging/my-project@training' \
       common:Clinical group subject \
       --include member 10:20
 
 
-.. _Arcana: https://pydra2app.readthedocs.io
+.. _Arcana: https://pipeline2app.readthedocs.io
 .. _XNAT: https://xnat.org
 .. _BIDS: https://bids.neuroimaging.io

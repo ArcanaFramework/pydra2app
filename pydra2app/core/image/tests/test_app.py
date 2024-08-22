@@ -1,8 +1,8 @@
 import os
 import docker
 from frametree.common import FileSystem, Samples
-from pydra2app.core.image import App
-from pydra2app.core import __version__, PACKAGE_NAME
+from pipeline2app.core.image import App
+from pipeline2app.core import __version__, PACKAGE_NAME
 
 
 def test_native_python_install(tmp_path):
@@ -54,7 +54,7 @@ def test_native_python_install(tmp_path):
             "row_frequency": "common:Samples[sample]",
             "configuration": {
                 "executable": [
-                    "pydra2app",
+                    "pipeline2app",
                     "--version",
                 ]
             },
@@ -62,7 +62,7 @@ def test_native_python_install(tmp_path):
         "version": {"package": "1.0", "build": "1"},
         "packages": {
             "system": ["vim"],  # just to test it out
-            "pip": {"pydra2app": None, "frametree": None},  # just to test out the
+            "pip": {"pipeline2app": None, "frametree": None},  # just to test out the
         },
         "base_image": {
             "name": "python",

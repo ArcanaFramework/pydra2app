@@ -1,4 +1,4 @@
-from pydra2app.core.image import App
+from pipeline2app.core.image import App
 from frametree.core.frameset import FrameSet
 from frametree.common import FileSystem, Samples
 
@@ -25,7 +25,7 @@ def get_pipeline_image(license_path, app_cls=App) -> App:
             }
         },
         command={
-            "task": "pydra2app.testing.tasks:check_license",
+            "task": "pipeline2app.testing.tasks:check_license",
             "row_frequency": "common:Samples[sample]",
             "inputs": [
                 {
@@ -69,7 +69,7 @@ def make_dataset(dataset_dir) -> FrameSet:
     return dataset
 
 
-ORG = "pydra2app-tests"
+ORG = "pipeline2app-tests"
 REGISTRY = "a.docker.registry.io"
 IMAGE_VERSION = "1.0"
 

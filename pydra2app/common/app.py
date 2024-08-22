@@ -1,1 +1,1 @@
-from pydra2app.core.image.app import App  # noqa
+from pipeline2app.core.image.app import App  # noqa

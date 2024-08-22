@@ -1,4 +1,4 @@
-from pydra2app.common.tasks import shell
+from pipeline2app.common.tasks import shell
 from fileformats.generic import Directory
 
 

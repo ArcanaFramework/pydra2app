@@ -1,6 +1,6 @@
 from ._version import __version__
 
-PACKAGE_NAME = "pydra2app"
+PACKAGE_NAME = "pipeline2app"
 CODE_URL = f"https://github.com/ArcanaFramework/{PACKAGE_NAME}"
 
 

@@ -3,8 +3,8 @@ from pathlib import Path
 import docker
 import docker.errors
 from frametree.core.utils import show_cli_trace
-from pydra2app.core.cli import make
-from pydra2app.testing.licenses import (
+from pipeline2app.core.cli import make
+from pipeline2app.testing.licenses import (
     get_pipeline_image,
     make_dataset,
     ORG,

@@ -5,7 +5,7 @@ New formats and spaces
 
 Arcana was initially developed for medical-imaging analysis. Therefore, with
 the notable exceptions of the generic data spaces and file-formats defined in
-:mod:`pydra2app.core.standard`, the
+:mod:`pipeline2app.core.standard`, the
 majority of file-formats and data spaces are specific to medical imaging.
 However, new formats and data spaces used in other fields can be implemented as
 required with just a few lines of code.
@@ -84,7 +84,7 @@ axes for the date and weather station of the recordings, with the following code
 
 .. code-block:: python
 
-    from pydra2app.core.data.space import Axes
+    from pipeline2app.core.data.space import Axes
 
     class Weather(Axes):
 
@@ -101,4 +101,4 @@ axes for the date and weather station of the recordings, with the following code
     All permutations of *N*-D binary strings need to be named within the enum.
 
 .. _Pydra: http://pydra.readthedocs.io
-.. _FileFormats: https://pydra2appframework.github.io/fileformats
+.. _FileFormats: https://pipeline2appframework.github.io/fileformats

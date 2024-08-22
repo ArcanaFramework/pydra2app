@@ -6,7 +6,7 @@ from pydra import ShellCommandTask
 from pydra.engine.specs import SpecInfo, ShellSpec, ShellOutSpec
 from frametree.core.serialize import ClassResolver, ObjectListConverter
 from fileformats.core import FileSet, DataType, Field
-from pydra2app.core import PACKAGE_NAME
+from pipeline2app.core import PACKAGE_NAME
 
 
 @attrs.define(kw_only=True)

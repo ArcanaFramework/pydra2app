@@ -15,7 +15,7 @@ from fileformats.core.hook import converter
 from frametree.core.frameset import FrameSet
 from frametree.common import FileSystem
 from frametree.testing import TestAxes
-from pydra2app.core.command.base import ContainerCommand
+from pipeline2app.core.command.base import ContainerCommand
 from frametree.core.exceptions import FrameTreeDataMatchError
 
 
@@ -57,7 +57,7 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
     duplicates = 1
 
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:" + concatenate_task.__name__,
+        task="pipeline2app.testing.tasks:" + concatenate_task.__name__,
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -130,7 +130,7 @@ def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
     duplicates = 1
 
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:" + concatenate_task.__name__,
+        task="pipeline2app.testing.tasks:" + concatenate_task.__name__,
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -215,7 +215,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
     assert get_dataset_filenumbers() == filenumbers
 
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:plus_10_to_filenumbers",
+        task="pipeline2app.testing.tasks:plus_10_to_filenumbers",
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -249,7 +249,7 @@ def test_command_execute_with_converter_args(
     saved_dataset: FrameSet, work_dir: Path, encoded_text_converter
 ):
     """Test passing arguments to file format converter tasks via input/output
-    "qualifiers", e.g. 'converter.shift=3' using the pydra2app-run-pipeline CLI
+    "qualifiers", e.g. 'converter.shift=3' using the pipeline2app-run-pipeline CLI
     tool (as used in the XNAT CS commands)
     """
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
@@ -257,7 +257,7 @@ def test_command_execute_with_converter_args(
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:identity_file",
+        task="pipeline2app.testing.tasks:identity_file",
         row_frequency=bp.axes.default(),
         inputs=[
             {
