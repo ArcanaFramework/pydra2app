@@ -73,7 +73,7 @@ workflow inputs/outputs and the columns they are connected to, a datatype conver
 task will be inserted into the pipeline if converter method between the two
 formats exists (see :ref:`file_formats`).
 
-To add a workflow to a dataset via the API use the :meth:`FrameSet.apply_pipeline` method
+To add a workflow to a dataset via the API use the :meth:`FrameSet.apply` method
 
 .. code-block:: python
 

@@ -123,7 +123,7 @@ Alternatively, the same steps can be performed using the Python API:
     my_dataset.add_sink('brain_mask', 'derivs/brain_mask', datatype=NiftiGz)
 
     # Apply BET Pydra task, connecting it between the source and sink
-    my_dataset.apply_pipeline(
+    my_dataset.apply(
         BET(name='brain_extraction'),
         inputs=[('T1w', 'in_file', NiftiGz)],  # Specify required input format
         outputs=[('brain_mask', 'out_file')])  # Output datatype matches stored so can be omitted

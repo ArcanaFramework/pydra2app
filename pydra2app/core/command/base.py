@@ -358,7 +358,7 @@ class ContainerCommand:
                     "if this is intentional"
                 )
         else:
-            pipeline = dataset.apply_pipeline(
+            pipeline = dataset.apply(
                 pipeline_name,
                 task,
                 inputs=self.inputs,
