@@ -582,7 +582,7 @@ def make_docs(spec_path, output, registry, flatten, loglevel, default_axes, spec
             spec_path,
             registry=registry,
             root_dir=spec_root,
-            default_data_axes=default_axes,
+            default_axes=default_axes,
         )
 
     for image_spec in image_specs:
