@@ -554,12 +554,9 @@ The generated documentation will be saved to OUTPUT.
 @click.option("--flatten/--no-flatten", default=False)
 @click.option("--loglevel", default="warning", help="The level to display logs at")
 @click.option(
-    "--default-data-space",
+    "--default-axes",
     default=None,
-    help=(
-        "The default data space to assume if it isn't explicitly stated in "
-        "the command"
-    ),
+    help=("The default axes to assume if it isn't explicitly stated in the command"),
 )
 @click.option(
     "--spec-root",
