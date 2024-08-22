@@ -483,7 +483,7 @@ class Pydra2AppImage:
                     filter=filter,
                 )
             elif isinstance(value, Axes):
-                if hasattr(self, "command") and self.command.DATA_SPACE:
+                if hasattr(self, "command") and self.command.AXES:
                     value = str(value)
                 else:
                     value = value.tostr()

@@ -198,7 +198,7 @@ class App(Pydra2AppImage):
         root_dir: ty.Optional[Path] = None,
         license_paths: ty.Dict[str, Path] = None,
         licenses_to_download: set[str] = None,
-        default_data_space: ty.Type[Axes] = None,
+        default_axes: ty.Type[Axes] = None,
         source_packages: ty.Sequence[Path] = (),
         **kwargs,
     ) -> "Self":
@@ -220,7 +220,7 @@ class App(Pydra2AppImage):
             None (i.e. how to access required licenses are to be specified) then required
             licenses that are not in license_paths need to be explicitly listed in
             `licenses_to_download` otherwise an error is raised
-        default_data_space : type[Axes]
+        default_axes : type[Axes]
             the default data space to assume when one isn't explicitly defined
         source_packages : Sequence[Path]
             Paths to source packages to include in the image, will be used to determine
@@ -262,12 +262,9 @@ class App(Pydra2AppImage):
         # Override/augment loaded values from spec
         yml_dict.update(kwargs)
 
-        # If data-space is not defined, default to `default_data_space`
-        if (
-            re.match(r"\w+", yml_dict["command"]["row_frequency"])
-            and default_data_space
-        ):
-            yml_dict["command"]["row_frequency"] = default_data_space[
+        # If data-space is not defined, default to `default_axes`
+        if re.match(r"\w+", yml_dict["command"]["row_frequency"]) and default_axes:
+            yml_dict["command"]["row_frequency"] = default_axes[
                 yml_dict["command"]["row_frequency"]
             ]
 

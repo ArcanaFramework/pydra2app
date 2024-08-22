@@ -17,7 +17,7 @@ a reference implementation please see :class:`pydra2app.file_system.data.SimpleS
 
 .. autoclass:: pydra2app.core.store.Store
     :noindex:
-    :members: find_rows, find_cells, get_file_group_paths, download_value, put_file_group_paths, upload_value, save_dataset_definition, load_dataset_definition
+    :members: find_rows, find_cells, get_file_group_paths, download_value, put_file_group_paths, upload_value, save_dataset_definition, load_frameset_definition
 
 Optional methods
 ----------------

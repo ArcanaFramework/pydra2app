@@ -16,7 +16,7 @@ def test_native_python_install(tmp_path):
     sample_file = sample_dir / "sample.txt"
     sample_file.write_text("sample")
 
-    dataset = FileSystem().define_grid(dataset_dir, space=Samples)
+    dataset = FileSystem().define_frameset(dataset_dir, axes=Samples)
     dataset.save()
 
     test_spec = {
@@ -99,7 +99,7 @@ def test_native_python_install(tmp_path):
             + e.stderr.decode("utf-8")
         )
 
-    dataset = FileSystem().load_grid(dataset_dir)
+    dataset = FileSystem().load_frameset(dataset_dir)
 
     def strip_ver_timestamp(ver_str):
         parts = str(ver_str).split("+")

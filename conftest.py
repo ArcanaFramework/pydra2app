@@ -202,8 +202,8 @@ def simple_dataset_blueprint():
     return TestDatasetBlueprint(
         hierarchy=[
             "abcd"
-        ],  # e.g. XNAT where session ID is unique in project but final layer is organised by timepoint
-        space=TestAxes,
+        ],  # e.g. XNAT where session ID is unique in project but final layer is organised by visit
+        axes=TestAxes,
         dim_lengths=[1, 1, 1, 1],
         entries=[
             FileBP(path="file1", datatype=PlainText, filenames=["file1.txt"]),

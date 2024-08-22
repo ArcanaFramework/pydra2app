@@ -567,9 +567,7 @@ The generated documentation will be saved to OUTPUT.
     default=None,
     help=("The root path to consider the specs to be relative to, defaults to CWD"),
 )
-def make_docs(
-    spec_path, output, registry, flatten, loglevel, default_data_space, spec_root
-):
+def make_docs(spec_path, output, registry, flatten, loglevel, default_axes, spec_root):
     # # FIXME: Workaround for click 7.x, which improperly handles path_type
     # if type(spec_path) is bytes:
     #     spec_path = Path(spec_path.decode("utf-8"))
@@ -580,14 +578,14 @@ def make_docs(
 
     output.mkdir(parents=True, exist_ok=True)
 
-    default_data_space = ClassResolver.fromstr(default_data_space)
+    default_axes = ClassResolver.fromstr(default_axes)
 
     with ClassResolver.FALLBACK_TO_STR:
         image_specs = App.load_tree(
             spec_path,
             registry=registry,
             root_dir=spec_root,
-            default_data_space=default_data_space,
+            default_data_axes=default_axes,
         )
 
     for image_spec in image_specs:
@@ -691,8 +689,8 @@ def changelog(manifest_json):
 
 #     for install_loc in install_locations:
 #         if "//" in install_loc:
-#             dataset = Grid.load(install_loc)
-#             store_name, _, _ = Grid.parse_id_str(install_loc)
+#             dataset = FrameSet.load(install_loc)
+#             store_name, _, _ = FrameSet.parse_id_str(install_loc)
 #             msg = f"for '{dataset.name}' dataset on {store_name} store"
 #         else:
 #             store = Store.load(install_loc)
@@ -714,27 +712,27 @@ def changelog(manifest_json):
 in a single command. To be used within the command configuration of an XNAT
 Container Service ready Docker image.
 
-DATASET_LOCATOR string containing the nickname of the data store, the ID of the
+ADDRESS string containing the nickname of the data store, the ID of the
 dataset (e.g. XNAT project ID or file-system directory) and the dataset's name
 in the format <store-nickname>//<dataset-id>[@<dataset-name>]
 
 """,
 )
-@click.argument("dataset_locator")
+@click.argument("address")
 @entrypoint_opts.data_columns
 @entrypoint_opts.parameterisation
 @entrypoint_opts.execution
 @entrypoint_opts.dataset_config
 @entrypoint_opts.debugging
 def pipeline_entrypoint(
-    dataset_locator,
+    address,
     spec_path,
     **kwargs,
 ):
     image_spec = App.load(spec_path)
 
     image_spec.command.execute(
-        dataset_locator,
+        address,
         **kwargs,
     )
 

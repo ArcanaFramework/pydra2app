@@ -108,12 +108,12 @@ Alternatively, the same steps can be performed using the Python API:
 
     # Import pydra2app module
     from pydra.tasks.fsl.preprocess.bet import BET
-    from pydra2app.core.data import Grid
+    from pydra2app.core.data import FrameSet
     from pydra2app.medimage.data import Clinical
     from fileformats.medimage.data import Dicom, NiftiGz
 
     # Define dataset
-    my_dataset = Grid.load('/data/my-dataset', space=Clinical,
+    my_dataset = FrameSet.load('/data/my-dataset', space=Clinical,
                               hierarchy=['subject', 'session'])
 
     # Add source column to select a single T1-weighted image in each session subdirectory
@@ -161,7 +161,7 @@ Timepoint 'T3' can be plotted.
     # the T1wAnalysis class
     my_dataset['avg_cortical_thickness'].derive()
 
-    # Get all members at the 'T3' timepoint. Indexing of a column can either
+    # Get all members at the 'T3' visit. Indexing of a column can either
     # be a single arg in order to use the IDs for the row_frequency of the column
     # ('session') in this case, or the rank of the data space
     plt.histogram(my_dataset['avg_cortical_thickness']['T3', None, :])

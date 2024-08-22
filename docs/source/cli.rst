@@ -28,8 +28,8 @@ Commands used to access remove data stores and save them for further use
    :prog: pydra2app store ls
 
 
-Grid
--------
+FrameSet
+--------
 
 Commands used to define and work with datasets
 
@@ -46,23 +46,13 @@ Commands used to define and work with datasets
    :prog: pydra2app dataset missing-items
 
 
-Apply
------
+Processing
+----------
 
-Commands for applying workflows and analyses to datasets
+Commands for configuring tasks/workflows to derive artefacts from the dataset
 
-.. click:: pydra2app.core.cli.apply:apply_pipeline
+.. click:: pydra2app.core.cli.apply:apply
    :prog: pydra2app apply pipeline
-
-
-.. click:: pydra2app.core.cli.apply:apply_analysis
-   :prog: pydra2app apply analysis
-
-
-Derive
--------
-
-Commands for calling workflows/analyses to derive derivative data
 
 .. click:: pydra2app.core.cli.derive:derive_column
    :prog: pydra2app derive column

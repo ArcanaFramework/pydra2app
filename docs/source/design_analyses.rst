@@ -58,7 +58,7 @@ in the ``desc`` keyword arg.
             desc="A summary metric extracted from the derived image",
             row_frequency='dataset')
 
-The column spec descriptions will be shown to the user when they use the :meth:`.Grid.menu()`
+The column spec descriptions will be shown to the user when they use the :meth:`.FrameSet.menu()`
 or ``pydra2app menu`` CLI command. The row row_frequency of the column (e.g. per-session,
 per-subject, per-group, once per-dataset etc..., see :ref:`data_spaces` and
 :ref:`data_columns`) is specified by the ``row_frequency``
@@ -177,7 +177,7 @@ files can be accessed as attributes of the primary ``LazyField``, e.g.
             return wf.extract_tr.lzout.out, wf.extract_st.lzout.out
 
 The "row_frequency" (see :ref:`data_spaces` and :ref:`data_columns`) of a pipeline,
-(whether it is run per-session, per-subject, per-timepoint, etc... for example)
+(whether it is run per-session, per-subject, per-visit, etc... for example)
 is determined by the row_frequency of its output columns. Therefore, all columns
 derived from a single pipeline need to have the same row row_frequency. If the
 row_frequency of an input column provided to the builder method is higher than that
