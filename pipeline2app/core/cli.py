@@ -648,61 +648,6 @@ def changelog(manifest_json):
         )
 
 
-# @cli.command(
-#     name="install-license",
-#     help="""Installs a license within a store (i.e. site-wide) or dataset (project-specific)
-# for use in a deployment pipeline
-
-# LICENSE_NAME the name of the license to upload. Must match the name of the license specified
-# in the deployment specification
-
-# SOURCE_FILE path to the license file to upload
-
-# INSTALL_LOCATIONS a list of installation locations, which are either the "nickname" of a
-# store (as saved by `pipeline2app store add`) or the ID of a dataset in form
-# <store-nickname>//<dataset-id>[@<dataset-name>], where the dataset ID
-# is either the location of the root directory (for file-system based stores) or the
-# project ID for managed data repositories.
-# """,
-# )
-# @click.argument("license_name")
-# @click.argument("source_file", type=click.Path(exists=True, path_type=Path))
-# @click.argument("install_locations", nargs=-1)
-# @click.option(
-#     "--logfile",
-#     default=None,
-#     type=click.Path(path_type=Path),
-#     help="Log output to file instead of stdout",
-# )
-# @click.option("--loglevel", default="info", help="The level to display logs at")
-# def install_license(install_locations, license_name, source_file, logfile, loglevel):
-#     logging.basicConfig(filename=logfile, level=getattr(logging, loglevel.upper()))
-
-#     if isinstance(source_file, bytes):  # FIXME: This shouldn't be necessary
-#         source_file = Path(source_file.decode("utf-8"))
-
-#     if not install_locations:
-#         install_locations = ["file_system"]
-
-#     for install_loc in install_locations:
-#         if "//" in install_loc:
-#             dataset = FrameSet.load(install_loc)
-#             store_name, _, _ = FrameSet.parse_id_str(install_loc)
-#             msg = f"for '{dataset.name}' dataset on {store_name} store"
-#         else:
-#             store = Store.load(install_loc)
-#             dataset = store.site_licenses_dataset()
-#             if dataset is None:
-#                 raise ValueError(
-#                     f"{install_loc} store doesn't support the installation of site-wide "
-#                     "licenses, please specify a dataset to install it for"
-#                 )
-#             msg = f"site-wide on {install_loc} store"
-
-#         dataset.install_license(license_name, source_file)
-#         logger.info("Successfully installed '%s' license %s", license_name, msg)
-
-
 @cli.command(
     name="pipeline-entrypoint",
     help="""Loads/creates a dataset, then applies and launches a pipeline

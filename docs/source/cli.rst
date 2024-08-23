@@ -1,86 +1,30 @@
 Command-line interface
 ======================
 
-Arcana's command line interface is grouped into five categories, `store`,
-`dataset`, `apply`, `derive`, and `deploy`. Below these categories are the
-commands that interact with Arcana's data model, processing and deployment
-streams.
+Pipeline2Apps's command line interface consists of a number of sub-commands under the
+`pipeline2app` command. To save on keystrokes the main command is also aliased to `p2a`.
 
 
-Store
------
+.. click:: pipeline2app.core.cli:bootstrap
+   :prog: pipeline2app bootstrap
 
-Commands used to access remove data stores and save them for further use
+.. click:: pipeline2app.core.cli:make
+   :prog: pipeline2app make
 
-.. click:: pipeline2app.core.cli.store:add
-   :prog: pipeline2app store add
+.. click:: pipeline2app.core.cli:make_docs
+   :prog: pipeline2app make-docs
 
-.. click:: pipeline2app.core.cli.store:rename
-   :prog: pipeline2app store rename
+.. click:: pipeline2app.core.cli:list_images
+   :prog: pipeline2app list-images
 
-.. click:: pipeline2app.core.cli.store:remove
-   :prog: pipeline2app store remove
+.. click:: pipeline2app.core.cli:inspect_docker_exec
+   :prog: pipeline2app inspect-docker-exec
 
-.. click:: pipeline2app.core.cli.store:refresh
-   :prog: pipeline2app store refresh
+.. click:: pipeline2app.core.cli:required_packages
+   :prog: pipeline2app required-packages
 
-.. click:: pipeline2app.core.cli.store:ls
-   :prog: pipeline2app store ls
+.. click:: pipeline2app.core.cli:changelog
+   :prog: pipeline2app changelog
 
-
-FrameSet
---------
-
-Commands used to define and work with datasets
-
-.. click:: pipeline2app.core.cli.dataset:define
-   :prog: pipeline2app dataset define
-
-.. click:: pipeline2app.core.cli.dataset:add_source
-   :prog: pipeline2app dataset add-source
-
-.. click:: pipeline2app.core.cli.dataset:add_sink
-   :prog: pipeline2app dataset add-sink
-
-.. click:: pipeline2app.core.cli.dataset:missing_items
-   :prog: pipeline2app dataset missing-items
-
-
-Processing
-----------
-
-Commands for configuring tasks/workflows to derive artefacts from the dataset
-
-.. click:: pipeline2app.core.cli.apply:apply
-   :prog: pipeline2app apply pipeline
-
-.. click:: pipeline2app.core.cli.derive:derive_column
-   :prog: pipeline2app derive column
-
-.. click:: pipeline2app.core.cli.derive:derive_output
-   :prog: pipeline2app derive output
-
-.. click:: pipeline2app.core.cli.derive:menu
-   :prog: pipeline2app derive menu
-
-.. click:: pipeline2app.core.cli.derive:ignore_diff
-   :prog: pipeline2app derive ignore-diff
-
-
-Deploy
-------
-
-Commands for deploying pipeline2app pipelines
-
-
-.. click:: pipeline2app.core.cli.deploy:build
-   :prog: pipeline2app deploy build
-
-.. click:: pipeline2app.core.cli.deploy:test
-   :prog: pipeline2app deploy test
-
-.. click:: pipeline2app.core.cli.deploy:make_docs
-   :prog: pipeline2app deploy docs
-
-.. click:: pipeline2app.core.cli.deploy:inspect_docker_exec
-   :prog: pipeline2app deploy inspect-docker
+.. click:: pipeline2app.core.cli:pipeline_entrypoint
+   :prog: pipeline2app pipeline-entrypoint
