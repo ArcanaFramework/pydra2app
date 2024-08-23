@@ -27,17 +27,6 @@ It can be used to maintain continuous integration and deployment of pipeline sui
    CLI <cli.rst>
 
 
-|
-
-.. note::
-   For the legacy version of Arcana as described in
-   *Close TG, et. al. Neuroinformatics. 2020 18(1):109-129. doi:* `10.1007/s12021-019-09430-1 <https://doi.org/10.1007/s12021-019-09430-1>`_
-   please see `<https://github.com/MonashBI/pipeline2app-legacy>`_.
-   Conceptually, the legacy version and the versions in this repository (version >= 2.0) are similar.
-   However, instead of Nipype, versions >= 2 use the Pydra_ workflow engine (Nipype's successor)
-   and the syntax has been rewritten from scratch to make it more streamlined and intuitive.
-
-
 .. _Pydra: http://pydra.readthedocs.io
 .. _XNAT: http://xnat.org
 .. _BIDS: http://bids.neuroimaging.io/
