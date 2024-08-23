@@ -21,9 +21,9 @@ import datetime
 package_path = op.abspath(op.join(op.dirname(op.abspath(__file__)), "..", ".."))
 
 sys.path.insert(0, package_path)
-from pydra2app.core import __version__, __authors__  # noqa
+from pipeline2app.core import __version__, __authors__  # noqa
 
-# from pydra2app import *
+# from pipeline2app import *
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -252,7 +252,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "pydra2app.tex", "Arcana Documentation", author, "manual"),
+    (master_doc, "pipeline2app.tex", "Arcana Documentation", author, "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -280,7 +280,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "pydra2app", "Arcana Documentation", [author], 1)]
+man_pages = [(master_doc, "pipeline2app", "Arcana Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False

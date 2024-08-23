@@ -9,14 +9,14 @@ from pathlib import Path
 import attrs
 import pytest
 import docker
-from pydra2app.core.image import App
-from pydra2app.core.cli import (
+from pipeline2app.core.image import App
+from pipeline2app.core.cli import (
     make,
     make_docs,
     bootstrap,
 )
 from frametree.core.utils import show_cli_trace
-from pydra2app.core.exceptions import Pydra2AppBuildError
+from pipeline2app.core.exceptions import Pydra2AppBuildError
 
 
 # @pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")

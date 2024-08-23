@@ -19,23 +19,23 @@ from frametree.core.serialize import (
     ClassResolver,
 )
 from frametree.core.packaging import submodules
-import pydra2app
-from pydra2app.core import __version__
-from pydra2app.core.image import Metapackage, App
-from pydra2app.core.exceptions import Pydra2AppBuildError
-from pydra2app.core.utils import extract_file_from_docker_image, DOCKER_HUB
-from pydra2app.core.command import entrypoint_opts
-from pydra2app.core import PACKAGE_NAME
+import pipeline2app
+from pipeline2app.core import __version__
+from pipeline2app.core.image import Metapackage, App
+from pipeline2app.core.exceptions import Pydra2AppBuildError
+from pipeline2app.core.utils import extract_file_from_docker_image, DOCKER_HUB
+from pipeline2app.core.command import entrypoint_opts
+from pipeline2app.core import PACKAGE_NAME
 
 
-logger = logging.getLogger("pydra2app")
+logger = logging.getLogger("pipeline2app")
 
 
 # Define the base CLI entrypoint
 @click.group()
 @click.version_option(version=__version__)
 def cli():
-    """Base command line group, installed as "pydra2app"."""
+    """Base command line group, installed as "pipeline2app"."""
 
 
 @cli.command(
@@ -43,9 +43,9 @@ def cli():
     help="""Construct and build a docker image containing a pipeline to be run on data
 stored in a data repository or structure (e.g. XNAT Container Service Pipeline or BIDS App)
 
-TARGET is the type of image to build. For standard images just the pydra2app
+TARGET is the type of image to build. For standard images just the pipeline2app
 sub-package is required (e.g. 'xnat' or 'common'). However, specific App subclasses can
-be specified using <module-path>:<app-class-name> format, e.g. pydra2app.xnat:XnatApp
+be specified using <module-path>:<app-class-name> format, e.g. pipeline2app.xnat:XnatApp
 
 SPEC_PATH is the file system path to the specification to build, or directory
 containing multiple specifications
@@ -554,12 +554,9 @@ The generated documentation will be saved to OUTPUT.
 @click.option("--flatten/--no-flatten", default=False)
 @click.option("--loglevel", default="warning", help="The level to display logs at")
 @click.option(
-    "--default-data-space",
+    "--default-axes",
     default=None,
-    help=(
-        "The default data space to assume if it isn't explicitly stated in "
-        "the command"
-    ),
+    help=("The default axes to assume if it isn't explicitly stated in the command"),
 )
 @click.option(
     "--spec-root",
@@ -567,9 +564,7 @@ The generated documentation will be saved to OUTPUT.
     default=None,
     help=("The root path to consider the specs to be relative to, defaults to CWD"),
 )
-def make_docs(
-    spec_path, output, registry, flatten, loglevel, default_data_space, spec_root
-):
+def make_docs(spec_path, output, registry, flatten, loglevel, default_axes, spec_root):
     # # FIXME: Workaround for click 7.x, which improperly handles path_type
     # if type(spec_path) is bytes:
     #     spec_path = Path(spec_path.decode("utf-8"))
@@ -580,14 +575,14 @@ def make_docs(
 
     output.mkdir(parents=True, exist_ok=True)
 
-    default_data_space = ClassResolver.fromstr(default_data_space)
+    default_axes = ClassResolver.fromstr(default_axes)
 
     with ClassResolver.FALLBACK_TO_STR:
         image_specs = App.load_tree(
             spec_path,
             registry=registry,
             root_dir=spec_root,
-            default_data_space=default_data_space,
+            default_axes=default_axes,
         )
 
     for image_spec in image_specs:
@@ -664,7 +659,7 @@ def changelog(manifest_json):
 # SOURCE_FILE path to the license file to upload
 
 # INSTALL_LOCATIONS a list of installation locations, which are either the "nickname" of a
-# store (as saved by `pydra2app store add`) or the ID of a dataset in form
+# store (as saved by `pipeline2app store add`) or the ID of a dataset in form
 # <store-nickname>//<dataset-id>[@<dataset-name>], where the dataset ID
 # is either the location of the root directory (for file-system based stores) or the
 # project ID for managed data repositories.
@@ -687,15 +682,15 @@ def changelog(manifest_json):
 #         source_file = Path(source_file.decode("utf-8"))
 
 #     if not install_locations:
-#         install_locations = ["dirtree"]
+#         install_locations = ["file_system"]
 
 #     for install_loc in install_locations:
 #         if "//" in install_loc:
-#             dataset = Dataset.load(install_loc)
-#             store_name, _, _ = Dataset.parse_id_str(install_loc)
+#             dataset = FrameSet.load(install_loc)
+#             store_name, _, _ = FrameSet.parse_id_str(install_loc)
 #             msg = f"for '{dataset.name}' dataset on {store_name} store"
 #         else:
-#             store = DataStore.load(install_loc)
+#             store = Store.load(install_loc)
 #             dataset = store.site_licenses_dataset()
 #             if dataset is None:
 #                 raise ValueError(
@@ -714,27 +709,27 @@ def changelog(manifest_json):
 in a single command. To be used within the command configuration of an XNAT
 Container Service ready Docker image.
 
-DATASET_LOCATOR string containing the nickname of the data store, the ID of the
+ADDRESS string containing the nickname of the data store, the ID of the
 dataset (e.g. XNAT project ID or file-system directory) and the dataset's name
 in the format <store-nickname>//<dataset-id>[@<dataset-name>]
 
 """,
 )
-@click.argument("dataset_locator")
+@click.argument("address")
 @entrypoint_opts.data_columns
 @entrypoint_opts.parameterisation
 @entrypoint_opts.execution
 @entrypoint_opts.dataset_config
 @entrypoint_opts.debugging
 def pipeline_entrypoint(
-    dataset_locator,
+    address,
     spec_path,
     **kwargs,
 ):
     image_spec = App.load(spec_path)
 
     image_spec.command.execute(
-        dataset_locator,
+        address,
         **kwargs,
     )
 
@@ -1002,7 +997,7 @@ def bootstrap(
 
 # Ensure that all sub-packages under CLI are loaded so they are added to the
 # base command
-extensions = list(submodules(pydra2app, subpkg="cli"))
+extensions = list(submodules(pipeline2app, subpkg="cli"))
 
 
 if __name__ == "__main__":

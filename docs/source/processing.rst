@@ -51,16 +51,16 @@ to appropriate columns in the dataset (``T1w``, ``T2w`` and
 
 .. code-block:: console
 
-    $ pydra2app dataset add-source 'myuni-xnat//myproject:training' T1w \
+    $ pipeline2app dataset add-source 'myuni-xnat//myproject:training' T1w \
       medimage/dicom --path '.*mprage.*' --regex
 
-    $ pydra2app dataset add-source 'myuni-xnat//myproject:training' T2w \
+    $ pipeline2app dataset add-source 'myuni-xnat//myproject:training' T2w \
       medimage/dicom --path '.*t2spc.*' --regex
 
-    $ pydra2app dataset add-sink 'myuni-xnat//myproject:training' freesurfer/recon-all \
+    $ pipeline2app dataset add-sink 'myuni-xnat//myproject:training' freesurfer/recon-all \
       application/zip
 
-    $ pydra2app apply pipeline 'myuni-xnat//myproject:training' freesurfer \
+    $ pipeline2app apply pipeline 'myuni-xnat//myproject:training' freesurfer \
       pydra.tasks.freesurfer:Freesurfer \
       --input T1w in_file medimage/niftiGz \
       --input T2w peel medimage/niftiGz \
@@ -73,14 +73,14 @@ workflow inputs/outputs and the columns they are connected to, a datatype conver
 task will be inserted into the pipeline if converter method between the two
 formats exists (see :ref:`file_formats`).
 
-To add a workflow to a dataset via the API use the :meth:`Dataset.apply_pipeline` method
+To add a workflow to a dataset via the API use the :meth:`FrameSet.apply` method
 
 .. code-block:: python
 
     from pydra.tasks.freesurfer import Freesurfer
-    from pydra2app.data.types import common, medimage
+    from pipeline2app.data.types import common, medimage
 
-    dataset = Dataset.load('myuni-xnat//myproject:training')
+    dataset = FrameSet.load('myuni-xnat//myproject:training')
 
     dataset.add_source('T1w', datatype=medimage.Dicom, path='.*mprage.*',
                        is_regex=True)
@@ -106,7 +106,7 @@ can all add the sources and sinks in one step
 
 .. code-block:: console
 
-    $ pydra2app apply pipeline '/data/enigma/alzheimers:test' segmentation \
+    $ pipeline2app apply pipeline '/data/enigma/alzheimers:test' segmentation \
       pydra.tasks.fsl.preprocess.fast:FAST \
       --source T1w in_file medimage:NiftiGz \
       --sink fast/gm gm medimage:NiftiGz \
@@ -116,7 +116,7 @@ can all add the sources and sinks in one step
 By default, pipelines will iterate all "leaf rows" of the data tree (e.g. ``session``
 for datasets in the :class:`.Clinical` space). However, pipelines can be run
 at any row row_frequency of the dataset (see :ref:`data_spaces`), e.g. per subject,
-per timepoint, or on the dataset as a whole (to create single templates/statistics).
+per visit, or on the dataset as a whole (to create single templates/statistics).
 
 Pipeline outputs must be connected to sinks of the same row row_frequency. However,
 inputs can be drawn from columns of any row row_frequency. In this case,
@@ -131,10 +131,10 @@ back to the dataset.
 .. code-block:: python
 
     from myworkflows import vbm_template
-    from pydra2app.data.types import common, medimage
-    from pydra2app.medimage.data import Clinical
+    from pipeline2app.data.types import common, medimage
+    from pipeline2app.medimage.data import Clinical
 
-    dataset = Dataset.load('bids///data/openneuro/ds00014')
+    dataset = FrameSet.load('bids///data/openneuro/ds00014')
 
     # Add sink column with "dataset" row row_frequency
     dataset.add_sink(
@@ -175,12 +175,12 @@ three column placeholders, ``preprocessed``, ``derived_image`` and
 one of the two implemented pipeline builder methods ``preprocess_pipeline``
 (*Line 26*) and ``create_image_pipeline`` (*Line 56*).
 
-The :func:`pydra2app.core.mark.analysis` decorator is used to specify an
+The :func:`pipeline2app.core.mark.analysis` decorator is used to specify an
 analysis class (*Line 6*), taking the dataset space that the class operates on
 as an argument. By default, class attributes are assumed to be
-column placeholders of :func:`pydra2app.core.mark.column` type (*Line 13-17*).
+column placeholders of :func:`pipeline2app.core.mark.column` type (*Line 13-17*).
 Class attributes can also be free parameters of the analysis by using the
-:func:`pydra2app.core.mark.parameter` instead (*Line 21*).
+:func:`pipeline2app.core.mark.parameter` instead (*Line 21*).
 
 The :func:`arca.acore.mark.pipeline` decorator specifies pipeline builder
 methods, and takes the columns the pipeline outputs are connected to as arguments
@@ -192,14 +192,14 @@ methods, and takes the columns the pipeline outputs are connected to as argument
 
     import pydra
     from some.example.pydra.tasks import Preprocess, ExtractFromJson, MakeImage
-    from pydra2app.core.mark import analysis, pipeline, parameter
-    from pydra2app.example.data import ExampleDataSpace
+    from pipeline2app.core.mark import analysis, pipeline, parameter
+    from pipeline2app.example.data import ExampleAxes
     from fileformats.application import Zip
     from fileformats.generic import Directory
     from fileformats.application import Json
     from fileformats.image import Png, Gif
 
-    @analysis(ExampleDataSpace)
+    @analysis(ExampleAxes)
     class ExampleAnalysis():
 
         # Define the columns for the dataset along with their formats.
@@ -273,23 +273,23 @@ column specs in the class with existing columns in the dataset.
 
 .. code-block:: console
 
-  $ pydra2app apply analysis '/data/a-dataset' example:ExampleAnalysis \
+  $ pipeline2app apply analysis '/data/a-dataset' example:ExampleAnalysis \
     --column recorded_datafile datafile \
     --column recorded_metadata metadata \
     --parameter contrast 0.75
 
-Analyses are applied to datasets using the Python API with the :meth:`.Dataset.apply`
-method. :meth:`.Dataset.apply` takes an :class:`.Analysis` object that is instantiated
+Analyses are applied to datasets using the Python API with the :meth:`.FrameSet.apply`
+method. :meth:`.FrameSet.apply` takes an :class:`.Analysis` object that is instantiated
 with the names of columns in the dataset to link placeholders to and any
 parameters.
 
 .. code-block:: python
 
-  from pydra2app.core.data.set import Dataset
+  from pipeline2app.core.frameset import FrameSet
   from fileformats.application import Yaml
-  from pydra2app.examples import ExampleAnalysis
+  from pipeline2app.examples import ExampleAnalysis
 
-  a_dataset = Dataset.load('/data/a-dataset')
+  a_dataset = FrameSet.load('/data/a-dataset')
 
   dataset.add_source(
       name='datafile',
@@ -313,7 +313,7 @@ Generating derivatives
 ----------------------
 
 After workflows and/or analysis classes have been connected to a dataset, derivatives can be
-generated using :meth:`.Dataset.derive` or alternatively :meth:`.DataColumn.derive`
+generated using :meth:`.FrameSet.derive` or alternatively :meth:`.DataColumn.derive`
 for single columns. These methods check the data store to see whether the
 source data is present and executes the pipelines over all rows of the dataset
 with available source data. If pipeline inputs are sink columns to be derived
@@ -324,13 +324,13 @@ To generate derivatives via the CLI
 
 .. code-block:: console
 
-  $ pydra2app derive column 'myuni-xnat//myproject:training' freesurfer/recon-all
+  $ pipeline2app derive column 'myuni-xnat//myproject:training' freesurfer/recon-all
 
 To generate derivatives via the API
 
 .. code-block:: python
 
-  dataset = Dataset.load('/data/openneuro/ds00014:test')
+  dataset = FrameSet.load('/data/openneuro/ds00014:test')
 
   dataset.derive('fast/gm', cache_dir='/work/temp-dir')
 
@@ -345,7 +345,7 @@ options to it with ``pydra_option``.
 
 .. code-block:: console
 
-  $ pydra2app derive column 'myuni-xnat//myproject:training' freesurfer/recon-all \
+  $ pipeline2app derive column 'myuni-xnat//myproject:training' freesurfer/recon-all \
     --plugin slurm --pydra-option poll_delay 5 --pydra-option max_jobs 10
 
 
@@ -354,7 +354,7 @@ have been applied you can use the ``menu`` command
 
 .. code-block:: console
 
-  $ pydra2app derive menu '/data/a-dataset'
+  $ pipeline2app derive menu '/data/a-dataset'
 
   Derivatives
   -----------
@@ -381,7 +381,7 @@ salience >= 'qa' and 'recommended', respectively.
 
 .. code-block:: console
 
-  $ pydra2app derive menu '/data/another-dataset' --columns qa --parameters recommended
+  $ pipeline2app derive menu '/data/another-dataset' --columns qa --parameters recommended
 
 The ``salience_threshold`` argument can also be used to filter out derivatives
 from the data store when applying an analysis to a dataset. This
@@ -392,7 +392,7 @@ remaining only in local cache.
 
 .. code-block:: console
 
-  $ pydra2app apply analysis 'my-unis-xnat//MYPROJECT:test' example:ExampleAnalysis \
+  $ pipeline2app apply analysis 'my-unis-xnat//MYPROJECT:test' example:ExampleAnalysis \
     --link recorded_datafile datafile \
     --link recorded_metadata metadata \
     --parameter contrast 0.75 \
@@ -418,7 +418,7 @@ would look like
 
   {
     "store": {
-      "class": "<pydra2app.medimage.data.xnat.api:Xnat>",
+      "class": "<pipeline2app.medimage.data.xnat.api:Xnat>",
       "server": "https://central.xnat.org"
     },
     "dataset": {
@@ -514,7 +514,7 @@ would look like
           "processor": "intel9999",
           "python-packages": {
             "pydra-mrtrix3": "0.1.0",
-            "pydra2app-medimage": "0.1.0"
+            "pipeline2app-medimage": "0.1.0"
           }
         },
       },
@@ -528,7 +528,7 @@ are checked to see if there have been any alterations to the configuration of
 the pipelines that generated them. If so, any affected rows will not be
 processed, and a warning will be generated by default. To override this behaviour
 and reprocesse the derivatives, set the ``reprocess`` flag when calling
-:meth:`.Dataset.derive`
+:meth:`.FrameSet.derive`
 
 .. code-block:: python
 
@@ -538,10 +538,10 @@ or
 
 .. code-block:: console
 
-  $ pydra2app derive column 'myuni-xnat//myproject:training' freesurfer/recon-all  --reprocess
+  $ pipeline2app derive column 'myuni-xnat//myproject:training' freesurfer/recon-all  --reprocess
 
 
-To ignore differences between pipeline configurations you can use the :meth:`.Dataset.ignore`
+To ignore differences between pipeline configurations you can use the :meth:`.FrameSet.ignore`
 method
 
 .. code-block:: python
@@ -552,7 +552,7 @@ or via the CLI
 
 .. code-block:: console
 
-  $ pydra2app derive ignore-diff 'myuni-xnat//myproject:training' freesurfer --param freesurfer_task num_iterations 3
+  $ pipeline2app derive ignore-diff 'myuni-xnat//myproject:training' freesurfer --param freesurfer_task num_iterations 3
 
 
 

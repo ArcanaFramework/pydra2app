@@ -7,11 +7,11 @@ import logging
 from urllib.parse import urlparse
 import site
 import attrs
-from pydra2app.core import PACKAGE_NAME
-from pydra2app.core.exceptions import Pydra2AppBuildError
+from pipeline2app.core import PACKAGE_NAME
+from pipeline2app.core.exceptions import Pydra2AppBuildError
 from frametree.core.serialize import ObjectListConverter
 
-logger = logging.getLogger("pydra2app")
+logger = logging.getLogger("pipeline2app")
 
 
 @attrs.define(kw_only=True)
@@ -19,7 +19,7 @@ class BaseImage:
 
     DEFAULT_IMAGE = "ubuntu"
     DEFAULT_UBUNTU_TAG = "jammy"  # FIXME: Should revert to latest LTS "jammy"
-    DEFAULT_CONDA_ENV = "pydra2app"
+    DEFAULT_CONDA_ENV = "pipeline2app"
     DEFAULT_USER = "root"
 
     name: str = attrs.field(default=DEFAULT_IMAGE)
@@ -230,15 +230,15 @@ class PipPackage(BasePackage):
     extras: ty.List[str] = attrs.field(factory=list)
 
     @classmethod
-    def unique(cls, pip_specs: ty.Iterable, remove_pydra2app: bool = False):
+    def unique(cls, pip_specs: ty.Iterable, remove_pipeline2app: bool = False):
         """Merge a list of Pip install specs so each package only appears once
 
         Parameters
         ----------
         pip_specs : ty.Iterable[PipPackage]
             the pip specs to merge
-        remove_pydra2app : bool
-            remove pydra2app if present from the merged list
+        remove_pipeline2app : bool
+            remove pipeline2app if present from the merged list
 
         Returns
         -------
@@ -254,7 +254,7 @@ class PipPackage(BasePackage):
         for pip_spec in pip_specs:
             if isinstance(pip_spec, dict):
                 pip_spec = PipPackage(**pip_spec)
-            if pip_spec.name == PACKAGE_NAME and remove_pydra2app:
+            if pip_spec.name == PACKAGE_NAME and remove_pipeline2app:
                 continue
             try:
                 prev_spec = dct[pip_spec.name]
@@ -387,14 +387,14 @@ class NeurodockerTemplate:
 
 def python_package_converter(packages):
     """
-    Split out and merge any extras specifications (e.g. "pydra2app[test]")
+    Split out and merge any extras specifications (e.g. "pipeline2app[test]")
     between dependencies of the same package
     """
     return PipPackage.unique(
         ObjectListConverter(PipPackage)(
             packages,
         ),
-        remove_pydra2app=True,
+        remove_pipeline2app=True,
     )
 
 

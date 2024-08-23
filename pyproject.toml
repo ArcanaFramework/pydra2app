@@ -3,8 +3,8 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pydra2app"
-description = "Pydra2App: a tool for quickly turning Pydra tasks and workflows into containerised applications (e.g. BIDS Apps or XNAT pipelines)"
+name = "pipeline2app"
+description = "Pipeline2App: a tool for quickly turning pipelines into containerised applications (e.g. BIDS Apps or XNAT pipelines)"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -28,7 +28,7 @@ dependencies = [
 license = { file = "LICENSE" }
 authors = [{ name = "Thomas G. Close", email = "tom.g.close@gmail.com" }]
 maintainers = [{ name = "Thomas G. Close", email = "tom.g.close@gmail.com" }]
-keywords = ["pydra2app"]
+keywords = ["pipeline2app"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -64,21 +64,22 @@ test = [
 ]
 
 [project.urls]
-documentation = "https://pydra2app.readthedocs.io"
-homepage = "https://pydra2app.readthedocs.io"
-repository = "https://github.com/ArcanaFramework/pydra2app.git"
+documentation = "https://arcanaframework.github.io/pipeline2app"
+homepage = "https://arcanaframework.github.io/pipeline2app"
+repository = "https://github.com/ArcanaFramework/pipeline2app.git"
 
 [project.scripts]
-pydra2app = "pydra2app.core.cli:cli"
+pipeline2app = "pipeline2app.core.cli:cli"
+p2a = "pipeline2app.core.cli:cli"
 
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "pydra2app/core/_version.py"
+version-file = "pipeline2app/core/_version.py"
 
 [tool.hatch.build]
-packages = ["pydra2app"]
+packages = ["pipeline2app"]
 exclude = ["/tests"]
 
 [tool.black]

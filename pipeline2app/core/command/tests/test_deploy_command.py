@@ -12,10 +12,10 @@ import pydra.mark
 from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 from fileformats.core.hook import converter
-from frametree.core.set import Dataset
-from frametree.common import DirTree
-from frametree.testing import TestDataSpace
-from pydra2app.core.command.base import ContainerCommand
+from frametree.core.frameset import FrameSet
+from frametree.common import FileSystem
+from frametree.testing import TestAxes
+from pipeline2app.core.command.base import ContainerCommand
 from frametree.core.exceptions import FrameTreeDataMatchError
 
 
@@ -52,13 +52,13 @@ def encoded_text_converter():
 
 
 def test_command_execute(concatenate_task, saved_dataset, work_dir):
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:" + concatenate_task.__name__,
-        row_frequency=bp.space.default(),
+        task="pipeline2app.testing.tasks:" + concatenate_task.__name__,
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source1",
@@ -93,7 +93,7 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec.execute(
-        dataset_locator=saved_dataset.locator,
+        address=saved_dataset.locator,
         input_values=[
             ("source1", "file1"),
             ("source2", "file2"),
@@ -125,13 +125,13 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
 
 
 def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:" + concatenate_task.__name__,
-        row_frequency=bp.space.default(),
+        task="pipeline2app.testing.tasks:" + concatenate_task.__name__,
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source1",
@@ -168,7 +168,7 @@ def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
     # Add source to loaded dataset
     with pytest.raises(FrameTreeDataMatchError):
         command_spec.execute(
-            dataset_locator=saved_dataset.locator,
+            address=saved_dataset.locator,
             input_values=[
                 ("source1", "bad-file-path"),
                 ("source2", "file1"),
@@ -194,10 +194,10 @@ def test_command_execute_on_row(cli_runner, work_dir):
     # from 0 to 4
     filenumbers = list(range(5))
     bp = TestDatasetBlueprint(
-        space=TestDataSpace,
+        axes=TestAxes,
         hierarchy=[
             "abcd"
-        ],  # e.g. XNAT where session ID is unique in project but final layer is organised by timepoint
+        ],  # e.g. XNAT where session ID is unique in project but final layer is organised by visit
         dim_lengths=[1, 1, 1, 1],
         entries=[
             FileBP(path=str(i), datatype=TextFile, filenames=[f"{i}.txt"])
@@ -205,7 +205,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
         ],
     )
     dataset_path = work_dir / "numbered_dataset"
-    dataset = bp.make_dataset(DirTree(), dataset_path)
+    dataset = bp.make_dataset(FileSystem(), dataset_path)
     dataset.save()
 
     def get_dataset_filenumbers():
@@ -215,8 +215,8 @@ def test_command_execute_on_row(cli_runner, work_dir):
     assert get_dataset_filenumbers() == filenumbers
 
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:plus_10_to_filenumbers",
-        row_frequency=bp.space.default(),
+        task="pipeline2app.testing.tasks:plus_10_to_filenumbers",
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "a_row",
@@ -230,7 +230,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec.execute(
-        dataset_locator=dataset.locator,
+        address=dataset.locator,
         input_values=[
             ("a_row", ""),
         ],
@@ -246,19 +246,19 @@ def test_command_execute_on_row(cli_runner, work_dir):
 
 
 def test_command_execute_with_converter_args(
-    saved_dataset: Dataset, work_dir: Path, encoded_text_converter
+    saved_dataset: FrameSet, work_dir: Path, encoded_text_converter
 ):
     """Test passing arguments to file format converter tasks via input/output
-    "qualifiers", e.g. 'converter.shift=3' using the pydra2app-run-pipeline CLI
+    "qualifiers", e.g. 'converter.shift=3' using the pipeline2app-run-pipeline CLI
     tool (as used in the XNAT CS commands)
     """
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec = ContainerCommand(
-        task="pydra2app.testing.tasks:identity_file",
-        row_frequency=bp.space.default(),
+        task="pipeline2app.testing.tasks:identity_file",
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source",
@@ -286,7 +286,7 @@ def test_command_execute_with_converter_args(
     )
 
     command_spec.execute(
-        dataset_locator=saved_dataset.locator,
+        address=saved_dataset.locator,
         input_values=[
             ("source", "file1 converter.shift=3"),
         ],
@@ -325,13 +325,13 @@ def test_command_execute_with_converter_args(
     reason="'>' operator isn't supported by shell-command task any more (it perhaps should be)"
 )
 def test_shell_command_execute(saved_dataset, work_dir):
-    # Get CLI name for dataset (i.e. file system path prepended by 'dirtree//')
+    # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
     command_spec = ContainerCommand(
         task="shell",
-        row_frequency=bp.space.default(),
+        row_frequency=bp.axes.default(),
         inputs=[
             {
                 "name": "source1",
@@ -368,7 +368,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec.execute(
-        dataset_locator=saved_dataset.locator,
+        address=saved_dataset.locator,
         input_values=[
             ("source1", "file1"),
             ("source2", "file2"),

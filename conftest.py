@@ -8,9 +8,9 @@ from tempfile import mkdtemp
 from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
-from frametree.core.store import DataStore
+from frametree.core.store import Store
 from fileformats.text import Plain as PlainText
-from pydra2app.testing.tasks import (
+from pipeline2app.testing.tasks import (
     concatenate,
     concatenate_reverse,
     TEST_TASKS,
@@ -22,8 +22,8 @@ from frametree.testing.blueprint import (
     TEST_DATASET_BLUEPRINTS,
     GOOD_DATASETS,
 )
-from frametree.testing import TestDataSpace, MockRemote, AlternateMockRemote
-from frametree.common import DirTree
+from frametree.testing import TestAxes, MockRemote, AlternateMockRemote
+from frametree.common import FileSystem
 
 # from pydra import set_input_validator
 
@@ -34,7 +34,7 @@ from frametree.common import DirTree
 
 log_level = logging.WARNING
 
-logger = logging.getLogger("pydra2app")
+logger = logging.getLogger("pipeline2app")
 logger.setLevel(log_level)
 
 sch = logging.StreamHandler()
@@ -48,7 +48,7 @@ PKG_DIR = Path(__file__).parent
 
 @pytest.fixture
 def work_dir():
-    # work_dir = Path.home() / '.pydra2app-tests'
+    # work_dir = Path.home() / '.pipeline2app-tests'
     # work_dir.mkdir(exist_ok=True)
     # return work_dir
     work_dir = mkdtemp()
@@ -58,7 +58,7 @@ def work_dir():
 
 @pytest.fixture(scope="session")
 def build_cache_dir():
-    # build_cache_dir = Path.home() / '.pydra2app-test-build-cache'
+    # build_cache_dir = Path.home() / '.pipeline2app-test-build-cache'
     # if build_cache_dir.exists():
     #     shutil.rmtree(build_cache_dir)
     # build_cache_dir.mkdir()
@@ -112,7 +112,7 @@ def catch_cli_exceptions():
 @pytest.fixture(params=BASIC_TASKS)
 def pydra_task_details(request):
     func_name = request.param
-    return ("pydra2app.analysis.tasks.tests.fixtures" + func_name,) + tuple(
+    return ("pipeline2app.analysis.tasks.tests.fixtures" + func_name,) + tuple(
         TEST_TASKS[func_name][1:]
     )
 
@@ -128,7 +128,7 @@ def pydra_task(request):
 # Pytest fixtures and helper functions
 # ------------------------------------
 
-DATA_STORES = ["dirtree", "mock_remote"]
+DATA_STORES = ["file_system", "mock_remote"]
 
 
 @pytest.fixture
@@ -140,9 +140,9 @@ def frametree_home(work_dir):
 
 @pytest.fixture(params=DATA_STORES)
 def data_store(work_dir: Path, frametree_home: Path, request):
-    store: DataStore
-    if request.param == "dirtree":
-        store = DirTree()
+    store: Store
+    if request.param == "file_system":
+        store = FileSystem()
     elif request.param.endswith("mock_remote"):
         cache_dir = work_dir / "mock-remote-store" / "cache"
         cache_dir.mkdir(parents=True)
@@ -167,7 +167,7 @@ def data_store(work_dir: Path, frametree_home: Path, request):
 @pytest.fixture
 def delayed_mock_remote(
     work_dir: Path,
-    frametree_home: Path,  # So we save the store definition in the home dir, not ~/.pydra2app
+    frametree_home: Path,  # So we save the store definition in the home dir, not ~/.pipeline2app
 ):
     cache_dir = work_dir / "mock-remote-store" / "cache"
     cache_dir.mkdir(parents=True)
@@ -191,7 +191,7 @@ def dataset(work_dir, data_store, request):
     dataset_name = request.param
     blueprint = TEST_DATASET_BLUEPRINTS[dataset_name]
     dataset_path = work_dir / dataset_name
-    dataset_id = dataset_path if isinstance(data_store, DirTree) else dataset_name
+    dataset_id = dataset_path if isinstance(data_store, FileSystem) else dataset_name
     dataset = blueprint.make_dataset(data_store, dataset_id)
     yield dataset
     # shutil.rmtree(dataset.id)
@@ -202,8 +202,8 @@ def simple_dataset_blueprint():
     return TestDatasetBlueprint(
         hierarchy=[
             "abcd"
-        ],  # e.g. XNAT where session ID is unique in project but final layer is organised by timepoint
-        space=TestDataSpace,
+        ],  # e.g. XNAT where session ID is unique in project but final layer is organised by visit
+        axes=TestAxes,
         dim_lengths=[1, 1, 1, 1],
         entries=[
             FileBP(path="file1", datatype=PlainText, filenames=["file1.txt"]),
@@ -214,7 +214,7 @@ def simple_dataset_blueprint():
 
 @pytest.fixture
 def saved_dataset(data_store, simple_dataset_blueprint, work_dir):
-    if isinstance(data_store, DirTree):
+    if isinstance(data_store, FileSystem):
         dataset_id = work_dir / "saved-dataset"
     else:
         dataset_id = "saved_dataset"
@@ -242,7 +242,7 @@ def concatenate_task(request):
 @pytest.fixture(scope="session")
 def command_spec():
     return {
-        "task": "pydra2app.testing.tasks:concatenate",
+        "task": "pipeline2app.testing.tasks:concatenate",
         "inputs": {
             "first_file": {
                 "datatype": "text/text-file",

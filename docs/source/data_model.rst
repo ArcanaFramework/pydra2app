@@ -21,46 +21,46 @@ Stores
 ------
 
 Support for different file storage systems (e.g. `XNAT <https://xnat.org>`__, `BIDS <https://bids.neuroimaging.io>`__)
-is provided by sub-classes of :class:`.DataStore`. Data store
+is provided by sub-classes of :class:`.Store`. Data store
 classes not only encapsulate where the data are stored, e.g. on local disk or
 remote repository, but also how the data are accessed, e.g. whether to assume that
 they are in BIDS format, or whether files in an XNAT archive mount can be
 accessed directly (i.e. as exposed to the container service), or only via the API.
 
-There are currently four supported store classes in the main, `pydra2app-bids` and `pydra2app-xnat`
+There are currently four supported store classes in the main, `pipeline2app-bids` and `pipeline2app-xnat`
 packages
 
-* :class:`.DirTree` - access data organised within an arbitrary directory tree on the file system
+* :class:`.FileSystem` - access data organised within an arbitrary directory tree on the file system
 * :class:`.Bids` - access data on file systems organised in the `Brain Imaging Data Structure (BIDS) <https://bids.neuroimaging.io/>`__
 * :class:`.Xnat` - access data stored in XNAT_ repositories vi its REST API
 * :class:`.XnatViaCS` - access data stored in XNAT_ via its `container service <https://wiki.xnat.org/container-service/using-the-container-service-122978908.html>`_
 
 For instructions on how to add support for new systems see :ref:`alternative_stores`.
 
-To configure access to a store via the CLI use the ':ref:`pydra2app store add`' command.
+To configure access to a store via the CLI use the ':ref:`pipeline2app store add`' command.
 The store type is specified by the path to the data store sub-class,
-*<module-path>:<class-name>*,  e.g. ``pydra2app.xnat:Xnat``.
-However, if the store is in a submodule of ``pydra2app`` then that
+*<module-path>:<class-name>*,  e.g. ``pipeline2app.xnat:Xnat``.
+However, if the store is in a submodule of ``pipeline2app`` then that
 prefix can be dropped for convenience, e.g. ``xnat:Xnat``.
 
 .. code-block:: console
 
-    $ pydra2app store add xnat-central xnat:Xnat https://central.xnat.org \
+    $ pipeline2app store add xnat-central xnat:Xnat https://central.xnat.org \
       --user user123 --cache /work/xnat-cache
     Password:
 
 This command will create a YAML configuration file for the store in the
-`~/.pydra2app/stores/` directory. Authentication tokens are saved in the config
+`~/.pipeline2app/stores/` directory. Authentication tokens are saved in the config
 file instead of usernames and passwords, and will need to be
-refreshed when they expire (see ':ref:`pydra2app store refresh`').
+refreshed when they expire (see ':ref:`pipeline2app store refresh`').
 
 The CLI also contains commands for working with store entries that have already
 been created
 
-* :ref:`pydra2app store ls` - list saved stores
-* :ref:`pydra2app store rename` - rename a store
-* :ref:`pydra2app store remove` - remove a store
-* :ref:`pydra2app store refresh` - refreshes authentication tokens saved for the store
+* :ref:`pipeline2app store ls` - list saved stores
+* :ref:`pipeline2app store rename` - rename a store
+* :ref:`pipeline2app store remove` - remove a store
+* :ref:`pipeline2app store refresh` - refreshes authentication tokens saved for the store
 
 Alternatively, data stores can be configured via the Python API by initialising the
 data store classes directly.
@@ -68,7 +68,7 @@ data store classes directly.
 .. code-block:: python
 
     import os
-    from pydra2app.xnat import Xnat
+    from pipeline2app.xnat import Xnat
 
     # Initialise the data store object
     xnat_store = Xnat(
@@ -78,12 +78,12 @@ data store classes directly.
         cache_dir='/work/xnat-cache'
     )
 
-    # Save it to the configuration file stored at '~/.pydra2app/stores.yaml' with
+    # Save it to the configuration file stored at '~/.pipeline2app/stores.yaml' with
     # the nickname 'xnat-central'
     xnat_store.save('xnat-central')
 
     # Reload store from configuration file
-    reloaded = DataStore.load('xnat-central')
+    reloaded = Store.load('xnat-central')
 
 .. note::
 
@@ -102,42 +102,42 @@ Human Connectome Project. Arcana datasets consist of both source data and the
 derivatives derived from them. Datasets are organised into trees that classify a
 series of data points (e.g. imaging sessions) by a "hierarchy" of branches
 (e.g. groups > subjects > sessions). For example, the following dataset consisting
-of imaging sessions is sorted by subjects, then longintudinal timepoints
+of imaging sessions is sorted by subjects, then longintudinal visits
 
 .. code-block::
 
     my-dataset
     ├── subject1
-    │   ├── timepoint1
+    │   ├── visit1
     │   │   ├── t1w_mprage
     │   │   ├── t2w_space
     │   │   └── bold_rest
-    │   └── timepoint2
+    │   └── visit2
     │       ├── t1w_mprage
     │       ├── t2w_space
     │       └── bold_rest
     ├── subject2
-    │   ├── timepoint1
+    │   ├── visit1
     │   │   ├── t1w_mprage
     │   │   ├── t2w_space
     │   │   └── bold_rest
-    │   └── timepoint2
+    │   └── visit2
     │       ├── t1w_mprage
     │       ├── t2w_space
     │       └── bold_rest
     └── subject3
-        ├── timepoint1
+        ├── visit1
         │   ├── t1w_mprage
         │   ├── t2w_space
         │   └── bold_rest
-        └── timepoint2
+        └── visit2
             ├── t1w_mprage
             ├── t2w_space
             └── bold_rest
 
 The leaves of the tree contain data from specific "imaging session" data points,
 as designated by the combination of one of the three subject IDs and
-one of the two timepoint IDs.
+one of the two visit IDs.
 
 While the majority of data items are stored in the leaves of the tree,
 data can exist for any branch. For example, an analysis may use
@@ -150,40 +150,40 @@ the subject level of the tree sit in special *SUBJECT* branches
     ├── subject1
     │   ├── SUBJECT
     │   │   └── geneomics.dat
-    │   ├── timepoint1
+    │   ├── visit1
     │   │   ├── t1w_mprage
     │   │   ├── t2w_space
     │   │   └── bold_rest
-    │   └── timepoint2
+    │   └── visit2
     │       ├── t1w_mprage
     │       ├── t2w_space
     │       └── bold_rest
     ├── subject2
     │   ├── SUBJECT
     │   │   └── geneomics.dat
-    │   ├── timepoint1
+    │   ├── visit1
     │   │   ├── t1w_mprage
     │   │   ├── t2w_space
     │   │   └── bold_rest
-    │   └── timepoint2
+    │   └── visit2
     │       ├── t1w_mprage
     │       ├── t2w_space
     │       └── bold_rest
     └── subject3
         ├── SUBJECT
         │   └── geneomics.dat
-        ├── timepoint1
+        ├── visit1
         │   ├── t1w_mprage
         │   ├── t2w_space
         │   └── bold_rest
-        └── timepoint2
+        └── visit2
             ├── t1w_mprage
             ├── t2w_space
             └── bold_rest
 
 
 In the CLI, datasets are referred to by ``<store-nickname>//<dataset-id>[@<dataset-name>]``,
-where *<store-name>* is the nickname of the store as saved by ':ref:`pydra2app store add`'
+where *<store-name>* is the nickname of the store as saved by ':ref:`pipeline2app store add`'
 (see :ref:`Stores`), and *<dataset-id>* is
 
 * the file-system path to the data directory for file-system (and BIDS) stores
@@ -199,7 +199,7 @@ For example, a project called "MYXNATPROJECT" stored in
 created in the :ref:`Stores` Section, would be ``xnat-central//MYXNATPROJECT``.
 
 Alternatively, dataset objects can be created directly via the Python API using
-the :meth:`.DataStore.dataset` method. For example, to define a new dataset
+the :meth:`.Store.dataset` method. For example, to define a new dataset
 corresponding to *MYXNATPROJECT*
 
 .. code-block:: python
@@ -212,7 +212,7 @@ Entries
 -----
 
 Atomic entries within a dataset contain either file-based data or text/numeric fields.
-In Arcana, these data items are represented using `fileformats <https://pydra2appframework.github.io/fileformats/>`__
+In Arcana, these data items are represented using `fileformats <https://pipeline2appframework.github.io/fileformats/>`__
 classes, :class:`.FileSet`, (i.e. single files, files + header/side-cars or directories)
 and :class:`.Field` (e.g. integer, decimal, text, boolean, or arrays thereof), respectively.
 
@@ -299,25 +299,25 @@ Each column is assigned a name when it is created, which is used when
 connecting pipeline inputs and outputs to the dataset and accessing the data directly.
 The column name is used as the default value for the path of sink columns.
 
-Use the ':ref:`pydra2app dataset add-source`' and ':ref:`pydra2app dataset add-sink`'
+Use the ':ref:`pipeline2app dataset add-source`' and ':ref:`pipeline2app dataset add-sink`'
 commands to add columns to a dataset using the CLI.
 
 .. code-block:: console
 
-    $ pydra2app dataset add-source 'xnat-central//MYXNATPROJECT' T1w \
+    $ pipeline2app dataset add-source 'xnat-central//MYXNATPROJECT' T1w \
       medimage/dicom-series --path '.*t1_mprage.*' \
       --order 1 --quality usable --regex
 
-    $ pydra2app dataset add-sink '/data/imaging/my-project' fmri_activation_map \
+    $ pipeline2app dataset add-sink '/data/imaging/my-project' fmri_activation_map \
       medimage/nifti-gz --row-frequency group
 
 
-Alternatively, the :meth:`.Dataset.add_source` and :meth:`.Dataset.add_sink`
+Alternatively, the :meth:`.FrameSet.add_source` and :meth:`.FrameSet.add_sink`
 methods can be used directly to add sources and sinks via the Python API.
 
 .. code-block:: python
 
-    from pydra2app.common import Clinical
+    from pipeline2app.common import Clinical
     from fileformats.medimage import DicomSeries, NiftiGz
 
     xnat_dataset.add_source(
@@ -335,16 +335,16 @@ methods can be used directly to add sources and sinks via the Python API.
         row_frequency='group'
     )
 
-To access the data in the columns once they are defined use the ``Dataset[]``
+To access the data in the columns once they are defined use the ``FrameSet[]``
 operator
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
-    from pydra2app.core.data.set import Dataset
+    from pipeline2app.core.frameset import FrameSet
 
     # Get a column containing all T1-weighted MRI images across the dataset
-    xnat_dataset = Dataset.load('xnat-central//MYXNATPROJECT')
+    xnat_dataset = FrameSet.load('xnat-central//MYXNATPROJECT')
     t1w = xnat_dataset['T1w']
 
     # Plot a slice of the image data from a Subject sub01's imaging session
@@ -360,7 +360,7 @@ initialised.
 
 .. code-block:: python
 
-    from pydra2app.bids import Bids
+    from pipeline2app.bids import Bids
 
     bids_dataset = Bids().dataset(
         id='/data/openneuro/ds00014')
@@ -379,7 +379,7 @@ appear in the hierarchy of the data tree (see :ref:`data_columns`),
 there are a number of frames that are implied and may be needed to store
 derivatives of a particular analysis. In clinical imaging research studies/trials,
 imaging sessions are classified by the subject who was scanned and, if applicable,
-the longitudinal timepoint. The subjects themselves are often classified by which
+the longitudinal visit. The subjects themselves are often classified by which
 group they belong to. Therefore, we can factor imaging session
 classifications into
 
@@ -387,28 +387,28 @@ classifications into
 * **member** - ID relative to group
     * can be arbitrary or used to signify control-matched pairs
     * e.g. the '03' in 'TEST03' & 'CONT03' pair of control-matched subject IDs
-* **timepoint** - longintudinal timepoint
+* **visit** - longintudinal visit
 
 In Arcana, these primary classifiers are conceptualised as "axes" of a
 "data space", in which data points (e.g. imaging sessions) are
-laid out on a grid.
+laid out on a frameset.
 
-.. TODO: grid image to go here
+.. TODO: frameset image to go here
 
 Depending on the hierarchy of the data tree, data belonging to these
 axial frequencies may or may not have a corresponding branch to be stored in.
 In these cases, new branches are created off the root of the tree to
 hold the derivatives. For example, average trial performance data, calculated
-at each timepoint and the age difference between matched-control pairs, would
-need to be stored in new sub-branches for timepoints and members, respectively.
+at each visit and the age difference between matched-control pairs, would
+need to be stored in new sub-branches for visits and members, respectively.
 
 .. code-block::
 
     my-dataset
     ├── TIMEPOINT
-    │   ├── timepoint1
+    │   ├── visit1
     │   │   └── avg_trial_performance
-    │   └── timepoint2
+    │   └── visit2
     │       └── avg_trial_performance
     ├── MEMBER
     │   ├── member1
@@ -417,69 +417,69 @@ need to be stored in new sub-branches for timepoints and members, respectively.
     │       └── age_diff
     ├── group1
     │   ├── member1
-    │   │   ├── timepoint1
+    │   │   ├── visit1
     │   │   │   ├── t1w_mprage
     │   │   │   ├── t2w_space
     │   │   │   └── bold_rest
-    │   │   └── timepoint2
+    │   │   └── visit2
     │   │       ├── t1w_mprage
     │   │       ├── t2w_space
     │   │       └── bold_rest
     │   └── member2
-    │       ├── timepoint1
+    │       ├── visit1
     │       │   ├── t1w_mprage
     │       │   ├── t2w_space
     │       │   └── bold_rest
-    │       └── timepoint2
+    │       └── visit2
     │           ├── t1w_mprage
     │           ├── t2w_space
     │           └── bold_rest
     └── group2
         |── member1
-        │   ├── timepoint1
+        │   ├── visit1
         │   │   ├── t1w_mprage
         │   │   ├── t2w_space
         │   │   └── bold_rest
-        │   └── timepoint2
+        │   └── visit2
         │       ├── t1w_mprage
         │       ├── t2w_space
         │       └── bold_rest
         └── member2
-            ├── timepoint1
+            ├── visit1
             │   ├── t1w_mprage
             │   ├── t2w_space
             │   └── bold_rest
-            └── timepoint2
+            └── visit2
                 ├── t1w_mprage
                 ├── t2w_space
                 └── bold_rest
 
 In this framework, ``subject`` IDs are equivalent to the combination of
 ``group + member`` IDs and ``session`` IDs are equivalent to the combination of
-``group + member + timepoint`` IDs. There are,  2\ :sup:`N` combinations of
+``group + member + visit`` IDs. There are,  2\ :sup:`N` combinations of
 the axial frequencies for a given data tree, where ``N`` is the depth of the tree
 (i.e. ``N=3`` in this case).
 
-.. TODO: 3D plot of grid
+.. TODO: 3D plot of frameset
 
-Note that the grid of a particular dataset can have a single point along any
-given dimension (e.g. one study group or timepoint) and still exist in the data
+Note that the frameset of a particular dataset can have a single point along any
+given dimension (e.g. one study group or visit) and still exist in the data
 space. Therefore, when creating data spaces it is better to be inclusive of
 potential categories to make them more general.
 
-.. TODO: another 3D grid plot
+.. TODO: another 3D frameset plot
 
 All combinations of the data spaces axes are given a name within
-:class:`.DataSpace` enums. In the case of the :class:`.medimage.Clinical`
+:class:`.Axes` enums. In the case of the :class:`.medimage.Clinical`
 data space, the members are
 
 * **group** (group)
 * **member** (member)
-* **timepoint** (timepoint)
-* **session** (member + group + timepoint),
+* **visit** (visit)
+* **session** (member + group + visit),
 * **subject** (member + group)
-* **batch** (group + timepoint)
-* **matchedpoint** (member + timepoint)
+* **groupedvisit** (group + visit)
+* **matchedvisit** (member + visit)
 * **dataset** ()
 
 If they are not present in the data tree, alternative row frequencies are
@@ -490,58 +490,58 @@ axes
 
     my-dataset
     ├── BATCH
-    │   ├── group1_timepoint1
+    │   ├── group1_visit1
     │   │   └── avg_connectivity
-    │   ├── group1_timepoint2
+    │   ├── group1_visit2
     │   │   └── avg_connectivity
-    │   ├── group2_timepoint1
+    │   ├── group2_visit1
     │   │   └── avg_connectivity
-    │   └── group2_timepoint2
+    │   └── group2_visit2
     │       └── avg_connectivity
     ├── MATCHEDPOINT
-    │   ├── member1_timepoint1
+    │   ├── member1_visit1
     │   │   └── comparative_trial_performance
-    │   ├── member1_timepoint2
+    │   ├── member1_visit2
     │   │   └── comparative_trial_performance
-    │   ├── member2_timepoint1
+    │   ├── member2_visit1
     │   │   └── comparative_trial_performance
-    │   └── member2_timepoint2
+    │   └── member2_visit2
     │       └── comparative_trial_performance
     ├── group1
     │   ├── member1
-    │   │   ├── timepoint1
+    │   │   ├── visit1
     │   │   │   ├── t1w_mprage
     │   │   │   ├── t2w_space
     │   │   │   └── bold_rest
-    │   │   └── timepoint2
+    │   │   └── visit2
     │   │       ├── t1w_mprage
     │   │       ├── t2w_space
     │   │       └── bold_rest
     │   └── member2
-    │       ├── timepoint1
+    │       ├── visit1
     │       │   ├── t1w_mprage
     │       │   ├── t2w_space
     │       │   └── bold_rest
-    │       └── timepoint2
+    │       └── visit2
     │           ├── t1w_mprage
     │           ├── t2w_space
     │           └── bold_rest
     └── group2
         |── member1
-        │   ├── timepoint1
+        │   ├── visit1
         │   │   ├── t1w_mprage
         │   │   ├── t2w_space
         │   │   └── bold_rest
-        │   └── timepoint2
+        │   └── visit2
         │       ├── t1w_mprage
         │       ├── t2w_space
         │       └── bold_rest
         └── member2
-            ├── timepoint1
+            ├── visit1
             │   ├── t1w_mprage
             │   ├── t2w_space
             │   └── bold_rest
-            └── timepoint2
+            └── visit2
                 ├── t1w_mprage
                 ├── t2w_space
                 └── bold_rest
@@ -550,18 +550,18 @@ axes
 .. and how the layers add to one another
 
 For stores that support datasets with arbitrary tree structures
-(i.e. :class:`.DirTree`), the "data space" and the hierarchy of layers
+(i.e. :class:`.FileSystem`), the "data space" and the hierarchy of layers
 in the data tree needs to be provided. Data spaces are explained in more
 detail in :ref:`data_spaces`. However, for the majority of datasets in the
-medical imaging field, the :class:`pydra2app.medimage.data.Clinical` space is
+medical imaging field, the :class:`pipeline2app.medimage.data.Clinical` space is
 appropriate.
 
 .. code-block:: python
 
-    from pydra2app.dirtree import DirTree
-    from pydra2app.common import Clinical
+    from pipeline2app.file_system import FileSystem
+    from pipeline2app.common import Clinical
 
-    fs_dataset = DirTree().dataset(
+    fs_dataset = FileSystem().dataset(
         id='/data/imaging/my-project',
         # Define the hierarchy of the dataset in which imaging session
         # sub-directories are separated into directories via their study group
@@ -575,7 +575,7 @@ by decomposing a branch label following a given naming convention.
 This is specified via the ``id-inference`` argument to the dataset definition.
 For example, given a an XNAT project with the following structure and a naming
 convention where the subject ID is composed of the group and member ID,
-*<GROUPID><MEMBERID>*, and the session ID is composed of the subject ID and timepoint,
+*<GROUPID><MEMBERID>*, and the session ID is composed of the subject ID and visit,
 *<SUBJECTID>_MR<TIMEPOINTID>*
 
 .. code-block::
@@ -598,7 +598,7 @@ convention where the subject ID is composed of the group and member ID,
             ├── t1w_mprage
             └── t2w_space
 
-IDs for group, member and timepoint can be inferred from the subject and session
+IDs for group, member and visit can be inferred from the subject and session
 IDs, by providing the frequency of the ID to decompose and a
 regular-expression (in Python syntax) to decompose it with. The regular
 expression should contain named groups that correspond to row frequencies of
@@ -606,9 +606,9 @@ the IDs to be inferred, e.g.
 
 .. code-block:: console
 
-    $ pydra2app dataset define 'xnat-central//MYXNATPROJECT' \
+    $ pipeline2app dataset define 'xnat-central//MYXNATPROJECT' \
       --id-inference subject '(?P<group>[A-Z]+)_(?P<member>\d+)' \
-      --id-inference session '[A-Z0-9]+_MR(?P<timepoint>\d+)'
+      --id-inference session '[A-Z0-9]+_MR(?P<visit>\d+)'
 
 .. _data_grids:
 
@@ -617,14 +617,14 @@ Grids
 
 Often there are data points that need to be removed from a given
 analysis due to missing or corrupted data. Such sections need to be removed
-in a way that the data points still lie on a rectangular grid within the
+in a way that the data points still lie on a rectangular frameset within the
 data space (see :ref:`data_spaces`) so derivatives computed over a given axis
 or axes are drawn from comparable number of data points.
 
 .. note::
     Somewhat confusingly the "data points" referred to in this section
     actually correspond to "data rows" in the frames used in analyses.
-    However, you can think of a 2 or 3 (or higher) dimensional grid as
+    However, you can think of a 2 or 3 (or higher) dimensional frameset as
     being flattened out into a 1D array to form a data frame in the
     same way as numpy's ``ravel()`` method does to higher dimensional
     arrays. The different types of data collected at each data point
@@ -634,11 +634,11 @@ or axes are drawn from comparable number of data points.
 The ``--exclude`` option is used to specify the data points to exclude from
 a dataset.
 
-.. TODO image of excluding points in grid
+.. TODO image of excluding points in frameset
 
 .. code-block:: console
 
-    $ pydra2app dataset define '/data/imaging/my-project@manually_qcd' \
+    $ pipeline2app dataset define '/data/imaging/my-project@manually_qcd' \
       common:Clinical subject session \
       --exclude member 03,11,27
 
@@ -650,10 +650,10 @@ frequencies.
 
 .. code-block:: console
 
-    $ pydra2app dataset define '/data/imaging/my-project@manually_qcd' \
+    $ pipeline2app dataset define '/data/imaging/my-project@manually_qcd' \
       common:Clinical subject session \
       --exclude member 03,11,27 \
-      --include timepoint 1,2
+      --include visit 1,2
 
 You may want multiple dataset definitions for a given project/directory,
 for different analyses e.g. with different subsets of IDs depending on which
@@ -665,11 +665,11 @@ CLI, append the name to the dataset's ID string separated by '::', e.g.
 
 .. code-block:: console
 
-    $ pydra2app dataset define '/data/imaging/my-project@training' \
+    $ pipeline2app dataset define '/data/imaging/my-project@training' \
       common:Clinical group subject \
       --include member 10:20
 
 
-.. _Arcana: https://pydra2app.readthedocs.io
+.. _Arcana: https://pipeline2app.readthedocs.io
 .. _XNAT: https://xnat.org
 .. _BIDS: https://bids.neuroimaging.io

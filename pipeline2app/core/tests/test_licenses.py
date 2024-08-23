@@ -3,8 +3,8 @@ from pathlib import Path
 import docker
 import docker.errors
 from frametree.core.utils import show_cli_trace
-from pydra2app.core.cli import make
-from pydra2app.testing.licenses import (
+from pipeline2app.core.cli import make
+from pipeline2app.testing.licenses import (
     get_pipeline_image,
     make_dataset,
     ORG,
@@ -67,7 +67,7 @@ def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_ru
     assert result.stdout.strip().splitlines()[-1] == image_tag
 
     args = (
-        "dirtree///dataset "
+        "file_system///dataset "
         f"--input {LICENSE_INPUT_FIELD} '{LICENSE_INPUT_PATH}' "
         f"--output {LICENSE_OUTPUT_FIELD} '{LICENSE_OUTPUT_PATH}' "
         f"--parameter {LICENSE_PATH_PARAM} '{LICENSE_PATH}' "

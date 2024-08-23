@@ -19,19 +19,19 @@ from frametree.core.serialize import (
 )
 from frametree.core.utils import show_workflow_errors
 from frametree.core.row import DataRow
-from frametree.core.set.base import Dataset
-from frametree.core.store import DataStore
-from frametree.core.space import DataSpace
-from pydra2app.core.exceptions import Pydra2AppUsageError
+from frametree.core.frameset.base import FrameSet
+from frametree.core.store import Store
+from frametree.core.axes import Axes
+from pipeline2app.core.exceptions import Pydra2AppUsageError
 from .components import CommandInput, CommandOutput, CommandParameter
-from pydra2app.core import PACKAGE_NAME
+from pipeline2app.core import PACKAGE_NAME
 
 
 if ty.TYPE_CHECKING:
     from ..image import App
 
 
-logger = logging.getLogger("pydra2app")
+logger = logging.getLogger("pipeline2app")
 
 
 @attrs.define(kw_only=True)
@@ -43,7 +43,7 @@ class ContainerCommand:
     ----------
     task : pydra.engine.task.TaskBase or str
         the task to run or the location of the class
-    row_frequency: DataSpace, optional
+    row_frequency: Axes, optional
         the frequency that the command operates on
     inputs: ty.List[CommandInput]
         inputs of the command
@@ -57,15 +57,15 @@ class ContainerCommand:
         back-reference to the image the command is installed in
     """
 
-    STORE_TYPE = "dirtree"
-    DATA_SPACE = None
+    STORE_TYPE = "file_system"
+    AXES = None
 
     task: pydra.engine.task.TaskBase = attrs.field(
         converter=ClassResolver(
             TaskBase, alternative_types=[ty.Callable], package=PACKAGE_NAME
         )
     )
-    row_frequency: ty.Optional[DataSpace] = None
+    row_frequency: ty.Optional[Axes] = None
     inputs: ty.List[CommandInput] = attrs.field(
         factory=list,
         converter=ObjectListConverter(CommandInput),
@@ -87,25 +87,25 @@ class ContainerCommand:
     image: ty.Optional[App] = None
 
     def __attrs_post_init__(self):
-        if isinstance(self.row_frequency, DataSpace):
+        if isinstance(self.row_frequency, Axes):
             pass
         elif isinstance(self.row_frequency, str):
             try:
-                self.row_frequency = DataSpace.fromstr(self.row_frequency)
+                self.row_frequency = Axes.fromstr(self.row_frequency)
             except ValueError:
-                if self.DATA_SPACE:
-                    self.row_frequency = self.DATA_SPACE[self.row_frequency]
+                if self.AXES:
+                    self.row_frequency = self.AXES[self.row_frequency]
                 else:
                     raise ValueError(
                         f"'{self.row_frequency}' cannot be resolved to a data space, "
                         "needs to be of form <data-space-enum>[<row-frequency-name>]"
                     )
-        elif self.DATA_SPACE:
-            self.row_frequency = self.DATA_SPACE.default()
+        elif self.AXES:
+            self.row_frequency = self.AXES.default()
         else:
             raise ValueError(
                 f"Value for row_frequency must be provided to {type(self).__name__}.__init__ "
-                "because it doesn't have a defined DATA_SPACE class attribute"
+                "because it doesn't have a defined AXES class attribute"
             )
 
     @property
@@ -117,7 +117,7 @@ class ContainerCommand:
         return self.image.name
 
     @property
-    def data_space(self):
+    def axes(self):
         return type(self.row_frequency)
 
     def configuration_args(self):
@@ -140,7 +140,7 @@ class ContainerCommand:
 
     def execute(
         self,
-        dataset_locator: str,
+        address: str,
         input_values: ty.Dict[str, str] = None,
         output_values: ty.Dict[str, str] = None,
         parameter_values: ty.Dict[str, ty.Any] = None,
@@ -168,7 +168,7 @@ class ContainerCommand:
 
         Parameters
         ----------
-        dataset : Dataset
+        dataset : FrameSet
             dataset ID str (<store-nickname>//<dataset-id>:<dataset-name>)
         input_values : dict[str, str]
             values passed to the inputs of the command
@@ -215,8 +215,8 @@ class ContainerCommand:
         store_cache_dir = work_dir / "store-cache"
         pipeline_cache_dir = work_dir / "pydra"
 
-        dataset = self.load_dataset(
-            dataset_locator, store_cache_dir, dataset_hierarchy, dataset_name
+        dataset = self.load_frameset(
+            address, store_cache_dir, dataset_hierarchy, dataset_name
         )
 
         # Install required software licenses from store into container
@@ -358,7 +358,7 @@ class ContainerCommand:
                     "if this is intentional"
                 )
         else:
-            pipeline = dataset.apply_pipeline(
+            pipeline = dataset.apply(
                 pipeline_name,
                 task,
                 inputs=self.inputs,
@@ -455,9 +455,9 @@ class ContainerCommand:
             path = user_input
         return path, qualifiers
 
-    def load_dataset(
+    def load_frameset(
         self,
-        dataset_locator: str,
+        address: str,
         cache_dir: Path,
         dataset_hierarchy: str,
         dataset_name: str,
@@ -466,7 +466,7 @@ class ContainerCommand:
 
         Parameters
         ----------
-        dataset_locator : str
+        address : str
             dataset ID str
         cache_dir : Path
             the directory to use for the store cache
@@ -481,27 +481,25 @@ class ContainerCommand:
             _description_
         """
         try:
-            dataset = Dataset.load(dataset_locator)
+            dataset = FrameSet.load(address)
         except KeyError:
 
-            store_name, id, name = Dataset.parse_id_str(dataset_locator)
+            store_name, id, name = FrameSet.parse_id_str(address)
 
             if dataset_name is not None:
                 name = dataset_name
 
-            store = DataStore.load(store_name, cache_dir=cache_dir)
+            store = Store.load(store_name, cache_dir=cache_dir)
 
             if dataset_hierarchy is None:
-                hierarchy = self.data_space.default().span()
+                hierarchy = self.axes.default().span()
             else:
                 hierarchy = dataset_hierarchy.split(",")
 
             try:
-                dataset = store.load_dataset(
+                dataset = store.load_frameset(
                     id, name
                 )  # FIXME: Does this need to be here or this covered by L253??
             except KeyError:
-                dataset = store.define_dataset(
-                    id, hierarchy=hierarchy, space=self.data_space
-                )
+                dataset = store.define_frameset(id, hierarchy=hierarchy, axes=self.axes)
         return dataset

@@ -36,13 +36,13 @@ DataColumn and parameter specification
 
 While columns in an :class:`.Analysis` class can be specified using the
 dataclass-like syntax of ``column_name: Format``, in most cases you will want to
-explicitly use the ``pydra2app.core.mark.column`` function to include some basic
+explicitly use the ``pipeline2app.core.mark.column`` function to include some basic
 metadata for the column, such as a description of what the column represents
 in the ``desc`` keyword arg.
 
 .. code-block:: python
 
-    @analysis(ExampleDataSpace)
+    @analysis(ExampleAxes)
     class ExampleAnalysis():
 
         recorded_datafile: DatFile  = column(
@@ -58,19 +58,19 @@ in the ``desc`` keyword arg.
             desc="A summary metric extracted from the derived image",
             row_frequency='dataset')
 
-The column spec descriptions will be shown to the user when they use the :meth:`.Dataset.menu()`
-or ``pydra2app menu`` CLI command. The row row_frequency of the column (e.g. per-session,
+The column spec descriptions will be shown to the user when they use the :meth:`.FrameSet.menu()`
+or ``pipeline2app menu`` CLI command. The row row_frequency of the column (e.g. per-session,
 per-subject, per-group, once per-dataset etc..., see :ref:`data_spaces` and
 :ref:`data_columns`) is specified by the ``row_frequency``
 keyword argument. The row_frequency should be a member of the data space(see :ref:`data_spaces`)
-provided to the :func:`pydra2app.core.mark.analysis` class decorator.
+provided to the :func:`pipeline2app.core.mark.analysis` class decorator.
 
 Not all columns specifications are created equal. Some refer to key inputs
 (e.g. the primary MRI image) or outputs (e.g. lesion load) and others just need
 to be sanity checked or useful in debugging. Therefore, to avoid the menu being
 cluttered up with non-salient specifications, the "salience" of the columns can
 be specified in addition to a description via the ``salience`` keyword arg.
-Values for ``salience`` must be drawn from the :class:`pydra2app.core.enum.ColumnSalience` enum:
+Values for ``salience`` must be drawn from the :class:`pipeline2app.core.enum.ColumnSalience` enum:
 
 * **primary** - Primary input data, e.g. raw data or data reconstructed on the scanner
 * **output** - Results that would typically be used as main outputs in publications
@@ -80,7 +80,7 @@ Values for ``salience`` must be drawn from the :class:`pydra2app.core.enum.Colum
 * **temp** - Data only temporarily stored to pass between pipelines
 
 Descriptions and saliences can also be set for parameter attributes, where the
-saliences are drawn from :class:`pydra2app.core.enum.ParameterSalience` enum.
+saliences are drawn from :class:`pipeline2app.core.enum.ParameterSalience` enum.
 
 * **debug** - typically only needs to be altered for debugging
 * **recommended** - recommended to keep default value
@@ -114,7 +114,7 @@ Pipeline builders
 ~~~~~~~~~~~~~~~~~
 
 "Pipeline builders" are called by Arcana to construct the Pydra workflows that
-derive data columns. The :func:`pydra2app.core.mark.pipeline`
+derive data columns. The :func:`pipeline2app.core.mark.pipeline`
 decorator is used to mark a method as a pipeline builder and specify the
 columns the workflow it builds derives.
 
@@ -137,10 +137,10 @@ files can be accessed as attributes of the primary ``LazyField``, e.g.
 
     from fileformats.field import Decimal
     from fileformats.medimage import DicomCollection
-    from pydra2app.common import Clinical
-    from pydra2app.core import mark
-    from pydra2app.core.tasks.misc import ExtractFromJson
-    from pydra2app.core.data.salience import ColumnSalience as ds
+    from pipeline2app.common import Clinical
+    from pipeline2app.core import mark
+    from pipeline2app.core.tasks.misc import ExtractFromJson
+    from pipeline2app.core.data.salience import ColumnSalience as ds
 
 
     @mark.analysis(Clinical)
@@ -177,7 +177,7 @@ files can be accessed as attributes of the primary ``LazyField``, e.g.
             return wf.extract_tr.lzout.out, wf.extract_st.lzout.out
 
 The "row_frequency" (see :ref:`data_spaces` and :ref:`data_columns`) of a pipeline,
-(whether it is run per-session, per-subject, per-timepoint, etc... for example)
+(whether it is run per-session, per-subject, per-visit, etc... for example)
 is determined by the row_frequency of its output columns. Therefore, all columns
 derived from a single pipeline need to have the same row row_frequency. If the
 row_frequency of an input column provided to the builder method is higher than that
@@ -193,7 +193,7 @@ station, could look like
 
     import numpy
     import pydra.mark
-    from pydra2app.weather.data import Weather  # See example in Data spaces section
+    from pipeline2app.weather.data import Weather  # See example in Data spaces section
 
 
     # A basic Pydra function task used in the analysis
@@ -268,11 +268,11 @@ CLI
 
 .. code-block:: console
 
-    $ pydra2app derive output '/data/my-dataset' connectivity_matrix_plot \
+    $ pipeline2app derive output '/data/my-dataset' connectivity_matrix_plot \
       --save '~/Documents/papers/my-connectivity-paper/' \
       --option figsize 10,10
 
-The ``pydra2app.core.mark.output`` decorator is used to specify an output method
+The ``pipeline2app.core.mark.output`` decorator is used to specify an output method
 and the outputs that are generated by it. Output methods should take the
 directory to save the outputs in as its first argument and use keyword
 arguments for "options" of the method following that. The save directory
@@ -283,7 +283,7 @@ isn't provided.
 .. code-block:: python
 
     import matplotlib.pyplot as plt
-    from pydra2app.medimage.data import Clinical
+    from pipeline2app.medimage.data import Clinical
 
     @analysis(Clinical)
     class ExampleAnalysis2():
