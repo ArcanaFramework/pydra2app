@@ -14,6 +14,7 @@ the full configuration required to build an XNAT docker image looks like
 
 .. code-block:: yaml
 
+    schema_version: 1.0
     title: FMRIB Scientific Library (FSL)
     version:
         package: &package_version '6.0.1'
@@ -63,14 +64,13 @@ the full configuration required to build an XNAT docker image looks like
             output_biasfield: true
             bias_lowpass: 5.0
         row_frequency: session
-    pipeline2app_spec_version: 1.0
 
 
 The CLI command to build the image from the YAML_ configuration is
 
 .. code-block:: console
 
-    $ pipeline2app deploy make-app xnat:XnatApp 'your-pipeline-config.yml'
+    $ pipeline2app make xnat 'your-pipeline-config.yml'
     Successfully built "FSL" image with ["fast"] commands
 
 To build a suite of pipelines from a series of YAML_ files stored in a directory tree
@@ -79,7 +79,7 @@ and attempt to build any YAML_ files it finds, e.g.
 
 .. code-block:: console
 
-    $ pipeline2app deploy make-app xnat:XnatApp 'config-root-dir'
+    $ pipeline2app make xnat 'config-root-dir'
     ./config-root-dir/mri/neuro/fsl.yml: FSL [fast]
     ./config-root-dir/mri/neuro/mrtrix3.yml: MRtrix3 [dwi2fod, dwi2tensor, tckgen]
     ./config-root-dir/mri/neuro/freesurfer.yml: Freesurfer [recon-all]
@@ -95,7 +95,7 @@ pipeline configuration YAML_ files using
 
 .. code-block:: console
 
-    $ pipeline2app deploy docs <path-to-yaml-or-directory> <docs-output-dir>
+    $ pipeline2app make-docs <path-to-yaml-or-directory> <docs-output-dir>
 
 Generated HTML documents will be placed in the output dir, with pipelines
 organised hierarchically to match the structure of the source directory.
