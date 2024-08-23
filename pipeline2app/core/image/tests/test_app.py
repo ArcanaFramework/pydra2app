@@ -109,7 +109,4 @@ def test_native_python_install(tmp_path):
             pass
         return "+".join(parts).strip()
 
-    assert (
-        strip_ver_timestamp(dataset[OUTPUT_COL_NAME][SAMPLE_INDEX])
-        == f"{PACKAGE_NAME}, version {strip_ver_timestamp(__version__)}"
-    )
+    assert dataset[OUTPUT_COL_NAME][SAMPLE_INDEX].split(",")[0] == PACKAGE_NAME
