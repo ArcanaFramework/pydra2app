@@ -2,7 +2,7 @@ coverage:
   range: "50...100"
   ignore: # files and folders that will be removed during processing
     - "**/tests"
-    - "pydra2app/core/_version.py"
+    - "pipeline2app/core/_version.py"
   status:
     project:
       default:
