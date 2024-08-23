@@ -1,25 +1,25 @@
-# Pydra2App
+# Pipeline2App
 
-[![Tests](https://github.com/ArcanaFramework/pydra2app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ArcanaFramework/pydra2app/actions/workflows/ci-cd.yml)
-[![Codecov](https://codecov.io/gh/ArcanaFramework/pydra2app/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/ArcanaFramework/pydra2app)
-[![Python versions](https://img.shields.io/pypi/pyversions/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
-[![Latest Version](https://img.shields.io/pypi/v/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
-[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://pydra2appframework.github.io/pydra2app)
+[![Tests](https://github.com/ArcanaFramework/pipeline2app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ArcanaFramework/pipeline2app/actions/workflows/ci-cd.yml)
+[![Codecov](https://codecov.io/gh/ArcanaFramework/pipeline2app/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/ArcanaFramework/pipeline2app)
+[![Python versions](https://img.shields.io/pypi/pyversions/pipeline2app.svg)](https://pypi.python.org/pypi/pipeline2app/)
+[![Latest Version](https://img.shields.io/pypi/v/pipeline2app.svg)](https://pypi.python.org/pypi/pipeline2app/)
+[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://arcanaframework.github.io/pipeline2app)
 
-Pydra2App is a tool for quickly turning Pydra tasks and workflows into containerised
-applications (e.g. BIDS Apps or XNAT pipelines)
+[Pydra2App](http://arcanaframework.github.io/pipeline2app) is a tool for quickly turning [Pydra](http://pydra.readthedocs.io) tasks and workflows into
+containerised applications (e.g. [BIDS](http://bids.neuroimaging.io/) Apps or [XNAT](http://xnat.org) pipelines)
 
 ## Documentation
 
-Detailed documentation on Arcana can be found at [https://pydra2app.readthedocs.io](https://pydra2app.readthedocs.io)
+Detailed documentation on Pipeline2App can be found at [https://arcanaframework.github.io/pipeline2app](https://arcanaframework.github.io/pipeline2app)
 
 
 ## Quick Installation
 
-Pydra2App can be installed for Python 3 using *pip*:
+Pipeline2App can be installed for Python 3 using *pip*:
 
 ```bash
-$ python3 -m pip install pydra2app
+$ python3 -m pip install pipeline2app
 ```
 
 ## License
@@ -33,9 +33,3 @@ This work is licensed under a
 ## Acknowledgements
 
 The authors acknowledge the facilities and scientific and technical assistance of the National Imaging Facility, a National Collaborative Research Infrastructure Strategy (NCRIS) capability.
-
-[Arcana]: http://pydra2app.readthedocs.io
-[Pydra]: http://pydra.readthedocs.io
-[XNAT]: http://xnat.org
-[BIDS]: http://bids.neuroimaging.io/
-[`Environment Modules`]: http://modules.sourceforge.net
