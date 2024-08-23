@@ -109,4 +109,4 @@ def test_native_python_install(tmp_path):
             pass
         return "+".join(parts).strip()
 
-    assert dataset[OUTPUT_COL_NAME][SAMPLE_INDEX].split(",")[0] == PACKAGE_NAME
+    assert str(dataset[OUTPUT_COL_NAME][SAMPLE_INDEX]).split(",")[0] == PACKAGE_NAME
