@@ -3,11 +3,11 @@ import typing as ty
 import tempfile
 import attrs
 from pathlib import Path
-from .base import Pydra2AppImage
+from .base import Pipeline2appImage
 
 
 @attrs.define
-class Metapackage(Pydra2AppImage):
+class Metapackage(Pipeline2appImage):
 
     manifest: dict
 

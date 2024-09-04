@@ -22,7 +22,7 @@ from frametree.core.packaging import submodules
 import pipeline2app
 from pipeline2app.core import __version__
 from pipeline2app.core.image import Metapackage, App
-from pipeline2app.core.exceptions import Pydra2AppBuildError
+from pipeline2app.core.exceptions import Pipeline2appBuildError
 from pipeline2app.core.utils import extract_file_from_docker_image, DOCKER_HUB
 from pipeline2app.core.command import entrypoint_opts
 from pipeline2app.core import PACKAGE_NAME
@@ -109,7 +109,7 @@ containing multiple specifications
     type=str,
     default=None,
     help=(
-        "Install extras to use when installing Pydra2App inside the "
+        "Install extras to use when installing Pipeline2app inside the "
         "container image. Typically only used in tests to provide "
         "'test' extra"
     ),
@@ -119,7 +119,7 @@ containing multiple specifications
     type=bool,  # FIXME: This should be replaced with option to set XNAT CS IP address
     default=False,
     help=(
-        "Build the image so that it can be run in Pydra2App's test "
+        "Build the image so that it can be run in Pipeline2app's test "
         "configuration (only for internal use)"
     ),
 )
@@ -352,7 +352,7 @@ def make(
                     + "\n\n\n"
                 )
 
-            raise Pydra2AppBuildError(msg)
+            raise Pipeline2appBuildError(msg)
 
         image_specs = to_build
 
@@ -686,7 +686,7 @@ def ext():
 
 @cli.command(
     name="bootstrap",
-    help="""Generate a YAML specification file for a Pydra2App App""",
+    help="""Generate a YAML specification file for a Pipeline2app App""",
 )
 @click.argument("output_file", type=click.Path(path_type=Path))
 @click.option("--title", "-t", type=str, default=None, help="The title of the image")

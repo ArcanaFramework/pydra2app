@@ -11,7 +11,7 @@ from frametree.testing.blueprint import (
 import pydra.mark
 from fileformats.text import TextFile
 from fileformats.testing import EncodedText
-from fileformats.core.hook import converter
+from fileformats.core import converter
 from frametree.core.frameset import FrameSet
 from frametree.common import FileSystem
 from frametree.testing import TestAxes

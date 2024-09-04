@@ -16,7 +16,7 @@ from pipeline2app.core.cli import (
     bootstrap,
 )
 from frametree.core.utils import show_cli_trace
-from pipeline2app.core.exceptions import Pydra2AppBuildError
+from pipeline2app.core.exceptions import Pipeline2appBuildError
 
 
 # @pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
@@ -142,7 +142,7 @@ def test_deploy_remake_cli(command_spec, docker_registry, cli_runner, run_prefix
         # is a clash)
         concatenate_spec["packages"] = {"system": ["vim", "git"]}
 
-        with pytest.raises(Pydra2AppBuildError) as excinfo:
+        with pytest.raises(Pipeline2appBuildError) as excinfo:
             build_spec(concatenate_spec, catch_exceptions=False)
 
         assert "doesn't match the one that was used to build the image" in str(

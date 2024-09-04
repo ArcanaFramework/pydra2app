@@ -22,7 +22,7 @@ from frametree.core.row import DataRow
 from frametree.core.frameset.base import FrameSet
 from frametree.core.store import Store
 from frametree.core.axes import Axes
-from pipeline2app.core.exceptions import Pydra2AppUsageError
+from pipeline2app.core.exceptions import Pipeline2appUsageError
 from .components import CommandInput, CommandOutput, CommandParameter
 from pipeline2app.core import PACKAGE_NAME
 
@@ -249,7 +249,7 @@ class ContainerCommand:
             source_kwargs = qualifiers.pop("criteria", {})
             converter_args[inpt.name] = qualifiers.pop("converter", {})
             if qualifiers:
-                raise Pydra2AppUsageError(
+                raise Pipeline2appUsageError(
                     "Unrecognised qualifier namespaces extracted from path for "
                     f"{inpt.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
@@ -277,14 +277,14 @@ class ContainerCommand:
                 path = f"{path}@{dataset.name}"  # Add dataset namespace
             converter_args[output.name] = qualifiers.pop("converter", {})
             if qualifiers:
-                raise Pydra2AppUsageError(
+                raise Pipeline2appUsageError(
                     "Unrecognised qualifier namespaces extracted from path for "
                     f"{output.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
             if output.name in dataset.columns:
                 column = dataset[output.name]
                 if not column.is_sink:
-                    raise Pydra2AppUsageError(
+                    raise Pipeline2appUsageError(
                         f"Output column name '{output.name}' shadows existing source column"
                     )
                 logger.info(f"Found existing sink column {column}")

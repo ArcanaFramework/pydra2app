@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import site
 import attrs
 from pipeline2app.core import PACKAGE_NAME
-from pipeline2app.core.exceptions import Pydra2AppBuildError
+from pipeline2app.core.exceptions import Pipeline2appBuildError
 from frametree.core.serialize import ObjectListConverter
 
 logger = logging.getLogger("pipeline2app")
@@ -247,7 +247,7 @@ class PipPackage(BasePackage):
 
         Raises
         ------
-        Pydra2AppError
+        Pipeline2appError
             if there is a mismatch between two entries of the same package
         """
         dct = {}
@@ -300,7 +300,7 @@ class PipPackage(BasePackage):
                     "falling back to installation from PyPI"
                 )
                 return self
-            raise Pydra2AppBuildError(
+            raise Pipeline2appBuildError(
                 f"Did not find {self.name} in installed working set:\n"
                 + "\n".join(
                     sorted(
@@ -322,7 +322,7 @@ class PipPackage(BasePackage):
             if pypi_fallback:
                 logger.warning(msg + " falling back to installation from PyPI")
                 return self
-            raise Pydra2AppBuildError(msg)
+            raise Pipeline2appBuildError(msg)
         pkg_loc = Path(pkg.location).resolve()
         # Determine whether installed version of requirement is locally
         # installed (and therefore needs to be copied into image) or can
