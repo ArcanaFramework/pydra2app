@@ -424,3 +424,10 @@ class Packages:
 
 
 site_pkg_locs = [Path(p).resolve() for p in site.getsitepackages()]
+
+
+@attrs.define
+class Resource:
+
+    name: str
+    path: Path  # the path to the resource within the container

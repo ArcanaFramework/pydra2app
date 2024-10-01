@@ -18,17 +18,18 @@ from pipeline2app.core import PACKAGE_NAME
 from frametree.core.serialize import (
     ClassResolver,
     ObjectConverter,
+    ObjectListConverter,
 )
 from frametree.core.axes import Axes
 from pipeline2app.core.utils import DOCKER_HUB
 from pipeline2app.core.exceptions import Pipeline2appBuildError
-from .components import Packages, BaseImage, PipPackage, Version
+from .components import Packages, BaseImage, PipPackage, Version, Resource
 
 logger = logging.getLogger("pipeline2app")
 
 
 @attrs.define(kw_only=True)
-class Pipeline2appImage:
+class P2AImage:
     """
     Base class with Pipeline2app installed within it from which all container image
     specifications can inherit from
@@ -65,6 +66,11 @@ class Pipeline2appImage:
     )
     packages: Packages = attrs.field(
         default=Packages(), converter=ObjectConverter(Packages)
+    )
+    resources: ty.List[Resource] = attrs.field(
+        factory=list,
+        converter=ObjectListConverter(Resource),
+        metadata={"serializer": ObjectListConverter.asdict},
     )
     org: ty.Optional[str] = None
     registry: str = DOCKER_HUB
@@ -122,6 +128,8 @@ class Pipeline2appImage:
         use_local_packages: bool = False,
         pypi_fallback: bool = False,
         pipeline2app_install_extras: ty.List[str] = (),
+        resources: ty.Optional[ty.Dict[str, Path]] = None,
+        resources_dir: ty.Optional[Path] = None,
         **kwargs,
     ) -> DockerRenderer:
         """Constructs a dockerfile that wraps a with dependencies
@@ -141,10 +149,15 @@ class Pipeline2appImage:
         pipeline2app_install_extras : Iterable[str], optional
             Extras for the Pipeline2app package that need to be installed into the
             dockerfile (e.g. tests)
-        readme : str, optional
-            Description of the container to put in a README
-        labels : ty.Dict[str, str], optional
-            labels to be added to the image
+        resources : dict[str, Path], optional
+            Resources to be copied into the docker image, keys of the dictionary should
+            match resource names defined in the pipeline specification, values of the
+            dictionary should be paths to the resources on the local filesystem to be
+            copied into the docker image
+        resources_dir : Path, optional
+            Alternative to supplying the resources separately, a directory containing
+            the resources to be copied into the docker image as named subdirectories
+            can be provided
 
         Returns
         -------
@@ -174,6 +187,8 @@ class Pipeline2appImage:
             pypi_fallback=pypi_fallback,
             pipeline2app_install_extras=pipeline2app_install_extras,
         )
+
+        self.add_resources(dockerfile, build_dir, resources, resources_dir)
 
         self.write_readme(dockerfile, build_dir)
 
@@ -232,6 +247,47 @@ class Pipeline2appImage:
             self.base_image.reference
         )
         return dockerfile
+
+    def add_resources(
+        self,
+        dockerfile: DockerRenderer,
+        build_dir: Path,
+        resources: ty.Optional[ty.Dict[str, Path]],
+        resources_dir: ty.Optional[Path],
+    ):
+        """Add static resources to the docker image"""
+        if resources_dir is not None:
+            all_resources = {
+                p.name: p
+                for p in resources_dir.iterdir()
+                if p.is_dir() and not p.name.startswith(".")
+            }
+        else:
+            all_resources = {}
+        if resources:
+            all_resources.update(resources)
+        resources_dir_context = build_dir / "resources"
+        resources_dir_context.mkdir(exist_ok=True)
+        for resource in self.resources:
+            try:
+                local_path = all_resources[resource.name]
+            except KeyError:
+                raise RuntimeError(
+                    f"Resource '{resource.name}' specified in the pipeline specification "
+                    "but not provided in the 'resources' argument or a sub-directory "
+                    f"of 'resources_dir' ('{resources_dir}')\n"
+                    + "\n".join(all_resources)
+                )
+            # copy local path into Docker build dir so it is included in context
+            build_context_path = resources_dir_context / resource.name
+            if local_path.is_dir():
+                shutil.copytree(local_path, build_context_path)
+            else:
+                shutil.copy(local_path, build_context_path)
+            dockerfile.copy(
+                source=[str(build_context_path.relative_to(build_dir))],
+                destination=resource.path,
+            )
 
     def add_labels(self, dockerfile, labels=None):
         if labels is None:
