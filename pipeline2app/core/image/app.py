@@ -19,7 +19,7 @@ from frametree.core.serialize import (
 from frametree.core.axes import Axes
 from pipeline2app.core.utils import is_relative_to
 from ..command.base import ContainerCommand
-from .base import Pipeline2appImage
+from .base import P2AImage
 from .components import ContainerAuthor, License, Docs, PipPackage
 
 
@@ -33,7 +33,7 @@ logger = logging.getLogger("pipeline2app")
 
 
 @attrs.define(kw_only=True)
-class App(Pipeline2appImage):
+class App(P2AImage):
     """A container image that contains a command with specific inputs and outputs to run.
 
     Parameters
@@ -103,7 +103,7 @@ class App(Pipeline2appImage):
             Path to the directory the Dockerfile will be written into copy any local
             files to
         **kwargs
-            Passed onto the Pipeline2appImage.construct_dockerfile() method
+            Passed onto the P2AImage.construct_dockerfile() method
 
         Returns
         -------

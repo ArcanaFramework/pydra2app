@@ -1,8 +1,8 @@
 import os
 import docker
 from frametree.common import FileSystem, Samples
-from pipeline2app.core.image import App
-from pipeline2app.core import __version__, PACKAGE_NAME
+from pipeline2app.core.image import App, P2AImage
+from pipeline2app.core import PACKAGE_NAME
 
 
 def test_native_python_install(tmp_path):
@@ -110,3 +110,76 @@ def test_native_python_install(tmp_path):
         return "+".join(parts).strip()
 
     assert str(dataset[OUTPUT_COL_NAME][SAMPLE_INDEX]).split(",")[0] == PACKAGE_NAME
+
+
+def test_add_resources(tmp_path):
+
+    img = P2AImage(
+        name="test-resource-add-image",
+        version={"package": "1.0", "build": "1"},
+        packages={
+            "system": ["vim"],  # just to test it out
+            "pip": {
+                "pipeline2app": None,
+            },  # just to test out the
+        },
+        base_image={
+            "name": "python",
+            "tag": "3.12.5-slim-bookworm",
+            "python": "python3",
+            "package_manager": "apt",
+            "conda_env": None,
+        },
+        resources={
+            "a-resource": "/internal/path/to/a/resource.txt",
+            "another-resource": "/internal/path/to/another/resource",
+        },
+    )
+
+    foo_file = tmp_path / "resources" / "foo.txt"
+    foo_file.parent.mkdir(parents=True)
+    foo_file.write_text("foo")
+
+    resources_dir = tmp_path / "resources"
+    another_resource_sub_dir = resources_dir / "another-resource"
+    another_resource_sub_dir.mkdir(parents=True)
+    (another_resource_sub_dir / "bar.txt").write_text("bar")
+
+    img.make(
+        build_dir=tmp_path / "build-dir",
+        use_local_packages=True,
+        resources={
+            "a-resource": foo_file,
+        },
+        resources_dir=resources_dir,
+    )
+
+    dc = docker.from_env()
+    args = ["cat", "/internal/path/to/a/resource.txt"]
+    try:
+        result = dc.containers.run(
+            img.reference,
+            command=args,
+            stderr=True,
+        )
+    except docker.errors.ContainerError as e:
+        raise RuntimeError(
+            f"'docker run {img.reference} {' '.join(args)}' errored:\n"
+            + e.stderr.decode("utf-8")
+        )
+
+    assert result == b"foo"
+
+    args = ["cat", "/internal/path/to/another/resource/bar.txt"]
+    try:
+        result = dc.containers.run(
+            img.reference,
+            command=args,
+            stderr=True,
+        )
+    except docker.errors.ContainerError as e:
+        raise RuntimeError(
+            f"'docker run {img.reference} {' '.join(args)}' errored:\n"
+            + e.stderr.decode("utf-8")
+        )
+    assert result == b"bar"
