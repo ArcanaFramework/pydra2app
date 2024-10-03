@@ -255,7 +255,7 @@ def make(
     check_registry,
     push,
     clean_up,
-    resource: list[tuple[str, str]],
+    resource: ty.List[ty.Tuple[str, str]],
     resources_dir: Path | None,
     spec_root: Path,
     source_package: ty.Sequence[Path],
