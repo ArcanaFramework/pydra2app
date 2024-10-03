@@ -212,6 +212,29 @@ containing multiple specifications
         "files can be specified by repeating the option."
     ),
 )
+@click.option(
+    "--resource",
+    type=str,
+    nargs=2,
+    multiple=True,
+    default=(),
+    metavar="<name> <path>",
+    help=(
+        "Supply resources to be copied into the image, the name should match up with "
+        "the name of a resource within the spec"
+    ),
+)
+@click.option(
+    "--resources-dir",
+    type=click.Path(path_type=Path, exists=True),
+    metavar="<path>",
+    default=None,
+    help=(
+        "A directory containing resources to be copied into the image, the names of the "
+        "sub-directories within the resources dir should match up with "
+        "the name of a resource within the spec"
+    ),
+)
 def make(
     target,
     spec_path: Path,
@@ -232,6 +255,8 @@ def make(
     check_registry,
     push,
     clean_up,
+    resource: list[tuple[str, str]],
+    resources_dir: Path | None,
     spec_root: Path,
     source_package: ty.Sequence[Path],
     export_files: ty.Sequence[ty.Tuple[Path, Path]],
@@ -241,6 +266,15 @@ def make(
         spec_path = Path(spec_path.decode("utf-8"))
     if isinstance(build_dir, bytes):  # FIXME: This shouldn't be necessary
         build_dir = Path(build_dir.decode("utf-8"))
+
+    resources: list[tuple[str, Path]] = []
+    for rname, rpath in resource:
+        rpath = Path(rpath)
+        if not rpath.exists():
+            raise ValueError(
+                f"Resource path {str(rpath)!r} provided to {rname!r} does not exist"
+            )
+        resources.append((rname, rpath))
 
     if tag_latest and not release:
         raise ValueError("'--tag-latest' flag requires '--release'")
@@ -379,6 +413,8 @@ def make(
                 for_localhost=for_localhost,
                 use_local_packages=use_local_packages,
                 generate_only=generate_only,
+                resources=resources,
+                resources_dir=resources_dir,
                 no_cache=clean_up,
             )
         except Exception:
