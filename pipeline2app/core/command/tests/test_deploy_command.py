@@ -61,13 +61,13 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
         row_frequency=bp.axes.default(),
         inputs=[
             {
-                "name": "source1",
+                "name": "source_1",
                 "datatype": "text/text-file",
                 "field": "in_file1",
                 "help": "dummy",
             },
             {
-                "name": "source2",
+                "name": "source_2",
                 "datatype": "text/text-file",
                 "field": "in_file2",
                 "help": "dummy",
@@ -75,7 +75,7 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
         ],
         outputs=[
             {
-                "name": "sink1",
+                "name": "sink_1",
                 "datatype": "text/text-file",
                 "field": "out_file",
                 "help": "dummy",
@@ -95,11 +95,11 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
     command_spec.execute(
         address=saved_dataset.locator,
         input_values=[
-            ("source1", "file1"),
-            ("source2", "file2"),
+            ("source_1", "file1"),
+            ("source_2", "file2"),
         ],
         output_values=[
-            ("sink1", "concatenated"),
+            ("sink_1", "concatenated"),
         ],
         parameter_values=[
             ("duplicates", str(duplicates)),
@@ -112,7 +112,10 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
         pipeline_name="test_pipeline",
     )
     # Add source column to saved dataset
-    sink = saved_dataset.add_sink("concatenated", TextFile)
+    reloaded = saved_dataset.store.load_frameset(
+        saved_dataset.id, name=saved_dataset.name
+    )
+    sink = reloaded["sink_1"]
     assert len(sink) == reduce(mul, bp.dim_lengths)
     fnames = ["file1.txt", "file2.txt"]
     if concatenate_task.__name__.endswith("reverse"):

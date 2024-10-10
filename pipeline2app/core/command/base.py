@@ -97,8 +97,8 @@ class ContainerCommand:
                     self.row_frequency = self.AXES[self.row_frequency]
                 else:
                     raise ValueError(
-                        f"'{self.row_frequency}' cannot be resolved to a data space, "
-                        "needs to be of form <data-space-enum>[<row-frequency-name>]"
+                        f"'{self.row_frequency}' row frequency cannot be resolved to a axes, "
+                        "needs to be of form <axes>[<row-frequency>]"
                     )
         elif self.AXES:
             self.row_frequency = self.AXES.default()
