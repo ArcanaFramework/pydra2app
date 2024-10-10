@@ -431,3 +431,4 @@ class Resource:
 
     name: str
     path: Path  # the path to the resource within the container
+    description: str = ""

@@ -272,10 +272,13 @@ class P2AImage:
             try:
                 local_path = all_resources[resource.name]
             except KeyError:
+                resource_dir_str = (
+                    str(resources_dir) if resources_dir is not None else None
+                )
                 raise RuntimeError(
                     f"Resource '{resource.name}' specified in the pipeline specification "
                     "but not provided in the 'resources' argument or a sub-directory "
-                    f"of 'resources_dir' ('{resources_dir}')\n"
+                    f"of 'resources_dir' ({resource_dir_str!r})\n"
                     + "\n".join(all_resources)
                 )
             # copy local path into Docker build dir so it is included in context
