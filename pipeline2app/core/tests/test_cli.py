@@ -181,7 +181,7 @@ docs:
     a test of the YAML join functionality
 commands:
   identity-task:
-    task: frametree.testing.tasks:identity_file
+    task: frametree.testing.tasks:IdentityFile
     row_frequency: common:Samples[sample]
     inputs:
       in_file:
@@ -215,7 +215,7 @@ a test of the YAML join functionality
 ## Commands
 |Key|Value|
 |---|-----|
-|Task|frametree.testing.tasks:identity_file|
+|Task|frametree.testing.tasks:IdentityFile|
 |Operates on|sample|
 #### Inputs
 |Name|Required data-type|Default column data-type|Description|

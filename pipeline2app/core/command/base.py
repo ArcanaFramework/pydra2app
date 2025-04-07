@@ -11,8 +11,7 @@ import sys
 from collections import defaultdict
 import attrs
 from attrs.converters import default_if_none
-import pydra.engine.task
-from pydra.engine.core import TaskBase
+import pydra.compose.base
 from frametree.core.serialize import (
     ObjectListConverter,
     ClassResolver,
@@ -41,7 +40,7 @@ class ContainerCommand:
 
     Parameters
     ----------
-    task : pydra.engine.task.TaskBase or str
+    task : pydra.compose.base.Task or str
         the task to run or the location of the class
     row_frequency: Axes, optional
         the frequency that the command operates on
@@ -61,9 +60,11 @@ class ContainerCommand:
     AXES: ty.Optional[ty.Type[Axes]] = None
 
     name: str = attrs.field()
-    task: pydra.engine.task.TaskBase = attrs.field(
+    task: pydra.compose.base.Task = attrs.field(
         converter=ClassResolver(  # type: ignore[misc]
-            TaskBase, alternative_types=[ty.Callable], package=PACKAGE_NAME
+            pydra.compose.base.Task,
+            alternative_types=[ty.Callable],
+            package=PACKAGE_NAME,
         )
     )
     row_frequency: ty.Optional[Axes] = attrs.field(default=None)

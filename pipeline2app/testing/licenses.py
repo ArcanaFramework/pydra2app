@@ -28,7 +28,7 @@ def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
         },
         commands={
             "check-license": {
-                "task": "pipeline2app.testing.tasks:check_license",
+                "task": "pipeline2app.testing.tasks:CheckLicence",
                 "row_frequency": "common:Samples[sample]",
                 "inputs": [
                     {

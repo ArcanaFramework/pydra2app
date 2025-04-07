@@ -2,21 +2,20 @@ import shutil
 from pathlib import Path
 import typing as ty
 import attrs
-from pydra import mark, Workflow
+from pydra.compose import python, workflow
 import fileformats.core
 from fileformats.generic import File
 import fileformats.text
 from frametree.core.row import DataRow
 
 
-@mark.task
+@python.define
 def add(a: float, b: float) -> float:
     return a + b
 
 
-@mark.task
-@mark.annotate({"dpath": Path, "fname": str, "return": {"path": str, "suffix": str}})
-def path_manip(dpath, fname):
+@python.define(outputs=["path", "suffix"])
+def path_manip(dpath: Path, fname: str) -> ty.Tuple[str, str]:
     path = dpath / fname
     return str(path), path.suffix
 
@@ -38,20 +37,18 @@ class C:
     z: float
 
 
-@mark.task
-@mark.annotate({"a": A, "b": B, "return": {"c": C}})
-def attrs_func(a, b):
+@python.define(outputs=["c"])
+def AttrsFunc(a: A, b: B) -> C:
     return C(z=a.x * b.u + a.y * b.v)
 
 
-@mark.task
-@mark.annotate({"return": {"out_file": File}})
-def concatenate(
+@python.define(outputs=["out_file"])
+def Concatenate(
     in_file1: File,
     in_file2: File,
     out_file: ty.Optional[Path] = None,
     duplicates: int = 1,
-) -> Path:
+) -> File:
     """Concatenates the contents of two files and writes them to a third
 
     Parameters
@@ -80,9 +77,8 @@ def concatenate(
     return out_file
 
 
-@mark.task
-@mark.annotate({"return": {"out_file": File}})
-def reverse(in_file: File, out_file: ty.Optional[Path] = None) -> File:
+@python.define(outputs=["out_file"])
+def Reverse(in_file: File, out_file: ty.Optional[Path] = None) -> File:
     """Reverses the contents of a file and outputs it to another file
 
     Parameters
@@ -106,7 +102,8 @@ def reverse(in_file: File, out_file: ty.Optional[Path] = None) -> File:
     return out_file
 
 
-def concatenate_reverse(name="concatenate_reverse", **kwargs):
+@workflow.define
+def ConcatenateReverse(in_file1: File, in_file2: File, duplicates: int = 1) -> File:
     """A simple workflow that has the same signature as concatenate, but
     concatenates reversed contents of the input files instead
 
@@ -123,30 +120,23 @@ def concatenate_reverse(name="concatenate_reverse", **kwargs):
     Workflow
         the workflow that
     """
-    wf = Workflow(
-        name=name, input_spec=["in_file1", "in_file2", "duplicates"], **kwargs
-    )
+    reverse1 = workflow.add(Reverse(in_file=in_file1), name="reverse1")
 
-    wf.add(reverse(name="reverse1", in_file=wf.lzin.in_file1))
+    reverse2 = workflow.add(Reverse(in_file=in_file2), name="reverse2")
 
-    wf.add(reverse(name="reverse2", in_file=wf.lzin.in_file2))
-
-    wf.add(
-        concatenate(
-            name="concatenate",
-            in_file1=wf.reverse1.lzout.out_file,
-            in_file2=wf.reverse2.lzout.out_file,
-            duplicates=wf.lzin.duplicates,
+    concatenate = workflow.add(
+        Concatenate(
+            in_file1=reverse1.out_file,
+            in_file2=reverse2.out_file,
+            duplicates=duplicates,
         )
     )
 
-    wf.set_output([("out_file", wf.concatenate.lzout.out_file)])
-
-    return wf
+    return concatenate.out_file
 
 
-@mark.task
-def plus_10_to_filenumbers(filenumber_row: DataRow) -> None:
+@python.define
+def Plus10ToFileNumbers(filenumber_row: DataRow) -> None:
     """Alters the item paths within the data row, by converting them to
     an int and adding 10. Used in the test_run_pipeline_on_row_cli test.
 
@@ -161,18 +151,18 @@ def plus_10_to_filenumbers(filenumber_row: DataRow) -> None:
         shutil.move(item.fspath, item.fspath.parent / (new_item_stem + item.actual_ext))
 
 
-@mark.task
-def identity_file(in_file: File) -> File:
+@python.define
+def IdentityFile(in_file: File) -> File:
     return in_file
 
 
-@mark.task
-def identity(in_):
+@python.define
+def identity(in_: ty.Any) -> ty.Any:
     return in_
 
 
-@mark.task
-def multiply_contents(
+@python.define
+def MultiplyContents(
     in_file: File,
     multiplier: ty.Union[int, float],
     out_file: ty.Optional[Path] = None,
@@ -208,8 +198,8 @@ def multiply_contents(
     return File(out_file)
 
 
-@mark.task
-def contents_are_numeric(in_file: File) -> bool:
+@python.define
+def ContentsAreNumeric(in_file: File) -> bool:
     """Checks the contents of a file to see whether each line can be cast to a numeric
     value
 
@@ -232,8 +222,8 @@ def contents_are_numeric(in_file: File) -> bool:
     return True
 
 
-@mark.task
-def check_license(
+@python.define
+def CheckLicence(
     expected_license_path: File,
     expected_license_contents: File,
 ) -> File:
@@ -273,7 +263,7 @@ TEST_TASKS = {
         {"path": "/home/foo/Desktop/bar.txt", "suffix": ".txt"},
     ),
     "attrs_func": (
-        attrs_func,
+        AttrsFunc,
         {"a": A(x=2, y=4), "b": B(u=2.5, v=1.25)},
         {"c": C(z=10)},
     ),

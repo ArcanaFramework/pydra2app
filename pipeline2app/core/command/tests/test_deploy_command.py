@@ -219,7 +219,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
 
     command_spec = ContainerCommand(
         name="plus-10",
-        task="pipeline2app.testing.tasks:plus_10_to_filenumbers",
+        task="pipeline2app.testing.tasks:Plus10ToFileNumbers",
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -259,7 +259,7 @@ def test_command_execute_with_converter_args(
     # Add source to loaded dataset
     command_spec = ContainerCommand(
         name="identity",
-        task="pipeline2app.testing.tasks:identity_file",
+        task="pipeline2app.testing.tasks:IdentityFile",
         row_frequency=bp.axes.default(),
         inputs=[
             {
