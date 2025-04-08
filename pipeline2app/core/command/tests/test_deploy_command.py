@@ -51,14 +51,14 @@ def encoded_text_converter():
     return None
 
 
-def test_command_execute(concatenate_task, saved_dataset, work_dir):
+def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
     command_spec = ContainerCommand(
         name="concatenate",
-        task="pipeline2app.testing.tasks:" + concatenate_task.__name__,
+        task="pipeline2app.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -106,7 +106,7 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
             ("duplicates", str(duplicates)),
         ],
         raise_errors=True,
-        plugin="serial",
+        worker="debug",
         work_dir=str(work_dir),
         loglevel="debug",
         dataset_hierarchy=",".join(bp.hierarchy),
@@ -117,7 +117,7 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
     sink = reloaded["sink_1"]
     assert len(sink) == reduce(mul, bp.dim_lengths)
     fnames = ["file1.txt", "file2.txt"]
-    if concatenate_task.__name__.endswith("reverse"):
+    if ConcatenateTask.__name__.endswith("reverse"):
         fnames = [f[::-1] for f in fnames]
     expected_contents = "\n".join(fnames * duplicates)
     for item in sink:
@@ -126,14 +126,14 @@ def test_command_execute(concatenate_task, saved_dataset, work_dir):
         assert contents == expected_contents
 
 
-def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
+def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
 
     command_spec = ContainerCommand(
         name="concatenate",
-        task="pipeline2app.testing.tasks:" + concatenate_task.__name__,
+        task="pipeline2app.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -183,7 +183,7 @@ def test_command_execute_fail(concatenate_task, saved_dataset, work_dir):
                 ("duplicates", duplicates),
             ],
             raise_errors=True,
-            plugin="serial",
+            worker="debug",
             work_dir=str(work_dir),
             loglevel="debug",
             dataset_hierarchy=",".join(bp.hierarchy),
@@ -236,7 +236,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
     command_spec.execute(
         address=dataset.locator,
         raise_errors=True,
-        plugin="serial",
+        worker="debug",
         work_dir=str(work_dir),
         loglevel="debug",
         dataset_hierarchy=",".join(bp.hierarchy),
@@ -297,7 +297,7 @@ def test_command_execute_with_converter_args(
             ("second_output_file", "sink2 converter.shift=-3"),
         ],
         raise_errors=True,
-        plugin="serial",
+        worker="debug",
         work_dir=str(work_dir),
         loglevel="debug",
         dataset_hierarchy=",".join(bp.hierarchy),
@@ -382,7 +382,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
             ("duplicates", str(duplicates)),
         ],
         raise_errors=True,
-        plugin="serial",
+        worker="debug",
         work_dir=str(work_dir),
         loglevel="debug",
         dataset_hierarchy=",".join(bp.hierarchy),

@@ -413,7 +413,7 @@ class ContainerCommand:
 
         # execute the workflow
         try:
-            result = wf(ids=ids, plugin=plugin)
+            result = wf(ids=ids, worker=plugin)
         except Exception:
             msg = show_workflow_errors(
                 pipeline_cache_dir, omit_nodes=["per_node", wf.name]
