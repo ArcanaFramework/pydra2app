@@ -6,23 +6,22 @@ import tempfile
 import json
 import logging
 from pathlib import Path
+from importlib import import_module
 import typing as ty
 import sys
 from collections import defaultdict
 import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
-from frametree.core.serialize import (
-    ObjectListConverter,
-    ClassResolver,
-)
+from pydra.utils import task_fields
+from fileformats.core.fileset import FileSet
+from frametree.core.serialize import ClassResolver
 from frametree.core.utils import show_workflow_errors, path2label
 from frametree.core.row import DataRow
 from frametree.core.frameset.base import FrameSet
 from frametree.core.store import Store
 from frametree.core.axes import Axes
 from pipeline2app.core.exceptions import Pipeline2appUsageError
-from .components import CommandInput, CommandOutput, CommandParameter
 from pipeline2app.core import PACKAGE_NAME
 
 
@@ -31,6 +30,36 @@ if ty.TYPE_CHECKING:
 
 
 logger = logging.getLogger("pipeline2app")
+
+DEFAULT_TASK_NAME = "ContainerCommandTask"
+
+
+def task_converter(task_def: str | dict[str, ty.Any]) -> type[pydra.compose.base.Task]:
+
+    if isinstance(task_def, str):
+        task_cls = ClassResolver(  # type: ignore[misc]
+            pydra.compose.base.Task,
+            alternative_types=[ty.Callable],
+            package=PACKAGE_NAME,
+        )
+    elif isinstance(task_def, dict):
+        task_def = copy(task_def)
+        task_type = task_def.pop("type")
+        define = import_module(f"pydra.compose.{task_type}").define
+        if task_type == "python":
+            executor = task_def.pop("function")
+        elif task_type == "shell":
+            executor = task_def.pop("executable")
+        elif task_type == "workflow":
+            executor = task_def.pop("constructor")
+        else:
+            raise ValueError(f"Unreognised task type '{task_type}'")
+        task_cls = define(executor, **task_def, name=DEFAULT_TASK_NAME)
+    elif isinstance(task_def, pydra.compose.base.Task):
+        task_cls = task_def
+    else:
+        raise TypeError(f"Cannot convert {type(task_def)} ({task_def}) to a task")
+    return task_cls
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
@@ -60,33 +89,26 @@ class ContainerCommand:
     AXES: ty.Optional[ty.Type[Axes]] = None
 
     name: str = attrs.field()
-    task: pydra.compose.base.Task = attrs.field(
-        converter=ClassResolver(  # type: ignore[misc]
-            pydra.compose.base.Task,
-            alternative_types=[ty.Callable],
-            package=PACKAGE_NAME,
-        )
-    )
+    task: type[pydra.compose.base.Task] = attrs.field(converter=task_converter)
     row_frequency: ty.Optional[Axes] = attrs.field(default=None)
-    inputs: ty.List[CommandInput] = attrs.field(
-        factory=list,
-        converter=ObjectListConverter(CommandInput),  # type: ignore[misc]
-        metadata={"serializer": ObjectListConverter.asdict},
-    )
-    outputs: ty.List[CommandOutput] = attrs.field(
-        factory=list,
-        converter=ObjectListConverter(CommandOutput),  # type: ignore[misc]
-        metadata={"serializer": ObjectListConverter.asdict},
-    )
-    parameters: ty.List[CommandParameter] = attrs.field(
-        factory=list,
-        converter=ObjectListConverter(CommandParameter),  # type: ignore[misc]
-        metadata={"serializer": ObjectListConverter.asdict},
-    )
+    inputs: ty.List[str] = attrs.field()
+    parameters: ty.List[str] = attrs.field()
     configuration: ty.Dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
     )
     image: App = attrs.field(default=None)
+
+    @inputs.default
+    def _default_inputs(self) -> ty.List[str]:
+        return [i.name for i in task_fields(self.task) if issubclass(i.type, FileSet)]
+
+    @parameters.default
+    def _default_parameters(self) -> ty.List[str]:
+        return [
+            i.name
+            for i in task_fields(self.task)
+            if issubclass(i.type, (str, int, float, bool))
+        ]
 
     def __attrs_post_init__(self) -> None:
         if isinstance(self.row_frequency, Axes):
@@ -110,26 +132,6 @@ class ContainerCommand:
                 "because it doesn't have a defined AXES class attribute"
             )
 
-    def input(self, name: str) -> CommandInput:
-        try:
-            return next(i for i in self.inputs if i.name == name)
-        except StopIteration:
-            raise KeyError(f"{self!r} doesn't have an output named '{name}")
-
-    def output(self, name: str) -> CommandOutput:
-        try:
-            return next(o for o in self.outputs if o.name == name)
-        except StopIteration:
-            raise KeyError(f"{self!r} doesn't have an output named '{name}")
-
-    @property
-    def input_names(self) -> ty.List[str]:
-        return [i.name for i in self.inputs]
-
-    @property
-    def output_names(self) -> ty.List[str]:
-        return [o.name for o in self.outputs]
-
     @property
     def axes(self) -> ty.Type[Axes]:
         return type(self.row_frequency)
@@ -148,9 +150,9 @@ class ContainerCommand:
     def license_args(self) -> ty.List[str]:
         cmd_args = []
         if self.image:
-            for lic_name, lic in self.image.licenses.items():
+            for lic in self.image.licenses:
                 if lic.source is None:
-                    cmd_args.append(f"--download-license {lic_name} {lic.destination}")
+                    cmd_args.append(f"--download-license {lic.name} {lic.destination}")
         return cmd_args
 
     def execute(
@@ -247,14 +249,14 @@ class ContainerCommand:
         output_values = dict(output_values) if output_values else {}
         parameter_values = dict(parameter_values) if parameter_values else {}
 
-        input_configs = []
         converter_args = {}  # Arguments passed to converter
         pipeline_inputs = []
+        task_inputs = task_fields(self.task)
         for input_name, input_path in input_values.items():
             if not input_path:
                 logger.info("No value provided for input '%s', skipping", input_name)
                 continue
-            inpt = self.input(input_name)
+            inpt = task_inputs[input_name]
             path, qualifiers = self.extract_qualifiers_from_path(input_path)
             source_kwargs = qualifiers.pop("criteria", {})
             if input_path in dataset.columns:
@@ -266,9 +268,12 @@ class ContainerCommand:
                     column = dataset[default_column_name]
                 except KeyError:
                     logger.info(f"Adding new source column '{default_column_name}'")
+                    datatype = (
+                        inpt.type
+                    )  # TODO: Create a union of all the convertible datatypes
                     column = dataset.add_source(
                         name=default_column_name,
-                        datatype=inpt.column_defaults.datatype,
+                        datatype=datatype,
                         path=path,
                         is_regex=True,
                         **source_kwargs,
@@ -276,9 +281,7 @@ class ContainerCommand:
                 else:
                     logger.info("Found existing source column %s", default_column_name)
 
-            if input_config := inpt.config_dict:
-                input_configs.append(input_config)
-            pipeline_inputs.append((column.name, inpt.field, inpt.datatype))
+            pipeline_inputs.append((column.name, inpt.name, inpt.type))
             converter_args[column.name] = qualifiers.pop("converter", {})
             if qualifiers:
                 raise Pipeline2appUsageError(
@@ -286,18 +289,18 @@ class ContainerCommand:
                     f"{inpt.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
 
-        pipeline_inputs.extend(i for i in self.inputs if i.datatype is DataRow)
+        pipeline_inputs.extend(i for i in task_inputs if i.type is DataRow)
 
         if not pipeline_inputs:
             raise ValueError(
                 f"No input values provided to command {self.name} "
-                f"(available: {self.input_names})"
+                f"(available: {list(task_inputs.keys())})"
             )
 
-        output_configs = []
         pipeline_outputs = []
+        task_outputs = task_fields(self.task.Outputs)
         for output_name, output_path in output_values.items():
-            output = self.output(output_name)
+            output = task_outputs[output_name]
             if not output_path:
                 logger.info("No value provided for output '%s', skipping", output_name)
                 continue
@@ -316,12 +319,10 @@ class ContainerCommand:
                 logger.info(f"Adding new source column '{sink_name}'")
                 dataset.add_sink(
                     name=sink_name,
-                    datatype=output.column_defaults.datatype,
+                    datatype=output.type,
                     path=path,
                 )
-            if output_config := output.config_dict:
-                output_configs.append(output_config)
-            pipeline_outputs.append((sink_name, output.field, output.datatype))
+            pipeline_outputs.append((sink_name, output.name, output.type))
             converter_args[sink_name] = qualifiers.pop("converter", {})
             if qualifiers:
                 raise Pipeline2appUsageError(
@@ -329,66 +330,37 @@ class ContainerCommand:
                     f"{output_name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
 
-        if not pipeline_outputs and self.outputs:
+        if not pipeline_outputs and task_outputs:
             raise ValueError(
                 f"No output values provided to command {self} "
-                f"(available: {self.output_names})"
+                f"(available: {list(task_outputs.keys())})"
             )
 
         dataset.save()  # Save definitions of the newly added columns
 
-        kwargs = copy(self.configuration)
-
-        param_configs = []
-        for param in self.parameters:
-            param_value = parameter_values.get(param.name, None)
+        task_kwargs = copy(self.configuration)
+        for param_name, param_value in parameter_values.items():
+            param = task_inputs[param_name]
             logger.info(
                 "Parameter %s (type %s) passed value %s",
-                param.name,
-                param.datatype,
+                param_name,
+                param.type,
                 param_value,
             )
-            if param_value == "" and param.datatype is not str:
+            if param_value == "" and param.type is not str:
                 param_value = None
                 logger.info(
                     "Non-string parameter '%s' passed empty string, setting to NOTHING",
-                    param.name,
+                    param_name,
                 )
-            if param_value is None:
-                if param.default is None:
-                    raise RuntimeError(
-                        f"A value must be provided to required '{param.name}' parameter"
-                    )
-                param_value = param.default
-                logger.info("Using default value for %s, %s", param.name, param_value)
 
-            # Convert parameter to parameter type
-            try:
-                param_value = param.datatype(param_value)
-            except ValueError:
-                raise ValueError(
-                    f"Could not convert value passed to '{param.name}' parameter, "
-                    f"{param_value}, into {param.datatype}"
-                )
-            kwargs[param.field] = param_value
-            if param_config := param.config_dict:
-                param_configs.append(param_config)
+            task_kwargs[param_name] = param_value
 
-        if "name" not in kwargs:
-            kwargs["name"] = "pipeline_task"
-
-        if input_configs:
-            kwargs["inputs"] = input_configs
-        if output_configs:
-            kwargs["outputs"] = output_configs
-        if param_configs:
-            kwargs["parameters"] = param_configs
-
-        task = self.task(**kwargs)
+        task = self.task(**task_kwargs)
 
         if pipeline_name in dataset.pipelines and not overwrite:
             pipeline = dataset.pipelines[self.name]
-            if task != pipeline.workflow:
+            if task != pipeline.task:
                 raise RuntimeError(
                     f"A pipeline named '{self.name}' has already been applied to "
                     "which differs from one specified. Please use '--overwrite' option "
@@ -405,16 +377,16 @@ class ContainerCommand:
                 converter_args=converter_args,
             )
 
-        # Instantiate the Pydra workflow
-        wf = pipeline(cache_dir=pipeline_cache_dir)
-
         if isinstance(ids, str):
             ids = ids.split(",")
 
+        # Instantiate the Pydra workflow
+        wf = pipeline(ids=ids)
+
         # execute the workflow
         try:
-            result = wf(ids=ids, worker=plugin)
-        except Exception:
+            outputs = wf(cache_root=pipeline_cache_dir, worker=plugin)
+        except RuntimeError:
             msg = show_workflow_errors(
                 pipeline_cache_dir, omit_nodes=["per_node", wf.name]
             )
@@ -429,7 +401,7 @@ class ContainerCommand:
             logger.info(
                 "Pipeline '%s' ran successfully for the following data rows:\n%s",
                 pipeline_name,
-                "\n".join(result.output.processed),
+                "\n".join(outputs.processed),
             )
             errors = False
         finally:

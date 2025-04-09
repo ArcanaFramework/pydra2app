@@ -8,7 +8,7 @@ from frametree.testing.blueprint import (
     TestDatasetBlueprint,
     FileSetEntryBlueprint as FileBP,
 )
-import pydra.mark
+from pydra.compose import python
 from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 from fileformats.core import converter
@@ -28,8 +28,7 @@ def encoded_text_converter():
     @converter(
         source_format=TextFile, target_format=EncodedText, out_filename="out_file.enc"
     )
-    @pydra.mark.task
-    @pydra.mark.annotate({"return": {"out_file": Path}})
+    @python.define(outputs=["out_file"])
     def encoder_task(
         in_file: ty.Union[str, bytes, os.PathLike],
         out_filename: str,

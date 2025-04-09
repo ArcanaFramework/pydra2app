@@ -12,7 +12,7 @@ import click
 import yaml
 import docker
 import docker.errors
-from pydra.engine.core import TaskBase
+from pydra.compose.base import Task as TaskBase
 from frametree.core.serialize import (
     package_from_module,
     pydra_asdict,
@@ -916,7 +916,7 @@ def bootstrap(
     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 
     def unwrap_fields(
-        fields: ty.List[ty.Tuple[str, str]]
+        fields: ty.List[ty.Tuple[str, str]],
     ) -> ty.Dict[str, ty.Dict[str, ty.Any]]:
         fields_dict = {}
         for field_name, attrs_str in fields:

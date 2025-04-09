@@ -1,33 +1,27 @@
-from pipeline2app.common.tasks import shell
+from pydra.compose import shell
 from fileformats.generic import Directory
 
 
 def test_shell(work_dir):
 
-    cp = shell(
-        name="copy",
-        executable="cp",
-        inputs=[
-            {
-                "name": "in_dir",
-                "datatype": "generic/directory",
-            }
-        ],
-        outputs=[
-            {
-                "name": "out_dir",
-                "datatype": "generic/directory",
-                "position": -1,
-            }
-        ],
-        parameters=[
-            {
-                "name": "recursive",
-                "datatype": "field/boolean",
+    Cp = shell.define(
+        "cp",
+        inputs={
+            "in_dir": {
+                "type": "generic/directory",
+            },
+            "recursive": {
+                "type": "field/boolean",
                 "argstr": "-R",
                 "position": 0,
+            },
+        },
+        outputs={
+            "out_dir": {
+                "type": "generic/directory",
+                "position": -1,
             }
-        ],
+        },
     )
 
     in_dir = work_dir / "source-dir"
@@ -37,11 +31,12 @@ def test_shell(work_dir):
 
     out_dir = work_dir / "dest-dir"
 
-    result = cp(
+    cp = Cp(
         in_dir=str(in_dir),
         out_dir=str(out_dir),
         recursive=True,
     )
 
-    assert result.output.out_dir == Directory(out_dir)
+    outputs = cp()
+    assert outputs.out_dir == Directory(out_dir)
     assert list(p.name for p in out_dir.iterdir()) == ["a-file.txt"]

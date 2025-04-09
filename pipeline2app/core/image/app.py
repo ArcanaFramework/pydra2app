@@ -51,7 +51,7 @@ class App(P2AImage):
         list of authors of the package
     command : ContainerCommand
         description of the command that is to be run within the image
-    licenses : list[ty.Dict[str, str]], optional
+    licenses : list[License], optional
         specification of licenses required by the commands in the container. Each dict
         should contain the 'name' of the license and the 'destination' it should be
         installed inside the container.
@@ -69,7 +69,7 @@ class App(P2AImage):
         metadata={"serializer": ObjectListConverter.asdict},
     )
     licenses: ty.List[License] = attrs.field(
-        factory=dict,
+        factory=list,
         converter=ObjectListConverter(License),  # type: ignore[misc]
         metadata={"serializer": ObjectListConverter.asdict},
     )
