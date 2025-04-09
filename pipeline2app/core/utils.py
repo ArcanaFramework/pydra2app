@@ -6,7 +6,7 @@ import tempfile
 import tarfile
 import docker
 
-logger = logging.getLogger("pipeline2app")
+logger = logging.getLogger("pydra2app")
 
 
 def extract_file_from_docker_image(

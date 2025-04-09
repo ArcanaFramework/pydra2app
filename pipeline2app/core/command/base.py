@@ -21,15 +21,15 @@ from frametree.core.row import DataRow
 from frametree.core.frameset.base import FrameSet
 from frametree.core.store import Store
 from frametree.core.axes import Axes
-from pipeline2app.core.exceptions import Pipeline2appUsageError
-from pipeline2app.core import PACKAGE_NAME
+from pydra2app.core.exceptions import Pipeline2appUsageError
+from pydra2app.core import PACKAGE_NAME
 
 
 if ty.TYPE_CHECKING:
     from ..image import App
 
 
-logger = logging.getLogger("pipeline2app")
+logger = logging.getLogger("pydra2app")
 
 DEFAULT_TASK_NAME = "ContainerCommandTask"
 

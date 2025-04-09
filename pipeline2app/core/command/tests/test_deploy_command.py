@@ -15,7 +15,7 @@ from fileformats.core import converter
 from frametree.core.frameset import FrameSet
 from frametree.common import FileSystem
 from frametree.testing import TestAxes
-from pipeline2app.core.command.base import ContainerCommand
+from pydra2app.core.command.base import ContainerCommand
 from frametree.core.exceptions import FrameTreeDataMatchError
 
 
@@ -57,7 +57,7 @@ def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
 
     command_spec = ContainerCommand(
         name="concatenate",
-        task="pipeline2app.testing.tasks:" + ConcatenateTask.__name__,
+        task="pydra2app.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -132,7 +132,7 @@ def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
 
     command_spec = ContainerCommand(
         name="concatenate",
-        task="pipeline2app.testing.tasks:" + ConcatenateTask.__name__,
+        task="pydra2app.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -218,7 +218,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
 
     command_spec = ContainerCommand(
         name="plus-10",
-        task="pipeline2app.testing.tasks:Plus10ToFileNumbers",
+        task="pydra2app.testing.tasks:Plus10ToFileNumbers",
         row_frequency=bp.axes.default(),
         inputs=[
             {
@@ -249,7 +249,7 @@ def test_command_execute_with_converter_args(
     saved_dataset: FrameSet, work_dir: Path, encoded_text_converter
 ):
     """Test passing arguments to file format converter tasks via input/output
-    "qualifiers", e.g. 'converter.shift=3' using the pipeline2app-run-pipeline CLI
+    "qualifiers", e.g. 'converter.shift=3' using the pydra2app-run-pipeline CLI
     tool (as used in the XNAT CS commands)
     """
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
@@ -258,7 +258,7 @@ def test_command_execute_with_converter_args(
     # Add source to loaded dataset
     command_spec = ContainerCommand(
         name="identity",
-        task="pipeline2app.testing.tasks:IdentityFile",
+        task="pydra2app.testing.tasks:IdentityFile",
         row_frequency=bp.axes.default(),
         inputs=[
             {

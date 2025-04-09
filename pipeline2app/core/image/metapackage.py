@@ -34,7 +34,7 @@ class Metapackage(P2AImage):
         dockerfile.entrypoint(
             self.activate_conda()
             + [
-                "pipeline2app",
+                "pydra2app",
                 "ext",
                 "xnat",
                 "pull-images",

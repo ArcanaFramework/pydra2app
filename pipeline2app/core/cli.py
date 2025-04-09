@@ -19,24 +19,24 @@ from frametree.core.serialize import (
     ClassResolver,
 )
 from frametree.core.packaging import submodules
-import pipeline2app
-from pipeline2app.core import __version__
-from pipeline2app.core.image import Metapackage, App
-from pipeline2app.core.utils import (
+import pydra2app
+from pydra2app.core import __version__
+from pydra2app.core.image import Metapackage, App
+from pydra2app.core.utils import (
     DOCKER_HUB,
 )
-from pipeline2app.core.command import entrypoint_opts
-from pipeline2app.core import PACKAGE_NAME
+from pydra2app.core.command import entrypoint_opts
+from pydra2app.core import PACKAGE_NAME
 
 
-logger = logging.getLogger("pipeline2app")
+logger = logging.getLogger("pydra2app")
 
 
 # Define the base CLI entrypoint
 @click.group()
 @click.version_option(version=__version__)
 def cli() -> None:
-    """Base command line group, installed as "pipeline2app"."""
+    """Base command line group, installed as "pydra2app"."""
     return None
 
 
@@ -45,9 +45,9 @@ def cli() -> None:
     help="""Construct and build a docker image containing a pipeline to be run on data
 stored in a data repository or structure (e.g. XNAT Container Service Pipeline or BIDS App)
 
-TARGET is the type of image to build. For standard images just the pipeline2app
+TARGET is the type of image to build. For standard images just the pydra2app
 sub-package is required (e.g. 'xnat' or 'common'). However, specific App subclasses can
-be specified using <module-path>:<app-class-name> format, e.g. pipeline2app.xnat:XnatApp
+be specified using <module-path>:<app-class-name> format, e.g. pydra2app.xnat:XnatApp
 
 SPEC_PATH is the file system path to the specification to build, or directory
 containing multiple specifications
@@ -405,7 +405,7 @@ def make(
                 generate_only=generate_only,
                 resources=resources,
                 resources_dir=resources_dir,
-                pipeline2app_install_extras=install_extras,
+                pydra2app_install_extras=install_extras,
                 no_cache=clean_up,
                 stream_logs=stream_logs,
                 reference=image_reference,
@@ -988,7 +988,7 @@ def bootstrap(
 
 # Ensure that all sub-packages under CLI are loaded so they are added to the
 # base command
-extensions = list(submodules(pipeline2app, subpkg="cli"))
+extensions = list(submodules(pydra2app, subpkg="cli"))
 
 
 if __name__ == "__main__":

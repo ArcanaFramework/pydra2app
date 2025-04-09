@@ -3,8 +3,8 @@ import docker
 from pathlib import Path
 from copy import deepcopy
 from frametree.common import FileSystem, Samples
-from pipeline2app.core.image import App, P2AImage
-from pipeline2app.core import PACKAGE_NAME
+from pydra2app.core.image import App, P2AImage
+from pydra2app.core import PACKAGE_NAME
 from conftest import TestDatasetBlueprint
 
 
@@ -58,7 +58,7 @@ def test_native_python_install(tmp_path):
                 "row_frequency": "common:Samples[sample]",
                 "configuration": {
                     "executable": [
-                        "pipeline2app",
+                        "pydra2app",
                         "--version",
                     ]
                 },
@@ -67,7 +67,7 @@ def test_native_python_install(tmp_path):
         "version": "1.0",
         "packages": {
             "system": ["vim"],  # just to test it out
-            "pip": {"pipeline2app": None, "frametree": None},  # just to test out the
+            "pip": {"pydra2app": None, "frametree": None},  # just to test out the
         },
         "base_image": {
             "name": "python",
@@ -133,7 +133,7 @@ def test_add_resources(tmp_path):
         packages={
             "system": ["vim"],  # just to test it out
             "pip": {
-                "pipeline2app": None,
+                "pydra2app": None,
             },  # just to test out the
         },
         base_image={
@@ -208,7 +208,7 @@ def test_multi_command(
 
     two_dup_spec = dict(
         name="concatenate",
-        task="pipeline2app.testing.tasks:concatenate",
+        task="pydra2app.testing.tasks:concatenate",
         row_frequency=simple_dataset_blueprint.axes.default().tostr(),
         inputs=[
             {
@@ -256,7 +256,7 @@ def test_multi_command(
             "system": ["vim"],  # just to test it out
             "pip": {
                 "fileformats": None,
-                "pipeline2app": None,
+                "pydra2app": None,
                 "frametree": None,
             },
         },

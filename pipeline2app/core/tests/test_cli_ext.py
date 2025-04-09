@@ -1,4 +1,4 @@
-from pipeline2app.core.cli import ext
+from pydra2app.core.cli import ext
 from frametree.core.utils import show_cli_trace
 
 

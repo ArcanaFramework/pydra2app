@@ -6,12 +6,12 @@ import os
 import logging
 from copy import copy
 from traceback import format_exc
-from pipeline2app.core.image import App
-from pipeline2app.core.image.components import Version
-from pipeline2app.core.utils import DOCKER_HUB, GITHUB_CONTAINER_REGISTRY
+from pydra2app.core.image import App
+from pydra2app.core.image.components import Version
+from pydra2app.core.utils import DOCKER_HUB, GITHUB_CONTAINER_REGISTRY
 import pytest
 
-logger = logging.getLogger("pipeline2app")
+logger = logging.getLogger("pydra2app")
 
 VERSIONS = [
     "1.0-alpha0",

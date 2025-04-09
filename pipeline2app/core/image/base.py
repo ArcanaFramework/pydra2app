@@ -18,23 +18,23 @@ import docker.errors
 from deepdiff import DeepDiff
 from typing_extensions import Self
 from neurodocker.reproenv import DockerRenderer
-from pipeline2app.core import __version__
-from pipeline2app.core import PACKAGE_NAME
+from pydra2app.core import __version__
+from pydra2app.core import PACKAGE_NAME
 from frametree.core.serialize import (
     ClassResolver,
     ObjectConverter,
     ObjectListConverter,
 )
 from frametree.core.axes import Axes
-from pipeline2app.core.utils import (
+from pydra2app.core.utils import (
     DOCKER_HUB,
     GITHUB_CONTAINER_REGISTRY,
     extract_file_from_docker_image,
 )
-from pipeline2app.core.exceptions import Pipeline2appBuildError
+from pydra2app.core.exceptions import Pipeline2appBuildError
 from .components import Packages, BaseImage, PipPackage, Resource, Version
 
-logger = logging.getLogger("pipeline2app")
+logger = logging.getLogger("pydra2app")
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
@@ -49,7 +49,7 @@ class P2AImage:
         version of the package/pipeline
     org : str
         the organisation the image will be tagged within
-    base_image : pipeline2app.core.image.components.BaseImage, optional
+    base_image : pydra2app.core.image.components.BaseImage, optional
         the base image to build from
     packages : Packages
         System (OS), PyPI, Conda and Neurodocker packages/templates to be installed
@@ -65,7 +65,7 @@ class P2AImage:
     """
 
     IN_DOCKER_FRAMETREE_HOME_DIR = "/frametree-home"
-    IN_DOCKER_SPEC_PATH = "/pipeline2app-spec.yaml"
+    IN_DOCKER_SPEC_PATH = "/pydra2app-spec.yaml"
     SCHEMA_VERSION = "1.0"
     PIP_DEPENDENCIES: ty.Tuple[str, ...] = ()
 
@@ -250,7 +250,7 @@ class P2AImage:
         build_dir: Path,
         use_local_packages: bool = False,
         pypi_fallback: bool = False,
-        pipeline2app_install_extras: ty.Sequence[str] = (),
+        pydra2app_install_extras: ty.Sequence[str] = (),
         resources: ty.Optional[ty.Dict[str, Path]] = None,
         resources_dir: ty.Optional[Path] = None,
         **kwargs: ty.Any,
@@ -269,7 +269,7 @@ class P2AImage:
         pypi_fallback : bool, optional
             whether to fallback to packages installed on PyPI when versions of
             local packages don't match installed
-        pipeline2app_install_extras : Iterable[str], optional
+        pydra2app_install_extras : Iterable[str], optional
             Extras for the Pipeline2app package that need to be installed into the
             dockerfile (e.g. tests)
         resources : dict[str, Path], optional
@@ -308,7 +308,7 @@ class P2AImage:
             build_dir,
             use_local_packages=use_local_packages,
             pypi_fallback=pypi_fallback,
-            pipeline2app_install_extras=pipeline2app_install_extras,
+            pydra2app_install_extras=pydra2app_install_extras,
         )
 
         self.add_resources(dockerfile, build_dir, resources, resources_dir)
@@ -434,9 +434,9 @@ class P2AImage:
         build_dir : Path
             path to build dir
         """
-        self.save(build_dir / "pipeline2app-spec.yaml")
+        self.save(build_dir / "pydra2app-spec.yaml")
         dockerfile.copy(
-            source=["./pipeline2app-spec.yaml"], destination=self.IN_DOCKER_SPEC_PATH
+            source=["./pydra2app-spec.yaml"], destination=self.IN_DOCKER_SPEC_PATH
         )
 
     @classmethod
@@ -539,7 +539,7 @@ class P2AImage:
         dockerfile: DockerRenderer,
         build_dir: Path,
         use_local_packages: bool = False,
-        pipeline2app_install_extras: ty.Sequence[str] = (),
+        pydra2app_install_extras: ty.Sequence[str] = (),
         pypi_fallback: bool = False,
     ) -> None:
         """Generate Neurodocker instructions to install an appropriate version of
@@ -551,14 +551,14 @@ class P2AImage:
             the neurodocker renderer to append the install instructions to
         build_dir : Path
             the path to the build directory
-        pipeline2app_install_extras : Iterable[str]
+        pydra2app_install_extras : Iterable[str]
             Optional extras (i.e. as defined in "extras_require" in setup.py) required
-            for the pipeline2app package
+            for the pydra2app package
         use_local_packages: bool, optional
             Use the python package versions that are installed within the
             current environment, i.e. instead of defaulting to the release from PyPI.
             Useful during development and testing
-        pipeline2app_install_extras : list[str]
+        pydra2app_install_extras : list[str]
             list of "install extras" (options) to specify when installing Pipeline2app
             (e.g. 'test')
         pypi_fallback : bool, optional
@@ -573,7 +573,7 @@ class P2AImage:
 
         pip_specs = PipPackage.unique(
             self.packages.pip
-            + [PipPackage(PACKAGE_NAME, extras=pipeline2app_install_extras)]
+            + [PipPackage(PACKAGE_NAME, extras=pydra2app_install_extras)]
             + [PipPackage(d) for d in self.PIP_DEPENDENCIES]
         )
 
@@ -824,7 +824,7 @@ class P2AImage:
         s2 : dict
             second spec
         check_version : bool
-            check the pipeline2app version used to generate the specs
+            check the pydra2app version used to generate the specs
 
         Returns
         -------
@@ -842,10 +842,10 @@ class P2AImage:
                 if (not k.startswith("_") and (v or isinstance(v, bool)))
             }
             if check_versions:
-                if "pipeline2app_version" not in dct:
-                    dct["pipeline2app_version"] = __version__
+                if "pydra2app_version" not in dct:
+                    dct["pydra2app_version"] = __version__
             else:
-                del dct["pipeline2app_version"]
+                del dct["pydra2app_version"]
                 del dct["version"]
             return dct
 
@@ -865,7 +865,7 @@ class P2AImage:
         return dct  # type: ignore[no-any-return]
 
     DOCKERFILE_README_TEMPLATE = """
-        The following Docker image was generated by Pipeline2app v{} (https://pipeline2app.readthedocs.io)
+        The following Docker image was generated by Pipeline2app v{} (https://pydra2app.readthedocs.io)
 
         {}
 

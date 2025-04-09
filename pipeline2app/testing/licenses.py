@@ -1,6 +1,6 @@
 import typing as ty
 from pathlib import Path
-from pipeline2app.core.image import App
+from pydra2app.core.image import App
 from frametree.core.frameset import FrameSet
 from frametree.common import FileSystem, Samples
 
@@ -28,7 +28,7 @@ def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
         },
         commands={
             "check-license": {
-                "task": "pipeline2app.testing.tasks:CheckLicence",
+                "task": "pydra2app.testing.tasks:CheckLicence",
                 "row_frequency": "common:Samples[sample]",
                 "inputs": [
                     {
@@ -73,7 +73,7 @@ def make_dataset(dataset_dir: Path) -> FrameSet:
     return dataset
 
 
-ORG = "pipeline2app-tests"
+ORG = "pydra2app-tests"
 REGISTRY = "a.docker.registry.io"
 IMAGE_VERSION = "1.0"
 

@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 import typing as ty
 from click_option_group import optgroup
-from pipeline2app.core.image import App
+from pydra2app.core.image import App
 
 
 def data_columns(func):
@@ -172,7 +172,7 @@ def dataset_config(func):
                 default=None,
                 help=(
                     "Comma-separated hierarchy of the dataset "
-                    "(see http://pipeline2app.readthedocs.io/data_model.html"
+                    "(see http://pydra2app.readthedocs.io/data_model.html"
                 ),
             ),
         ],

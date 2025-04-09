@@ -10,11 +10,11 @@ from itertools import zip_longest
 from typing_extensions import Self
 import site
 import attrs
-from pipeline2app.core import PACKAGE_NAME
-from pipeline2app.core.exceptions import Pipeline2appBuildError
+from pydra2app.core import PACKAGE_NAME
+from pydra2app.core.exceptions import Pipeline2appBuildError
 from frametree.core.serialize import ObjectListConverter
 
-logger = logging.getLogger("pipeline2app")
+logger = logging.getLogger("pydra2app")
 
 
 @attrs.define(kw_only=True)
@@ -22,7 +22,7 @@ class BaseImage:
 
     DEFAULT_IMAGE = "debian"
     DEFAULT_IMAGE_TAG = "bookworm-slim"
-    DEFAULT_CONDA_ENV = "pipeline2app"
+    DEFAULT_CONDA_ENV = "pydra2app"
     DEFAULT_USER = "root"
 
     name: str = attrs.field(default=DEFAULT_IMAGE)
@@ -201,7 +201,7 @@ class BasePackage:
 
 
 def pip_package_extras_converter(
-    extras: ty.Union[str, ty.Iterable[str]]
+    extras: ty.Union[str, ty.Iterable[str]],
 ) -> ty.List[str]:
     if isinstance(extras, str):
         extras = extras.split(",")
@@ -220,7 +220,7 @@ class PipPackage(BasePackage):
 
     @classmethod
     def unique(
-        cls, pip_specs: ty.Iterable[PipPackage], remove_pipeline2app: bool = False
+        cls, pip_specs: ty.Iterable[PipPackage], remove_pydra2app: bool = False
     ) -> ty.List[PipPackage]:
         """Merge a list of Pip install specs so each package only appears once
 
@@ -228,8 +228,8 @@ class PipPackage(BasePackage):
         ----------
         pip_specs : ty.Iterable[PipPackage]
             the pip specs to merge
-        remove_pipeline2app : bool
-            remove pipeline2app if present from the merged list
+        remove_pydra2app : bool
+            remove pydra2app if present from the merged list
 
         Returns
         -------
@@ -245,7 +245,7 @@ class PipPackage(BasePackage):
         for pip_spec in pip_specs:
             if isinstance(pip_spec, dict):
                 pip_spec = PipPackage(**pip_spec)
-            if pip_spec.name == PACKAGE_NAME and remove_pipeline2app:
+            if pip_spec.name == PACKAGE_NAME and remove_pydra2app:
                 continue
             try:
                 prev_spec = dct[pip_spec.name]
@@ -383,17 +383,17 @@ class NeurodockerTemplate:
 
 
 def python_package_converter(
-    packages: ty.List[ty.Union[str, ty.Dict[str, ty.Any]]]
+    packages: ty.List[ty.Union[str, ty.Dict[str, ty.Any]]],
 ) -> ty.List[PipPackage]:
     """
-    Split out and merge any extras specifications (e.g. "pipeline2app[test]")
+    Split out and merge any extras specifications (e.g. "pydra2app[test]")
     between dependencies of the same package
     """
     return PipPackage.unique(
         ObjectListConverter(PipPackage)(
             packages,
         ),
-        remove_pipeline2app=True,
+        remove_pydra2app=True,
     )
 
 
