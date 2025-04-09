@@ -29,7 +29,7 @@ def encoded_text_converter():
         source_format=TextFile, target_format=EncodedText, out_filename="out_file.enc"
     )
     @python.define(outputs=["out_file"])
-    def encoder_task(
+    def EncoderTask(
         in_file: ty.Union[str, bytes, os.PathLike],
         out_filename: str,
         shift: int = 0,
@@ -59,47 +59,17 @@ def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
         name="concatenate",
         task="pydra2app.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
-        inputs=[
-            {
-                "name": "first_file",
-                "datatype": "text/text-file",
-                "field": "in_file1",
-                "help": "dummy",
-            },
-            {
-                "name": "second_file",
-                "datatype": "text/text-file",
-                "field": "in_file2",
-                "help": "dummy",
-            },
-        ],
-        outputs=[
-            {
-                "name": "concatenated",
-                "datatype": "text/text-file",
-                "field": "out_file",
-                "help": "dummy",
-            }
-        ],
-        parameters=[
-            {
-                "name": "duplicates",
-                "datatype": "field/integer",
-                "default": 2,
-                "help": "dummy",
-            }
-        ],
     )
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec.execute(
         address=saved_dataset.locator,
         input_values=[
-            ("first_file", "file1"),
-            ("second_file", "file2"),
+            ("in_file1", "file1"),
+            ("in_file2", "file2"),
         ],
         output_values=[
-            ("concatenated", "sink_1"),
+            ("out_file", "sink_1"),
         ],
         parameter_values=[
             ("duplicates", str(duplicates)),
@@ -116,7 +86,7 @@ def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
     sink = reloaded["sink_1"]
     assert len(sink) == reduce(mul, bp.dim_lengths)
     fnames = ["file1.txt", "file2.txt"]
-    if ConcatenateTask.__name__.endswith("reverse"):
+    if ConcatenateTask.__name__.endswith("Reverse"):
         fnames = [f[::-1] for f in fnames]
     expected_contents = "\n".join(fnames * duplicates)
     for item in sink:
@@ -134,36 +104,6 @@ def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
         name="concatenate",
         task="pydra2app.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
-        inputs=[
-            {
-                "name": "file1",
-                "datatype": "text/text-file",
-                "field": "in_file1",
-                "help": "dummy",
-            },
-            {
-                "name": "file2",
-                "datatype": "text/text-file",
-                "field": "in_file2",
-                "help": "dummy",
-            },
-        ],
-        outputs=[
-            {
-                "name": "concatenated",
-                "datatype": "text/text-file",
-                "field": "out_file",
-                "help": "dummy",
-            }
-        ],
-        parameters=[
-            {
-                "name": "duplicates",
-                "datatype": "field/integer",
-                "default": 2,
-                "help": "dummy",
-            }
-        ],
     )
 
     # Start generating the arguments for the CLI
@@ -172,11 +112,11 @@ def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
         command_spec.execute(
             address=saved_dataset.locator,
             input_values=[
-                ("file1", "bad-file-path"),
-                ("file2", "file1"),
+                ("in_file1", "bad-file-path"),
+                ("in_file2", "file1"),
             ],
             output_values=[
-                ("concatenated", "sink1"),
+                ("out_file", "sink1"),
             ],
             parameter_values=[
                 ("duplicates", duplicates),
@@ -220,14 +160,14 @@ def test_command_execute_on_row(cli_runner, work_dir):
         name="plus-10",
         task="pydra2app.testing.tasks:Plus10ToFileNumbers",
         row_frequency=bp.axes.default(),
-        inputs=[
-            {
-                "name": "a_row",
-                "datatype": "frametree.core.row:DataRow",
-                "field": "filenumber_row",
-                "help": "dummy",
-            },
-        ],
+        # inputs=[
+        #     {
+        #         "name": "a_row",
+        #         "datatype": "frametree.core.row:DataRow",
+        #         "field": "filenumber_row",
+        #         "help": "dummy",
+        #     },
+        # ],
     )
 
     # Start generating the arguments for the CLI
@@ -254,46 +194,29 @@ def test_command_execute_with_converter_args(
     """
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
+
+    # Add source and sink columns to the dataset
+    saved_dataset.add_source("file1", datatype=TextFile, path="file1")
+    saved_dataset.add_sink("sink1", datatype=TextFile)
+    saved_dataset.add_sink("sink2", datatype=TextFile)
+
+    # Save the column definitions in the dataset
+    saved_dataset.save()
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec = ContainerCommand(
         name="identity",
-        task="pydra2app.testing.tasks:IdentityFile",
+        task="pydra2app.testing.tasks:IdentityEncodedText",
         row_frequency=bp.axes.default(),
-        inputs=[
-            {
-                "name": "input_file",
-                "datatype": "testing/encoded-text",
-                "column_defaults": {"datatype": "text/text-file"},
-                "field": "in_file",
-                "help": "dummy",
-            },
-        ],
-        outputs=[
-            {
-                "name": "first_output_file",
-                "datatype": "testing/encoded-text",
-                "field": "out",
-                "help": "dummy",
-            },
-            {
-                "name": "second_output_file",
-                "datatype": "testing/encoded-text",
-                "column_defaults": {"datatype": "text/text-file"},
-                "field": "out",
-                "help": "dummy",
-            },
-        ],
     )
 
     command_spec.execute(
         address=saved_dataset.locator,
         input_values=[
-            ("input_file", "file1 converter.shift=3"),
+            ("in_file", "<file1> converter.shift=3"),
         ],
         output_values=[
-            ("first_output_file", "sink1"),
-            ("second_output_file", "sink2 converter.shift=-3"),
+            ("out_file", "sink1"),
         ],
         raise_errors=True,
         worker="debug",
@@ -302,6 +225,22 @@ def test_command_execute_with_converter_args(
         dataset_hierarchy=",".join(bp.hierarchy),
         pipeline_name="test_pipeline",
     )
+    command_spec.execute(
+        address=saved_dataset.locator,
+        input_values=[
+            ("in_file", "<file1> converter.shift=3"),
+        ],
+        output_values=[
+            ("out_file", "sink2 converter.shift=-3"),
+        ],
+        raise_errors=True,
+        worker="debug",
+        work_dir=str(work_dir),
+        loglevel="debug",
+        dataset_hierarchy=",".join(bp.hierarchy),
+        pipeline_name="test_pipeline",
+    )
+
     # Add sink column to saved dataset to access data created by the executed command spec
     reloaded = saved_dataset.reload()
     unencoded_contents = "file1.txt"

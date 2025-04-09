@@ -16,7 +16,7 @@ from pydra2app.core.cli import (
     bootstrap,
 )
 from frametree.core.utils import show_cli_trace
-from pydra2app.core.exceptions import Pipeline2appBuildError
+from pydra2app.core.exceptions import Pydra2AppBuildError
 
 
 # @pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")

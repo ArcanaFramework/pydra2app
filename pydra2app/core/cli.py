@@ -112,7 +112,7 @@ containing multiple specifications
     type=str,
     default=None,
     help=(
-        "Install extras to use when installing Pipeline2app inside the "
+        "Install extras to use when installing Pydra2App inside the "
         "container image. Typically only used in tests to provide "
         "'test' extra"
     ),
@@ -122,7 +122,7 @@ containing multiple specifications
     type=bool,  # FIXME: This should be replaced with option to set XNAT CS IP address
     default=False,
     help=(
-        "Build the image so that it can be run in Pipeline2app's test "
+        "Build the image so that it can be run in Pydra2App's test "
         "configuration (only for internal use)"
     ),
 )
@@ -724,7 +724,7 @@ def ext() -> None:
 
 @cli.command(
     name="bootstrap",
-    help="""Generate a YAML specification file for a Pipeline2app App""",
+    help="""Generate a YAML specification file for a Pydra2App App""",
 )
 @click.argument("output_file", type=click.Path(path_type=Path))
 @click.option("--title", "-t", type=str, default=None, help="The title of the image")

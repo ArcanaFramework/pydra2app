@@ -57,13 +57,13 @@ file and the data directory containing the test data, e.g.
 
 .. code-block:: console
 
-    $ pipeline2app deploy test ./fast.yml ./fast-data
+    $ pydra2app deploy test ./fast.yml ./fast-data
     Pipeline test 'test1' ran successfully and outputs matched saved
     Pipeline test 'test2' ran successfully and outputs matched saved
 
 To run tests over a suite of image configurations in a directory containing a
 number of YAML_ configuration files (i.e. same as building) simply provide the
-directory to ``pipeline2app deploy test`` instead of the path to the YAML_ config
+directory to ``pydra2app deploy test`` instead of the path to the YAML_ config
 file and supply a directory tree containing the test data, with matching
 sub-directory structure to the configuration dir. For example, given the following
 directory structure for the configuration files
@@ -117,7 +117,7 @@ a suite of image/command configurations is.
 
 .. code-block:: console
 
-    $ pipeline2app deploy test ./mri ./mri-data --output test-results.json
+    $ pydra2app deploy test ./mri ./mri-data --output test-results.json
     ...E..F..
 
 While not strictly necessary, it is strongly advised to store test data alongside

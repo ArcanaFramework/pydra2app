@@ -5,6 +5,8 @@ import attrs
 from pydra.compose import python, workflow
 import fileformats.core
 from fileformats.generic import File
+from fileformats.text import TextFile
+from fileformats.testing import EncodedText
 import fileformats.text
 from frametree.core.row import DataRow
 
@@ -102,7 +104,7 @@ def Reverse(in_file: File, out_file: ty.Optional[Path] = None) -> File:
     return out_file
 
 
-@workflow.define
+@workflow.define(outputs=["out_file"])
 def ConcatenateReverse(in_file1: File, in_file2: File, duplicates: int = 1) -> File:
     """A simple workflow that has the same signature as concatenate, but
     concatenates reversed contents of the input files instead
@@ -151,8 +153,18 @@ def Plus10ToFileNumbers(filenumber_row: DataRow) -> None:
         shutil.move(item.fspath, item.fspath.parent / (new_item_stem + item.actual_ext))
 
 
-@python.define
+@python.define(outputs=["out_file"])
 def IdentityFile(in_file: File) -> File:
+    return in_file
+
+
+@python.define(outputs=["out_file"])
+def IdentityTextFile(in_file: TextFile) -> TextFile:
+    return in_file
+
+
+@python.define(outputs=["out_file"])
+def IdentityEncodedText(in_file: EncodedText) -> EncodedText:
     return in_file
 
 

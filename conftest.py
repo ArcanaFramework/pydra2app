@@ -237,8 +237,6 @@ def tmp_dir() -> ty.Generator[Path, None, None]:
 def ConcatenateTask(request: pytest.FixtureRequest) -> ty.Callable[..., ty.Any]:
     if request.param == "forward":
         task = Concatenate
-        # FIXME: Can be removed after https://github.com/nipype/pydra/pull/533 is merged
-        task.__name__ = "concatenate"
     else:
         task = ConcatenateReverse
     return task  # type: ignore[no-any-return]

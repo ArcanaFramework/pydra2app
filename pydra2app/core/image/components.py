@@ -11,7 +11,7 @@ from typing_extensions import Self
 import site
 import attrs
 from pydra2app.core import PACKAGE_NAME
-from pydra2app.core.exceptions import Pipeline2appBuildError
+from pydra2app.core.exceptions import Pydra2AppBuildError
 from frametree.core.serialize import ObjectListConverter
 
 logger = logging.getLogger("pydra2app")
@@ -238,7 +238,7 @@ class PipPackage(BasePackage):
 
         Raises
         ------
-        Pipeline2appError
+        Pydra2AppError
             if there is a mismatch between two entries of the same package
         """
         dct: ty.Dict[str, PipPackage] = {}
@@ -291,7 +291,7 @@ class PipPackage(BasePackage):
                     "falling back to installation from PyPI"
                 )
                 return self
-            raise Pipeline2appBuildError(
+            raise Pydra2AppBuildError(
                 f"Did not find {self.name} in installed working set:\n"
                 + "\n".join(
                     sorted(
@@ -313,9 +313,9 @@ class PipPackage(BasePackage):
             if pypi_fallback:
                 logger.warning(msg + " falling back to installation from PyPI")
                 return self
-            raise Pipeline2appBuildError(msg)
+            raise Pydra2AppBuildError(msg)
         if pkg.location is None:
-            raise Pipeline2appBuildError(
+            raise Pydra2AppBuildError(
                 f"Could not find location of package {self.name} in installed working set, "
                 f"{pkg} has no local location"
             )

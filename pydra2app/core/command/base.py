@@ -13,15 +13,16 @@ from collections import defaultdict
 import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
+from fileformats.core import DataType, Field
 from pydra.utils import task_fields
-from fileformats.core.fileset import FileSet
+from pydra.utils.typing import is_fileset_or_union
 from frametree.core.serialize import ClassResolver
 from frametree.core.utils import show_workflow_errors, path2label
 from frametree.core.row import DataRow
 from frametree.core.frameset.base import FrameSet
 from frametree.core.store import Store
 from frametree.core.axes import Axes
-from pydra2app.core.exceptions import Pipeline2appUsageError
+from pydra2app.core.exceptions import Pydra2AppUsageError
 from pydra2app.core import PACKAGE_NAME
 
 
@@ -36,12 +37,14 @@ DEFAULT_TASK_NAME = "ContainerCommandTask"
 
 def task_converter(task_def: str | dict[str, ty.Any]) -> type[pydra.compose.base.Task]:
 
+    task_cls: type[pydra.compose.base.Task]
+
     if isinstance(task_def, str):
         task_cls = ClassResolver(  # type: ignore[misc]
             pydra.compose.base.Task,
             alternative_types=[ty.Callable],
             package=PACKAGE_NAME,
-        )
+        )(task_def)
     elif isinstance(task_def, dict):
         task_def = copy(task_def)
         task_type = task_def.pop("type")
@@ -100,15 +103,15 @@ class ContainerCommand:
 
     @inputs.default
     def _default_inputs(self) -> ty.List[str]:
-        return [i.name for i in task_fields(self.task) if issubclass(i.type, FileSet)]
-
-    @parameters.default
-    def _default_parameters(self) -> ty.List[str]:
         return [
             i.name
             for i in task_fields(self.task)
-            if issubclass(i.type, (str, int, float, bool))
+            if is_fileset_or_union(i.type) or i.type is DataRow
         ]
+
+    @parameters.default
+    def _default_parameters(self) -> ty.List[str]:
+        return [i.name for i in task_fields(self.task) if i.name not in self.inputs]
 
     def __attrs_post_init__(self) -> None:
         if isinstance(self.row_frequency, Axes):
@@ -235,13 +238,13 @@ class ContainerCommand:
         store_cache_dir = work_dir / "store-cache"
         pipeline_cache_dir = work_dir / "pydra"
 
-        dataset = self.load_frameset(
+        frameset = self.load_frameset(
             address, store_cache_dir, dataset_hierarchy, dataset_name, **store_kwargs
         )
 
         # Install required software licenses from store into container
         if self.image is not None:
-            dataset.download_licenses(
+            frameset.download_licenses(
                 [lic for lic in self.image.licenses if not lic.store_in_image]
             )
 
@@ -259,19 +262,26 @@ class ContainerCommand:
             inpt = task_inputs[input_name]
             path, qualifiers = self.extract_qualifiers_from_path(input_path)
             source_kwargs = qualifiers.pop("criteria", {})
-            if input_path in dataset.columns:
-                column = dataset[path]
+            if match := re.match(r"<(\w+)(@\w+)?>", path):
+                column_name = match.group(1)
+                if frameset_qualifier := match.group(2):
+                    source_frameset = frameset.store[frameset_qualifier[1:]]
+                    column = source_frameset[column_name]
+                else:
+                    column = frameset[column_name]
                 logger.info(f"Found existing source column {column}")
             else:
                 default_column_name = f"{path2label(self.name)}_{input_name}"
                 try:
-                    column = dataset[default_column_name]
+                    column = frameset[default_column_name]
                 except KeyError:
                     logger.info(f"Adding new source column '{default_column_name}'")
                     datatype = (
-                        inpt.type
-                    )  # TODO: Create a union of all the convertible datatypes
-                    column = dataset.add_source(
+                        Field.from_primitive(inpt.type)
+                        if not issubclass(inpt.type, DataType)
+                        else inpt.type
+                    )  # TODO: Create a union of all the convertible datatypes for FileSet types
+                    column = frameset.add_source(
                         name=default_column_name,
                         datatype=datatype,
                         path=path,
@@ -284,7 +294,7 @@ class ContainerCommand:
             pipeline_inputs.append((column.name, inpt.name, inpt.type))
             converter_args[column.name] = qualifiers.pop("converter", {})
             if qualifiers:
-                raise Pipeline2appUsageError(
+                raise Pydra2AppUsageError(
                     "Unrecognised qualifier namespaces extracted from path for "
                     f"{inpt.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
@@ -306,26 +316,31 @@ class ContainerCommand:
                 continue
             path, qualifiers = self.extract_qualifiers_from_path(output_path)
             if "@" not in path:
-                path = f"{path}@{dataset.name}"  # Add dataset namespace
+                path = f"{path}@{frameset.name}"  # Add dataset namespace
             sink_name = path2label(path)
-            if sink_name in dataset.columns:
-                column = dataset[sink_name]
+            if sink_name in frameset.columns:
+                column = frameset[sink_name]
                 if not column.is_sink:
-                    raise Pipeline2appUsageError(
+                    raise Pydra2AppUsageError(
                         f"Output column name '{sink_name}' shadows existing source column"
                     )
                 logger.info(f"Found existing sink column {column}")
             else:
                 logger.info(f"Adding new source column '{sink_name}'")
-                dataset.add_sink(
+                datatype = (
+                    Field.from_primitive(output.type)
+                    if not issubclass(output.type, DataType)
+                    else output.type
+                )
+                frameset.add_sink(
                     name=sink_name,
-                    datatype=output.type,
+                    datatype=datatype,
                     path=path,
                 )
             pipeline_outputs.append((sink_name, output.name, output.type))
             converter_args[sink_name] = qualifiers.pop("converter", {})
             if qualifiers:
-                raise Pipeline2appUsageError(
+                raise Pydra2AppUsageError(
                     "Unrecognised qualifier namespaces extracted from path for "
                     f"{output_name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
@@ -336,7 +351,7 @@ class ContainerCommand:
                 f"(available: {list(task_outputs.keys())})"
             )
 
-        dataset.save()  # Save definitions of the newly added columns
+        frameset.save()  # Save definitions of the newly added columns
 
         task_kwargs = copy(self.configuration)
         for param_name, param_value in parameter_values.items():
@@ -347,19 +362,23 @@ class ContainerCommand:
                 param.type,
                 param_value,
             )
-            if param_value == "" and param.type is not str:
-                param_value = None
-                logger.info(
-                    "Non-string parameter '%s' passed empty string, setting to NOTHING",
-                    param_name,
-                )
+            if param.type is not str:
+                if param_value == "":
+                    param_value = None
+                    logger.info(
+                        "Non-string parameter '%s' passed empty string, setting to None",
+                        param_name,
+                    )
+                else:
+                    # Convert field from string if necessary
+                    param_value = Field.from_primitive(param.type)(param_value)
 
             task_kwargs[param_name] = param_value
 
         task = self.task(**task_kwargs)
 
-        if pipeline_name in dataset.pipelines and not overwrite:
-            pipeline = dataset.pipelines[self.name]
+        if pipeline_name in frameset.pipelines and not overwrite:
+            pipeline = frameset.pipelines[self.name]
             if task != pipeline.task:
                 raise RuntimeError(
                     f"A pipeline named '{self.name}' has already been applied to "
@@ -367,7 +386,7 @@ class ContainerCommand:
                     "if this is intentional"
                 )
         else:
-            pipeline = dataset.apply(
+            pipeline = frameset.apply(
                 pipeline_name,
                 task,
                 inputs=pipeline_inputs,

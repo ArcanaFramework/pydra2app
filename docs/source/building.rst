@@ -5,7 +5,7 @@ Dockerfiles for pipeline images are created using Neurodocker_
 and can therefore work with any Debian/Ubuntu or Red-Hat based images
 (ensuring that the value for ``base_image>package_manager`` is set to the correct value,
 i.e.  ``"apt"`` for Debian based or ``"yum"`` for Red-Hat based). Arcana installs
-itself into the Docker image within an Anaconda_ environment named "pipeline2app". Therefore,
+itself into the Docker image within an Anaconda_ environment named "pydra2app". Therefore,
 it shouldn't conflict with packages on existing Docker images for third-party
 pipelines.
 
@@ -70,7 +70,7 @@ The CLI command to build the image from the YAML_ configuration is
 
 .. code-block:: console
 
-    $ pipeline2app make xnat 'your-pipeline-config.yml'
+    $ pydra2app make xnat 'your-pipeline-config.yml'
     Successfully built "FSL" image with ["fast"] commands
 
 To build a suite of pipelines from a series of YAML_ files stored in a directory tree
@@ -79,7 +79,7 @@ and attempt to build any YAML_ files it finds, e.g.
 
 .. code-block:: console
 
-    $ pipeline2app make xnat 'config-root-dir'
+    $ pydra2app make xnat 'config-root-dir'
     ./config-root-dir/mri/neuro/fsl.yml: FSL [fast]
     ./config-root-dir/mri/neuro/mrtrix3.yml: MRtrix3 [dwi2fod, dwi2tensor, tckgen]
     ./config-root-dir/mri/neuro/freesurfer.yml: Freesurfer [recon-all]
@@ -95,7 +95,7 @@ pipeline configuration YAML_ files using
 
 .. code-block:: console
 
-    $ pipeline2app make-docs <path-to-yaml-or-directory> <docs-output-dir>
+    $ pydra2app make-docs <path-to-yaml-or-directory> <docs-output-dir>
 
 Generated HTML documents will be placed in the output dir, with pipelines
 organised hierarchically to match the structure of the source directory.
