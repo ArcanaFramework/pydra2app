@@ -299,7 +299,11 @@ class ContainerCommand:
                     f"{inpt.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
 
-        pipeline_inputs.extend(i for i in task_inputs if i.type is DataRow)
+        pipeline_inputs.extend(
+            ("frametree_data_row__", i.name, i.type)
+            for i in task_inputs
+            if i.type is DataRow
+        )
 
         if not pipeline_inputs:
             raise ValueError(
@@ -345,11 +349,11 @@ class ContainerCommand:
                     f"{output_name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
 
-        if not pipeline_outputs and task_outputs:
-            raise ValueError(
-                f"No output values provided to command {self} "
-                f"(available: {list(task_outputs.keys())})"
-            )
+        # if not pipeline_outputs and task_outputs:
+        #     raise ValueError(
+        #         f"No output values provided to command {self} "
+        #         f"(available: {list(task_outputs.keys())})"
+        #     )
 
         frameset.save()  # Save definitions of the newly added columns
 
@@ -407,7 +411,7 @@ class ContainerCommand:
             outputs = wf(cache_root=pipeline_cache_dir, worker=plugin)
         except RuntimeError:
             msg = show_workflow_errors(
-                pipeline_cache_dir, omit_nodes=["per_node", wf.name]
+                pipeline_cache_dir, omit_nodes=["per_node", "main"]
             )
             logger.error(
                 "Pipeline failed with errors for the following nodes:\n\n%s", msg
