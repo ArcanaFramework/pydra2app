@@ -785,18 +785,8 @@ class P2AImage:
                 else:
                     value = value.tostr()
             elif isinstance(value, PurePath):
-                # TODO: need better handling of saving checksums
-                # if value.exists():
-                #     fhash = hashlib.md5()
-                #     with open(value, "rb") as f:
-                #         # Calculate hash in chunks so we don't run out of memory for
-                #         # large files.
-                #         for chunk in iter(lambda: f.read(HASH_CHUNK_SIZE), b""):
-                #             fhash.update(chunk)
-                #     value = "checksum:" + fhash.hexdigest()
-                # else:
                 value = str(value)
-            elif isclass(value) or isfunction(value):
+            elif isclass(value) or isfunction(value) or ty.get_origin(value):
                 value = ClassResolver.tostr(value, strip_prefix=False)
             return value
 

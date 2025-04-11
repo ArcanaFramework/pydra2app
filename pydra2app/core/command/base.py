@@ -6,7 +6,6 @@ import tempfile
 import json
 import logging
 from pathlib import Path
-from importlib import import_module
 import typing as ty
 import sys
 from collections import defaultdict
@@ -14,7 +13,8 @@ import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
 from fileformats.core import DataType, Field
-from pydra.utils import task_fields
+from pydra.utils import task_fields, task_class_as_dict, task_class_from_dict
+from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from pydra.utils.typing import is_fileset_or_union
 from frametree.core.serialize import ClassResolver
 from frametree.core.utils import show_workflow_errors, path2label
@@ -35,34 +35,54 @@ logger = logging.getLogger("pydra2app")
 DEFAULT_TASK_NAME = "ContainerCommandTask"
 
 
-def task_converter(task_def: str | dict[str, ty.Any]) -> type[pydra.compose.base.Task]:
+def task_converter(
+    task_class: str | dict[str, ty.Any],
+) -> type[pydra.compose.base.Task]:
 
     task_cls: type[pydra.compose.base.Task]
 
-    if isinstance(task_def, str):
+    if isinstance(task_class, str):
         task_cls = ClassResolver(  # type: ignore[misc]
             pydra.compose.base.Task,
             alternative_types=[ty.Callable],
             package=PACKAGE_NAME,
-        )(task_def)
-    elif isinstance(task_def, dict):
-        task_def = copy(task_def)
-        task_type = task_def.pop("type")
-        define = import_module(f"pydra.compose.{task_type}").define
-        if task_type == "python":
-            executor = task_def.pop("function")
-        elif task_type == "shell":
-            executor = task_def.pop("executable")
-        elif task_type == "workflow":
-            executor = task_def.pop("constructor")
-        else:
-            raise ValueError(f"Unreognised task type '{task_type}'")
-        task_cls = define(executor, **task_def, name=DEFAULT_TASK_NAME)
-    elif isinstance(task_def, pydra.compose.base.Task):
-        task_cls = task_def
+        )(task_class)
+    elif isinstance(task_class, dict):
+        task_cls = task_class_from_dict(task_class)
+    elif issubclass(task_class, pydra.compose.base.Task):
+        task_cls = task_class
     else:
-        raise TypeError(f"Cannot convert {type(task_def)} ({task_def}) to a task")
+        raise TypeError(f"Cannot convert {type(task_class)} ({task_class}) to a task")
     return task_cls
+
+
+def task_serializer(
+    task_cls: type[pydra.compose.base.Task],
+    **kwargs: ty.Any,
+) -> str | dict[str, ty.Any]:
+    """Serializes a task to a dictionary
+
+    Parameters
+    ----------
+    task : type[pydra.compose.base.Task]
+        the task to serialize
+    **kwargs: Any
+        keyword arguments passed to the `task_class_as_dict` serializer
+
+    Returns
+    -------
+    str | dict[str, ty.Any]
+        the serialized task, either as a import location, or as a serialised dictionary
+        of the task definition if the import location is not available (i.e. the task was
+        dynamically created)
+    """
+    try:
+        address: str = ClassResolver.tostr(task_cls, strip_prefix=False)
+    except FrametreeCannotSerializeDynamicDefinitionError:
+        dct: dict[str, ty.Any] = task_class_as_dict(task_cls, **kwargs)
+        return dct
+    else:
+        return address
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
@@ -76,14 +96,18 @@ class ContainerCommand:
         the task to run or the location of the class
     row_frequency: Axes, optional
         the frequency that the command operates on
-    inputs: ty.List[CommandInput]
-        inputs of the command
-    outputs: ty.List[CommandOutput]
-        outputs of the command
-    parameters: ty.List[CommandParameter]
-        parameters of the command
+    parameters: list[str], optional
+        inputs of the task to be treated as fixed parameters entered
+        by the user (i.e. rather than drawn from the data store). By default,
+        any non-file task input is considered a parameter, however, if a list of
+        parameters is provided then only those inputs will be treated as parameters
+        and any non-file inputs will be treated as fields to be pulled from metadata.
+        File inputs marked as parameters will be treated as paths to local files (i.e.
+        outside of the store) or URLs to be downloaded from the web depending on their
+        format.
     configuration: ty.Dict[str, ty.Any]
-        constant values used to configure the task/workflow
+        constant values used to configure the task/workflow, i.e. not presented to the
+        user.
     image: App
         back-reference to the image the command is installed in
     """
@@ -92,26 +116,61 @@ class ContainerCommand:
     AXES: ty.Optional[ty.Type[Axes]] = None
 
     name: str = attrs.field()
-    task: type[pydra.compose.base.Task] = attrs.field(converter=task_converter)
+    task: type[pydra.compose.base.Task] = attrs.field(
+        converter=task_converter,
+        metadata={"serializer": task_serializer},
+    )
     row_frequency: ty.Optional[Axes] = attrs.field(default=None)
-    inputs: ty.List[str] = attrs.field()
-    parameters: ty.List[str] = attrs.field()
     configuration: ty.Dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
     )
+    parameters: ty.List[str] = attrs.field()
     image: App = attrs.field(default=None)
-
-    @inputs.default
-    def _default_inputs(self) -> ty.List[str]:
-        return [
-            i.name
-            for i in task_fields(self.task)
-            if is_fileset_or_union(i.type) or i.type is DataRow
-        ]
 
     @parameters.default
     def _default_parameters(self) -> ty.List[str]:
-        return [i.name for i in task_fields(self.task) if i.name not in self.inputs]
+        """By default, any non-file task input is considered a parameter that is not
+        fixed in the configuration"""
+        return [
+            i.name
+            for i in task_fields(self.task)
+            if not (
+                i.name == self.task._executor_name
+                or is_fileset_or_union(i.type)
+                or i.type is DataRow
+                or i.name in self.configuration
+            )
+        ]
+
+    @parameters.validator
+    def _validate_parameters(
+        self, attribute: attrs.Attribute[ty.Any], value: ty.List[str]
+    ) -> None:
+        """Validates that the parameters are valid task inputs"""
+        task_inputs = [i.name for i in task_fields(self.task)]
+        for param in value:
+            if param not in task_inputs:
+                raise ValueError(
+                    f"Parameter '{param}' is not a valid input to task {self.task}"
+                )
+            if param in self.configuration:
+                raise ValueError(
+                    f"Parameter '{param}' cannot be both a parameter and a configuration "
+                    "argument"
+                )
+
+    @configuration.validator
+    def _validate_configuration(
+        self, attribute: attrs.Attribute[ty.Any], value: ty.Dict[str, ty.Any]
+    ) -> None:
+        """Validates that the configuration arguments are valid task inputs"""
+        task_inputs = [i.name for i in task_fields(self.task)]
+        for param in value:
+            if param not in task_inputs:
+                raise ValueError(
+                    f"Configuration argument '{param}' is not a valid input to task "
+                    f"{self.task}"
+                )
 
     def __attrs_post_init__(self) -> None:
         if isinstance(self.row_frequency, Axes):
@@ -134,6 +193,19 @@ class ContainerCommand:
                 f"Value for row_frequency must be provided to {type(self).__name__}.__init__ "
                 "because it doesn't have a defined AXES class attribute"
             )
+
+    @property
+    def inputs(self) -> ty.List[str]:
+        """The inputs to the task"""
+        non_inputs = (
+            self.parameters + list(self.configuration) + [self.task._executor_name]
+        )
+        return [n for n in self.task.inputs.keys() if n not in non_inputs]
+
+    @property
+    def outputs(self) -> ty.List[str]:
+        """The outputs of the task"""
+        return list(self.task.outputs.keys())
 
     @property
     def axes(self) -> ty.Type[Axes]:

@@ -1,6 +1,7 @@
 import shutil
 from pathlib import Path
 import typing as ty
+from copy import deepcopy
 import attrs
 from pydra.compose import python, workflow
 import fileformats.core
@@ -147,6 +148,9 @@ def Plus10ToFileNumbers(filenumber_row: DataRow) -> None:
     row : DataRow
         the data row to modify
     """
+
+    # Make a deep copy so the hash of the original isn't modified
+    filenumber_row = deepcopy(filenumber_row)
     for entry in filenumber_row.entries:
         item = fileformats.text.TextFile(ty.cast(fileformats.core.FileSet, entry.item))
         new_item_stem = str(int(item.stem) + 10)

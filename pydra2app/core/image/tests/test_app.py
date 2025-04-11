@@ -27,47 +27,24 @@ def test_native_python_install(tmp_path):
         "title": "a test image spec",
         "commands": {
             "python-test-command": {
-                "task": "common:shell",
-                "inputs": {
-                    "dummy": {
-                        "datatype": "text/text-file",
-                        "help": "a dummy input that isn't actually used",
-                        "configuration": {
-                            "position": 0,
-                        },
-                    },
-                },
-                "outputs": {
-                    OUTPUT_COL_NAME: {
-                        "datatype": "field/text",
-                        "help": "the print to stdout",
-                        "configuration": {
-                            "callable": "common:value_from_stdout",
-                        },
-                    }
-                },
-                "parameters": {
-                    "duplicates": {
-                        "field": "duplicates",
-                        "default": 2,
-                        "datatype": "field/integer",
-                        "required": True,
-                        "help": "a parameter",
-                    }
-                },
-                "row_frequency": "common:Samples[sample]",
-                "configuration": {
+                "task": {
+                    "type": "shell",
                     "executable": [
                         "pydra2app",
                         "--version",
-                    ]
+                    ],
                 },
+                "row_frequency": "common:Samples[sample]",
             },
         },
         "version": "1.0",
         "packages": {
             "system": ["vim"],  # just to test it out
-            "pip": {"pydra2app": None, "frametree": None},  # just to test out the
+            "pip": {
+                "pydra2app": None,
+                "frametree": None,
+                "pydra": None,
+            },  # just to test out the
         },
         "base_image": {
             "name": "python",
@@ -206,43 +183,15 @@ def test_multi_command(
         FileSystem(), tmp_path / "dataset", name=""
     )
 
-    two_dup_spec = dict(
-        name="concatenate",
-        task="pydra2app.testing.tasks:concatenate",
-        row_frequency=simple_dataset_blueprint.axes.default().tostr(),
-        inputs=[
-            {
-                "name": "first_file",
-                "datatype": "text/text-file",
-                "field": "in_file1",
-                "help": "dummy",
-            },
-            {
-                "name": "second_file",
-                "datatype": "text/text-file",
-                "field": "in_file2",
-                "help": "dummy",
-            },
-        ],
-        outputs=[
-            {
-                "name": "concatenated",
-                "datatype": "text/text-file",
-                "field": "out_file",
-                "help": "dummy",
-            }
-        ],
-        parameters={
-            "duplicates": {
-                "datatype": "field/integer",
-                "default": 2,
-                "help": "dummy",
-            }
-        },
-    )
+    two_dup_spec = {
+        "name": "concatenate",
+        "task": "pydra2app.testing.tasks:Concatenate",
+        "row_frequency": simple_dataset_blueprint.axes.default().tostr(),
+        "configuration": {"duplicates": 2},
+    }
 
     three_dup_spec = deepcopy(two_dup_spec)
-    three_dup_spec["parameters"]["duplicates"]["default"] = 3
+    three_dup_spec["configuration"]["duplicates"] = 3
 
     test_spec = {
         "name": "test_multi_commands",
@@ -274,10 +223,10 @@ def test_multi_command(
     base_args = [
         "/dataset",
         "--input",
-        "first_file",
+        "in_file1",
         "file1",
         "--input",
-        "second_file",
+        "in_file2",
         "file2",
         "--output",
         "concatenated",
