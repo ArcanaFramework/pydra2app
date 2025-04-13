@@ -18,6 +18,8 @@ from frametree.core.serialize import (
 from typing_extensions import Self
 from fileformats.core import DataType
 from frametree.core.axes import Axes
+from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
+from pydra.utils.typing import is_optional, optional_type
 from pydra2app.core.utils import is_relative_to
 from ..command.base import ContainerCommand
 from .base import P2AImage
@@ -434,7 +436,11 @@ class App(P2AImage):
                 # if command.configuration is not None:
                 #     config = command.configuration
                 #     # configuration keys are variable depending on the workflow class
-                tbl_cmd.write_row("Task", ClassResolver.tostr(command.task))
+                try:
+                    class_address = ClassResolver.tostr(command.task)
+                except FrametreeCannotSerializeDynamicDefinitionError:
+                    class_address = command.task.__name__
+                tbl_cmd.write_row("Task", class_address)
                 freq_name = (
                     command.row_frequency.name
                     if not isinstance(command.row_frequency, str)
@@ -446,45 +452,46 @@ class App(P2AImage):
                 tbl_inputs = MarkdownTable(
                     f,
                     "Name",
-                    "Required data-type",
-                    "Default column data-type",
+                    "Data-type(s)",
+                    "Required",
                     "Description",
                 )
-                if command.inputs is not None:
-                    for inpt in command.inputs:
-                        tbl_inputs.write_row(
-                            escaped_md(inpt.name),
-                            self._data_format_html(inpt.datatype),
-                            self._data_format_html(inpt.column_defaults.datatype),
-                            inpt.help,
-                        )
-                    f.write("\n")
+                for inpt in command.input_fields:
+                    tbl_inputs.write_row(
+                        escaped_md(inpt.name),
+                        self._data_format_html(inpt.type),
+                        "Y" if inpt.mandatory else "N",
+                        inpt.help,
+                    )
+                f.write("\n")
 
                 f.write("#### Outputs\n")
                 tbl_outputs = MarkdownTable(
                     f,
                     "Name",
-                    "Required data-type",
-                    "Default column data-type",
+                    "Data-type(s)",
+                    "Always generated",
                     "Description",
                 )
-                if command.outputs is not None:
-                    for outpt in command.outputs:
-                        tbl_outputs.write_row(
-                            escaped_md(outpt.name),
-                            self._data_format_html(outpt.datatype),
-                            self._data_format_html(outpt.column_defaults.datatype),
-                            outpt.help,
-                        )
-                    f.write("\n")
+                for outpt in command.output_fields:
+                    tbl_outputs.write_row(
+                        escaped_md(outpt.name),
+                        self._data_format_html(optional_type(outpt.type)),
+                        "Y" if not is_optional(outpt.type) else "N",
+                        outpt.help,
+                    )
+                f.write("\n")
 
                 if command.parameters is not None:
                     f.write("#### Parameters\n")
-                    tbl_params = MarkdownTable(f, "Name", "Data type", "Description")
-                    for param in command.parameters:
+                    tbl_params = MarkdownTable(
+                        f, "Name", "Data-type(s)", "Default", "Description"
+                    )
+                    for param in command.parameter_fields:
                         tbl_params.write_row(
                             escaped_md(param.name),
-                            escaped_md(ClassResolver.tostr(param.datatype)),
+                            self._data_format_html(param.type),
+                            escaped_md(param.default if not param.mandatory else "-"),
                             param.help,
                         )
                     f.write("\n")

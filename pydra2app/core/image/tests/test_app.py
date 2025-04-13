@@ -33,6 +33,13 @@ def test_native_python_install(tmp_path):
                         "pydra2app",
                         "--version",
                     ],
+                    "inputs": {
+                        "dummy": {
+                            "type": int | None,
+                            "help": "not actually used",
+                            "argstr": None,  # won't be printed to the command line
+                        }
+                    },
                 },
                 "row_frequency": "common:Samples[sample]",
             },
@@ -66,11 +73,11 @@ def test_native_python_install(tmp_path):
     volume_mount = str(dataset_dir) + ":/dataset:rw"
     args = [
         "/dataset",
-        "--input",
+        "--parameter",
         "dummy",
-        "sample",
+        "1",
         "--output",
-        OUTPUT_COL_NAME,
+        "stdout",
         OUTPUT_COL_NAME,
     ]
 

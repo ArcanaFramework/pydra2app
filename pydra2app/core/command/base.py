@@ -4,6 +4,7 @@ import re
 from copy import copy
 import tempfile
 import json
+import inspect
 import logging
 from pathlib import Path
 import typing as ty
@@ -14,6 +15,7 @@ from attrs.converters import default_if_none
 import pydra.compose.base
 from fileformats.core import DataType, Field
 from pydra.utils import task_fields, task_class_as_dict, task_class_from_dict
+from pydra.compose.base import Arg, Out
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from pydra.utils.typing import is_fileset_or_union
 from frametree.core.serialize import ClassResolver
@@ -200,12 +202,51 @@ class ContainerCommand:
         non_inputs = (
             self.parameters + list(self.configuration) + [self.task._executor_name]
         )
-        return [n for n in self.task.inputs.keys() if n not in non_inputs]
+        return [f.name for f in task_fields(self.task) if f.name not in non_inputs]
 
     @property
     def outputs(self) -> ty.List[str]:
         """The outputs of the task"""
-        return list(self.task.outputs.keys())
+        return [o.name for o in task_fields(self.task.Outputs)]
+
+    @property
+    def input_fields(self) -> ty.List[Arg]:
+        fields = task_fields(self.task)
+        return [fields[i] for i in self.inputs]
+
+    @property
+    def output_fields(self) -> ty.List[Out]:
+        fields = task_fields(self.task.Outputs)
+        return [fields[i] for i in self.outputs]
+
+    @property
+    def parameter_fields(self) -> ty.List[Arg]:
+        fields = task_fields(self.task)
+        return [fields[p] for p in self.parameters]
+
+    def input_field(self, name: str) -> Arg:
+        if name not in self.inputs:
+            raise ValueError(
+                f"Input field '{name}' is not a valid input to task {self.task} "
+                f"(available: {self.inputs})"
+            )
+        return task_fields(self.task)[name]
+
+    def output_field(self, name: str) -> Arg:
+        if name not in self.outputs:
+            raise ValueError(
+                f"Input field '{name}' is not a valid output of task {self.task} "
+                f"(available: {self.outputs})"
+            )
+        return task_fields(self.task.Outputs)[name]
+
+    def parameter_field(self, name: str) -> Arg:
+        if name not in self.parameters:
+            raise ValueError(
+                f"Input field '{name}' is not a valid output of task {self.task} "
+                f"(available: {self.parameters})"
+            )
+        return task_fields(self.task)[name]
 
     @property
     def axes(self) -> ty.Type[Axes]:
@@ -289,6 +330,60 @@ class ContainerCommand:
         **store_kwargs: Any
             keyword args passed through to Store.load
         """
+        if input_values is None:
+            input_values = {}
+        elif not isinstance(input_values, dict):
+            input_values = dict(input_values)
+        if output_values is None:
+            output_values = {}
+        elif not isinstance(output_values, dict):
+            output_values = dict(output_values)
+        if parameter_values is None:
+            parameter_values = {}
+        elif not isinstance(parameter_values, dict):
+            parameter_values = dict(parameter_values)
+
+        if unrecognised := set(input_values) - set(self.inputs):
+            raise ValueError(
+                f"Unrecognised input values passed to command {self.name}:\n"
+                f"unrecognised={unrecognised}\n"
+                f"available={list(self.inputs)}\n"
+            )
+        if unrecognised := set(output_values) - set(self.outputs):
+            raise ValueError(
+                f"Unrecognised output values passed to command {self.name}:\n"
+                f"unrecognised={unrecognised}\n"
+                f"available={list(self.outputs)}\n"
+            )
+
+        if unrecognised := set(parameter_values) - set(self.parameters):
+            raise ValueError(
+                f"Unrecognised parameter values passed to command {self.name}:\n"
+                f"unrecognised={unrecognised}\n"
+                f"available={list(self.parameters)}\n"
+            )
+
+        if missing := set(
+            i.name for i in self.input_fields if i.mandatory and i.type is not DataRow
+        ) - set(
+            n
+            for n, v in input_values.items()
+            if v or (v == "" and self.input_field(n).type is str)
+        ):
+            raise ValueError(
+                f"Missing mandatory input values passed to command {self.name}:\n"
+                f"missing={missing}\n"
+            )
+
+        if missing := set(p.name for p in self.parameter_fields if p.mandatory) - set(
+            n
+            for n, v in parameter_values.items()
+            if v or (v == "" and self.parameter_field(n).type is str)
+        ):
+            raise ValueError(
+                f"Missing mandatory parameter values passed to command {self.name}:\n"
+                f"missing={missing}\n"
+            )
 
         if isinstance(export_work, bytes):
             export_work = Path(export_work.decode("utf-8"))
@@ -326,12 +421,17 @@ class ContainerCommand:
 
         converter_args = {}  # Arguments passed to converter
         pipeline_inputs = []
-        task_inputs = task_fields(self.task)
-        for input_name, input_path in input_values.items():
+        for input_name in self.inputs:
+            inpt = self.input_field(input_name)
+            if inpt.type is DataRow:
+                pipeline_inputs.append(("frametree_data_row__", inpt.name, inpt.type))
+                continue
+            input_path = input_values.get(input_name, None)
             if not input_path:
+                assert not inpt.mandatory, "missing " + input_name
                 logger.info("No value provided for input '%s', skipping", input_name)
                 continue
-            inpt = task_inputs[input_name]
+
             path, qualifiers = self.extract_qualifiers_from_path(input_path)
             source_kwargs = qualifiers.pop("criteria", {})
             if match := re.match(r"<(\w+)(@\w+)?>", path):
@@ -350,7 +450,8 @@ class ContainerCommand:
                     logger.info(f"Adding new source column '{default_column_name}'")
                     datatype = (
                         Field.from_primitive(inpt.type)
-                        if not issubclass(inpt.type, DataType)
+                        if inspect.isclass(inpt.type)
+                        and not issubclass(inpt.type, DataType)
                         else inpt.type
                     )  # TODO: Create a union of all the convertible datatypes for FileSet types
                     column = frameset.add_source(
@@ -371,22 +472,10 @@ class ContainerCommand:
                     f"{inpt.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
 
-        pipeline_inputs.extend(
-            ("frametree_data_row__", i.name, i.type)
-            for i in task_inputs
-            if i.type is DataRow
-        )
-
-        if not pipeline_inputs:
-            raise ValueError(
-                f"No input values provided to command {self.name} "
-                f"(available: {list(task_inputs.keys())})"
-            )
-
         pipeline_outputs = []
-        task_outputs = task_fields(self.task.Outputs)
-        for output_name, output_path in output_values.items():
-            output = task_outputs[output_name]
+        for output_name in self.outputs:
+            output = self.output_field(output_name)
+            output_path = output_values.get(output_name, None)
             if not output_path:
                 logger.info("No value provided for output '%s', skipping", output_name)
                 continue
@@ -431,7 +520,7 @@ class ContainerCommand:
 
         task_kwargs = copy(self.configuration)
         for param_name, param_value in parameter_values.items():
-            param = task_inputs[param_name]
+            param = self.parameter_field(param_name)
             logger.info(
                 "Parameter %s (type %s) passed value %s",
                 param_name,
@@ -440,6 +529,7 @@ class ContainerCommand:
             )
             if param.type is not str:
                 if param_value == "":
+                    assert not param.mandatory
                     param_value = None
                     logger.info(
                         "Non-string parameter '%s' passed empty string, setting to None",
@@ -447,7 +537,11 @@ class ContainerCommand:
                     )
                 else:
                     # Convert field from string if necessary
-                    param_value = Field.from_primitive(param.type)(param_value)
+                    try:
+                        field_type = Field.from_primitive(param.type)
+                    except TypeError:
+                        field_type = param.type
+                    param_value = field_type(param_value)
 
             task_kwargs[param_name] = param_value
 

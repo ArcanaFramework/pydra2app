@@ -31,7 +31,7 @@ def test_deploy_make_cli(command_spec, cli_runner, work_dir):
         "version": "1.0",
         "packages": {
             "system": ["vim"],  # just to test it out
-            "pip": {"pydra": None},  # just to test it out
+            "pip": {"pydra": None, "pydra2app": None},  # just to test it out
         },
         "authors": [{"name": "Some One", "email": "some.one@an.email.org"}],
         "docs": {
@@ -118,7 +118,7 @@ def test_deploy_remake_cli(command_spec, local_docker_registry, cli_runner, run_
         "title": "a test image",
         "commands": {"test-command": command_spec},
         "version": "1.0",
-        "packages": {"system": ["vim"]},
+        "packages": {"system": ["vim"], "pip": ["pydra2app"]},
         "name": "test_deploy_rebuild_cli",
         "authors": [{"name": "Some One", "email": "some.one@an.email.org"}],
         "docs": {"info_url": "http://concatenate.readthefakedocs.io"},
@@ -180,16 +180,8 @@ docs:
     a test of the YAML join functionality
 commands:
   identity-task:
-    task: frametree.testing.tasks:IdentityFile
+    task: pydra2app.testing.tasks:IdentityTextFile
     row_frequency: common:Samples[sample]
-    inputs:
-      in_file:
-        datatype: text/text-file
-        help: the input file
-    outputs:
-      out_file:
-        datatype: text/text-file
-        help: the output file
     """.strip(),
         """
 ---
@@ -214,148 +206,141 @@ a test of the YAML join functionality
 ## Commands
 |Key|Value|
 |---|-----|
-|Task|frametree.testing.tasks:IdentityFile|
+|Task|pydra2app.testing.tasks:IdentityTextFile|
 |Operates on|sample|
 #### Inputs
-|Name|Required data-type|Default column data-type|Description|
-|----|------------------|------------------------|-----------|
-|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file" aria-label="text/text-file">text/text-file</span>|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file" aria-label="text/text-file">text/text-file</span>|the input file|
+|Name|Data-type(s)|Required|Description|
+|----|------------|--------|-----------|
+|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file" aria-label="text/text-file">text/text-file</span>|Y|the input text file|
 
 #### Outputs
-|Name|Required data-type|Default column data-type|Description|
-|----|------------------|------------------------|-----------|
-|`out_file`|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file" aria-label="text/text-file">text/text-file</span>|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file" aria-label="text/text-file">text/text-file</span>|the output file|
+|Name|Data-type(s)|Always generated|Description|
+|----|------------|----------------|-----------|
+|`out_file`|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file" aria-label="text/text-file">text/text-file</span>|Y|the output text file|
 
 #### Parameters
-|Name|Data type|Description|
-|----|---------|-----------|
+|Name|Data-type(s)|Default|Description|
+|----|------------|-------|-----------|
 """.strip(),
     ),
-    "full": DocsFixture(
-        """
-title: a more involved image spec
-version: &package_version '0.16.1'
-authors:
-  - name: author_name
-    email: author@email.org
-base_image:
-  name: abc
-  tag: *package_version
-  package_manager: yum
-docs:
-  info_url: https://example.com
-  description: >-
-    a longer description
-  known_issues:
-    - description: Memory overrun on large file paths
-      url: https://github.com/myorg/mypackage/issues/644
-packages:
-  system:
-    vim: 99.1
-    git:
-  pip:
-    - pydra
-    - pydra-dcm2niix
-  neurodocker:
-    dcm2niix: v1.0.20201102
-licenses:
-  freesurfer:
-    destination: /opt/freesurfer/license.txt
-    description: >
-      license description
-    info_url: http://path.to.license.provider.org/licenses
-commands:
-  bids-task:
-    task: bids:bids_app
-    inputs:
-      T1w:
-        configuration:
-          path: anat/T1w
-        datatype: medimage/nifti-gz-x
-        help: "T1-weighted anatomical scan"
-        column_defaults:
-          datatype: medimage/dicom-series
-      T2w:
-        configuration:
-          path: anat/T2w
-        datatype: medimage/nifti-gz-x
-        help: "T2-weighted anatomical scan"
-        column_defaults:
-          datatype: medimage/dicom-series
-      fMRI:
-        datatype: medimage/nifti-gz-x
-        help: "functional MRI"
-        configuration:
-          path: func/bold/task=rest
-        column_defaults:
-          datatype: medimage/dicom-series
-    outputs:
-      mriqc:
-        datatype: generic/directory
-        help: "MRIQC output directory"
-        configuration:
-          path: mriqc
-    parameters:
-      fmriprep_flags:
-        field: flags
-        datatype: field/text
-        help: description of flags param
-    row_frequency: common:Clinical[session]
-    configuration:
-      executable: /usr/local/miniconda/bin/mriqc
-      dataset: /work/bids-dataset
-      app_output_dir: /work/bids-app-output
-    """.strip(),
-        """
----
-source_file: /var/folders/mz/yn83q2fd3s758w1j75d2nnw80000gn/T/tmp47_dxmyq/specs/spec.yaml
-title: package.spec
-weight: 10
-
----
-
-## Package Info
-|Key|Value|
-|---|-----|
-|Name|package.spec|
-|Title|a more involved image spec|
-|Version|0.16.1|
-|Base image|`abc:0.16.1`|
-|Maintainer|author_name (author@email.org)|
-|Info URL|https://example.com|
-|Known issues|Memory overrun on large file paths (https://github.com/myorg/mypackage/issues/644)|
-
-a longer description
-
-### Required licenses
-|Name|URL|Description|
-|----|---|-----------|
-|freesurfer|`http://path.to.license.provider.org/licenses`|license description|
-
-## Commands
-|Key|Value|
-|---|-----|
-|Task|bids:bids_app|
-|Operates on|session|
-#### Inputs
-|Name|Required data-type|Default column data-type|Description|
-|----|------------------|------------------------|-----------|
-|`T1w`|<span data-toggle="tooltip" data-placement="bottom" title="medimage/nifti-gz-x" aria-label="medimage/nifti-gz-x">medimage/nifti-gz-x</span>|<span data-toggle="tooltip" data-placement="bottom" title="medimage/dicom-series" aria-label="medimage/dicom-series">medimage/dicom-series</span>|T1-weighted anatomical scan|
-|`T2w`|<span data-toggle="tooltip" data-placement="bottom" title="medimage/nifti-gz-x" aria-label="medimage/nifti-gz-x">medimage/nifti-gz-x</span>|<span data-toggle="tooltip" data-placement="bottom" title="medimage/dicom-series" aria-label="medimage/dicom-series">medimage/dicom-series</span>|T2-weighted anatomical scan|
-|`fMRI`|<span data-toggle="tooltip" data-placement="bottom" title="medimage/nifti-gz-x" aria-label="medimage/nifti-gz-x">medimage/nifti-gz-x</span>|<span data-toggle="tooltip" data-placement="bottom" title="medimage/dicom-series" aria-label="medimage/dicom-series">medimage/dicom-series</span>|functional MRI|
-
-#### Outputs
-|Name|Required data-type|Default column data-type|Description|
-|----|------------------|------------------------|-----------|
-|`mriqc`|<span data-toggle="tooltip" data-placement="bottom" title="generic/directory" aria-label="generic/directory">generic/directory</span>|<span data-toggle="tooltip" data-placement="bottom" title="generic/directory" aria-label="generic/directory">generic/directory</span>|MRIQC output directory|
-
-#### Parameters
-|Name|Data type|Description|
-|----|---------|-----------|
-|`fmriprep_flags`|`str`|description of flags param|
-""".strip(),
-        ["freesurfer"],
-    ),
+    #     "full": DocsFixture(
+    #         """
+    # title: a more involved image spec
+    # version: &package_version '0.16.1'
+    # authors:
+    #   - name: author_name
+    #     email: author@email.org
+    # base_image:
+    #   name: abc
+    #   tag: *package_version
+    #   package_manager: yum
+    # docs:
+    #   info_url: https://example.com
+    #   description: >-
+    #     a longer description
+    #   known_issues:
+    #     - description: Memory overrun on large file paths
+    #       url: https://github.com/myorg/mypackage/issues/644
+    # packages:
+    #   system:
+    #     vim: 99.1
+    #     git:
+    #   pip:
+    #     - pydra
+    #     - pydra-dcm2niix
+    #   neurodocker:
+    #     dcm2niix: v1.0.20201102
+    # licenses:
+    #   freesurfer:
+    #     destination: /opt/freesurfer/license.txt
+    #     description: >
+    #       license description
+    #     info_url: http://path.to.license.provider.org/licenses
+    # commands:
+    #   bids-task:
+    #     task: bids:bids_app
+    #     inputs:
+    #       T1w:
+    #         configuration:
+    #           path: anat/T1w
+    #         datatype: medimage/nifti-gz-x
+    #         help: "T1-weighted anatomical scan"
+    #         column_defaults:
+    #           datatype: medimage/dicom-series
+    #       T2w:
+    #         configuration:
+    #           path: anat/T2w
+    #         datatype: medimage/nifti-gz-x
+    #         help: "T2-weighted anatomical scan"
+    #         column_defaults:
+    #           datatype: medimage/dicom-series
+    #       fMRI:
+    #         datatype: medimage/nifti-gz-x
+    #         help: "functional MRI"
+    #         configuration:
+    #           path: func/bold/task=rest
+    #         column_defaults:
+    #           datatype: medimage/dicom-series
+    #     outputs:
+    #       mriqc:
+    #         datatype: generic/directory
+    #         help: "MRIQC output directory"
+    #         configuration:
+    #           path: mriqc
+    #     parameters:
+    #       fmriprep_flags:
+    #         field: flags
+    #         datatype: field/text
+    #         help: description of flags param
+    #     row_frequency: common:Clinical[session]
+    #     configuration:
+    #       executable: /usr/local/miniconda/bin/mriqc
+    #       dataset: /work/bids-dataset
+    #       app_output_dir: /work/bids-app-output
+    #     """.strip(),
+    #         """
+    # ---
+    # source_file: /var/folders/mz/yn83q2fd3s758w1j75d2nnw80000gn/T/tmp47_dxmyq/specs/spec.yaml
+    # title: package.spec
+    # weight: 10
+    # ---
+    # ## Package Info
+    # |Key|Value|
+    # |---|-----|
+    # |Name|package.spec|
+    # |Title|a more involved image spec|
+    # |Version|0.16.1|
+    # |Base image|`abc:0.16.1`|
+    # |Maintainer|author_name (author@email.org)|
+    # |Info URL|https://example.com|
+    # |Known issues|Memory overrun on large file paths (https://github.com/myorg/mypackage/issues/644)|
+    # a longer description
+    # ### Required licenses
+    # |Name|URL|Description|
+    # |----|---|-----------|
+    # |freesurfer|`http://path.to.license.provider.org/licenses`|license description|
+    # ## Commands
+    # |Key|Value|
+    # |---|-----|
+    # |Task|bids:bids_app|
+    # |Operates on|session|
+    # #### Inputs
+    # |Name|Required data-type|Default column data-type|Description|
+    # |----|------------------|------------------------|-----------|
+    # |`T1w`|<span data-toggle="tooltip" data-placement="bottom" title="medimage/nifti-gz-x" aria-label="medimage/nifti-gz-x">medimage/nifti-gz-x</span>|<span data-toggle="tooltip" data-placement="bottom" title="medimage/dicom-series" aria-label="medimage/dicom-series">medimage/dicom-series</span>|T1-weighted anatomical scan|
+    # |`T2w`|<span data-toggle="tooltip" data-placement="bottom" title="medimage/nifti-gz-x" aria-label="medimage/nifti-gz-x">medimage/nifti-gz-x</span>|<span data-toggle="tooltip" data-placement="bottom" title="medimage/dicom-series" aria-label="medimage/dicom-series">medimage/dicom-series</span>|T2-weighted anatomical scan|
+    # |`fMRI`|<span data-toggle="tooltip" data-placement="bottom" title="medimage/nifti-gz-x" aria-label="medimage/nifti-gz-x">medimage/nifti-gz-x</span>|<span data-toggle="tooltip" data-placement="bottom" title="medimage/dicom-series" aria-label="medimage/dicom-series">medimage/dicom-series</span>|functional MRI|
+    # #### Outputs
+    # |Name|Required data-type|Default column data-type|Description|
+    # |----|------------------|------------------------|-----------|
+    # |`mriqc`|<span data-toggle="tooltip" data-placement="bottom" title="generic/directory" aria-label="generic/directory">generic/directory</span>|<span data-toggle="tooltip" data-placement="bottom" title="generic/directory" aria-label="generic/directory">generic/directory</span>|MRIQC output directory|
+    # #### Parameters
+    # |Name|Data type|Description|
+    # |----|---------|-----------|
+    # |`fmriprep_flags`|`str`|description of flags param|
+    # """.strip(),
+    #         ["freesurfer"],
+    #     ),
 }
 
 

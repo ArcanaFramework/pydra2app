@@ -6,6 +6,7 @@ import re
 import tempfile
 import requests
 import itertools
+from enum import Enum
 from functools import cached_property
 import logging
 from copy import copy
@@ -766,29 +767,47 @@ class P2AImage:
         written to file"""
 
         def filter(attr: attrs.Attribute[ty.Any], value: ty.Any) -> bool:
-            return not isinstance(value, type(self)) and attr.metadata.get(
-                "asdict", True
-            )
+            if isinstance(value, type(self)):
+                return False  # filter-out back-references to self
+            if not attr.metadata.get("asdict", True):
+                return False  # filter out explicitly excluded attributes
+            try:
+                if value == attr.default:
+                    return False  # filter out default values
+            except (AttributeError, TypeError):
+                return True
+            return True
+
+        def listify_containers(value: ty.Any) -> ty.Any:
+            if isinstance(value, ty.Mapping):
+                return {k: listify_containers(v) for k, v in value.items()}
+            elif isinstance(value, (ty.Sequence, set, frozenset)) and not isinstance(
+                value, (str, bytes)
+            ):
+                return [listify_containers(v) for v in value]
+            return value
 
         def serializer(
             _: ty.Any, attr: attrs.Attribute[ty.Any], value: ty.Any
         ) -> ty.Any:
             if attr is not None and "serializer" in attr.metadata:
-                value = attr.metadata["serializer"](
+                return attr.metadata["serializer"](
                     value,
                     value_serializer=serializer,
                     filter=filter,
                 )
             elif isinstance(value, Axes):
                 if hasattr(self, "commands") and self.commands[0].AXES:
-                    value = str(value)
+                    return str(value)
                 else:
-                    value = value.tostr()
+                    return value.tostr()
+            elif isinstance(value, Enum):
+                return value.value
             elif isinstance(value, PurePath):
-                value = str(value)
+                return str(value)
             elif isclass(value) or isfunction(value) or ty.get_origin(value):
-                value = ClassResolver.tostr(value, strip_prefix=False)
-            return value
+                return ClassResolver.tostr(value, strip_prefix=False)
+            return listify_containers(value)
 
         return attrs.asdict(self, value_serializer=serializer, filter=filter)
 

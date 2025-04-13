@@ -164,6 +164,17 @@ def IdentityFile(in_file: File) -> File:
 
 @python.define(outputs=["out_file"])
 def IdentityTextFile(in_file: TextFile) -> TextFile:
+    """
+    Parameters
+    ----------
+    in_file : TextFile
+        the input text file
+
+    Returns
+    -------
+    out_file: TextFile
+        the output text file
+    """
     return in_file
 
 
