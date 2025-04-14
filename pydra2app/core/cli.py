@@ -903,9 +903,7 @@ def bootstrap(
     packages_pip: ty.List[str],
     packages_system: ty.List[str],
     packages_neurodocker: ty.List[str],
-    command_inputs: ty.List[ty.Tuple[str, str, str]],
-    command_outputs: ty.List[ty.Tuple[str, str, str]],
-    command_parameters: ty.List[ty.Tuple[str, str, str]],
+    command_parameters: ty.List[str],
     command_configuration: ty.List[ty.Tuple[str, str]],
     frequency: str,
     licenses: ty.List[ty.Tuple[str, str, str, str]],
@@ -970,8 +968,6 @@ def bootstrap(
             name: {
                 "task": command_task,
                 "row_frequency": frequency,
-                "inputs": unwrap_fields(command_inputs),
-                "outputs": unwrap_fields(command_outputs),
                 "parameters": unwrap_fields(command_parameters),
                 "configuration": dict(command_configuration),
             }

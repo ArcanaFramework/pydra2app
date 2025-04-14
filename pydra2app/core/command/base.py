@@ -15,6 +15,8 @@ from attrs.converters import default_if_none
 import pydra.compose.base
 from fileformats.core import DataType, Field
 from pydra.utils import task_fields, task_class_as_dict, task_class_from_dict
+import pydra.utils.general
+from pydra.utils.typing import optional_type
 from pydra.compose.base import Arg, Out
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from pydra.utils.typing import is_fileset_or_union
@@ -50,12 +52,25 @@ def task_converter(
             package=PACKAGE_NAME,
         )(task_class)
     elif isinstance(task_class, dict):
+        for field_dct in list(task_class.get("inputs", {}).values()) + list(
+            task_class.get("outputs", {}).values()
+        ):
+            type_ = field_dct.get("type", None)
+            if isinstance(type_, str):
+                field_dct["type"] = ClassResolver.fromstr(type_)
         task_cls = task_class_from_dict(task_class)
     elif issubclass(task_class, pydra.compose.base.Task):
         task_cls = task_class
     else:
         raise TypeError(f"Cannot convert {type(task_class)} ({task_class}) to a task")
     return task_cls
+
+
+def task_equals(
+    task_cls: type[pydra.compose.base.Task],
+) -> tuple[str, pydra.utils.general._TaskFields]:
+    """Used to compare task classes to see if they are equivalent."""
+    return task_cls._task_type(), task_fields(task_cls)
 
 
 def task_serializer(
@@ -121,13 +136,16 @@ class ContainerCommand:
     task: type[pydra.compose.base.Task] = attrs.field(
         converter=task_converter,
         metadata={"serializer": task_serializer},
+        eq=task_equals,
     )
     row_frequency: ty.Optional[Axes] = attrs.field(default=None)
     configuration: ty.Dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
     )
     parameters: ty.List[str] = attrs.field()
-    image: App = attrs.field(default=None)
+    image: App = attrs.field(
+        default=None, eq=False, hash=False, metadata={"asdict": False}
+    )
 
     @parameters.default
     def _default_parameters(self) -> ty.List[str]:
@@ -537,10 +555,11 @@ class ContainerCommand:
                     )
                 else:
                     # Convert field from string if necessary
+                    field_type = optional_type(param.type)
                     try:
-                        field_type = Field.from_primitive(param.type)
+                        field_type = Field.from_primitive(field_type)
                     except TypeError:
-                        field_type = param.type
+                        pass
                     param_value = field_type(param_value)
 
             task_kwargs[param_name] = param_value

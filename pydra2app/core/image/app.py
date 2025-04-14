@@ -79,7 +79,9 @@ class App(P2AImage):
     commands: ty.List[ContainerCommand] = attrs.field(
         converter=ObjectListConverter(ContainerCommand)  # type: ignore[misc]
     )
-    loaded_from: Path = attrs.field(default=None, metadata={"asdict": False})
+    loaded_from: Path = attrs.field(
+        default=None, metadata={"asdict": False}, eq=False, hash=False
+    )
     pydra2app_version: str = __version__
 
     @commands.validator

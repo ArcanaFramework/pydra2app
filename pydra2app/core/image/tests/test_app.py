@@ -2,6 +2,7 @@ import os
 import docker
 from pathlib import Path
 from copy import deepcopy
+from pydra.utils import task_fields
 from frametree.common import FileSystem, Samples
 from pydra2app.core.image import App, P2AImage
 from pydra2app.core import PACKAGE_NAME
@@ -31,7 +32,7 @@ def test_native_python_install(tmp_path):
                     "type": "shell",
                     "executable": [
                         "pydra2app",
-                        "--version",
+                        "--version<print_version>",
                     ],
                     "inputs": {
                         "dummy": {
@@ -76,6 +77,9 @@ def test_native_python_install(tmp_path):
         "--parameter",
         "dummy",
         "1",
+        "--parameter",
+        "print_version",
+        "True",
         "--output",
         "stdout",
         OUTPUT_COL_NAME,
@@ -270,3 +274,59 @@ def test_multi_command(
             with open(item) as f:
                 contents = f.read()
             assert contents == expected_contents
+
+
+def test_serialization_roundtrip(tmp_path: Path) -> None:
+
+    test_spec = {
+        "name": "native_python_test",
+        "title": "a test image spec",
+        "commands": {
+            "python-test-command": {
+                "task": {
+                    "type": "shell",
+                    "executable": [
+                        "pydra2app",
+                        "--version",
+                    ],
+                    "inputs": {
+                        "dummy": {
+                            "type": int | None,
+                            "help": "not actually used",
+                            "argstr": None,  # won't be printed to the command line
+                        }
+                    },
+                },
+                "row_frequency": "common:Samples[sample]",
+            },
+        },
+        "version": "1.0",
+        "packages": {
+            "system": ["vim"],  # just to test it out
+            "pip": {
+                "pydra2app": None,
+                "frametree": None,
+                "pydra": None,
+            },  # just to test out the
+        },
+        "base_image": {
+            "name": "python",
+            "tag": "3.12.5-slim-bookworm",
+            "python": "python3",
+            "package_manager": "apt",
+            "conda_env": None,
+        },
+        "authors": [{"name": "Some One", "email": "some.one@an.email.org"}],
+        "docs": {
+            "info_url": "http://concatenate.readthefakedocs.io",
+        },
+    }
+
+    app = App.load(test_spec)
+
+    # Serialize the app to a file
+    save_path = tmp_path / (app.name + ".json")
+    app.save(save_path)
+    reloaded_app = App.load(save_path)
+    assert app.commands[0] == reloaded_app.commands[0]
+    assert app == reloaded_app
