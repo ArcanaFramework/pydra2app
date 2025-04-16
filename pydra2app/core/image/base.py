@@ -854,8 +854,8 @@ class P2AImage:
                 if "pydra2app_version" not in dct:
                     dct["pydra2app_version"] = __version__
             else:
-                del dct["pydra2app_version"]
-                del dct["version"]
+                dct.pop("pydra2app_version", None)
+                dct.pop("version", None)
             return dct
 
         diff = DeepDiff(prep(sdict), prep(odict), ignore_order=True)
