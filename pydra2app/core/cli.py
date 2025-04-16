@@ -6,6 +6,7 @@ import json
 import typing as ty
 import re
 from collections import defaultdict
+from importlib import import_module
 from traceback import format_exc
 import tempfile
 import click
@@ -780,7 +781,7 @@ def ext() -> None:
     "-t",
     type=str,
     default=None,
-    help="The command to execute in the image",
+    help="The module/name of the task class to add as a command or definition string",
 )
 @click.option(
     "--packages-pip",
@@ -807,41 +808,11 @@ def ext() -> None:
     help="Packages to install via NeuroDocker",
 )
 @click.option(
-    "--command-input",
-    "-i",
-    "command_inputs",
-    type=str,
-    multiple=True,
-    nargs=2,
-    metavar="<name> <attrs>",
-    help=(
-        "Input specifications, name and attribute pairs. Attributes are comma-separated "
-        "name/value pairs, e.g. "
-        "'datatype=str,configuration.argstr=,configuration.position=0,help=The input image''"
-    ),
-)
-@click.option(
-    "--command-output",
-    "-o",
-    "command_outputs",
-    type=str,
-    multiple=True,
-    nargs=2,
-    metavar="<name> <attrs>",
-    help=(
-        "Output specifications, name and attribute pairs. Attributes are comma-separated "
-        "name/value pairs, e.g. "
-        "'datatype=str,configuration.argstr=,configuration.position=1,help=The output image'"
-    ),
-)
-@click.option(
     "--command-parameter",
     "-p",
     "command_parameters",
     type=str,
     multiple=True,
-    nargs=2,
-    metavar="<name> <attrs>",
     help=(
         "Parameter specifications, name and attribute pairs. Attributes are comma-separated "
         "name/value pairs, e.g. 'datatype=str,help='compression level'"
@@ -948,6 +919,17 @@ def bootstrap(
             for p in packages
         )
 
+    task: ty.Union[str, ty.Dict[str, ty.Any]] = command_task
+
+    if match := re.match(r"(\w+)::(.*)", command_task):
+        task_type, executor = match.groups()
+        task_mod = import_module(f"pydra.compose.{task_type}")
+        executor_name = task_mod.Task._executor_name
+        task = {
+            "type": task_type,
+            executor_name: executor,
+        }
+
     spec = {
         "schema_version": App.SCHEMA_VERSION,
         "title": title,
@@ -966,9 +948,9 @@ def bootstrap(
         },
         "commands": {
             name: {
-                "task": command_task,
+                "task": task,
                 "row_frequency": frequency,
-                "parameters": unwrap_fields(command_parameters),
+                "parameters": list(command_parameters),
                 "configuration": dict(command_configuration),
             }
         },

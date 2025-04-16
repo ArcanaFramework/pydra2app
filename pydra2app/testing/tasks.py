@@ -10,6 +10,7 @@ from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 import fileformats.text
 from frametree.core.row import DataRow
+from pydra2app.testing.constants import LICENSE_OUTPUT_FIELD
 
 
 @python.define
@@ -249,7 +250,7 @@ def ContentsAreNumeric(in_file: File) -> bool:
     return True
 
 
-@python.define
+@python.define(outputs=[LICENSE_OUTPUT_FIELD])
 def CheckLicence(
     expected_license_path: File,
     expected_license_contents: File,

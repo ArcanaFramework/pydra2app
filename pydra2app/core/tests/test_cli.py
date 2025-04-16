@@ -10,6 +10,7 @@ import attrs
 import pytest
 import docker
 from pydra2app.core.image import App
+
 from pydra2app.core.cli import (
     make,
     make_docs,
@@ -436,16 +437,16 @@ def test_bootstrap(cli_runner, work_dir):
             "--packages-neurodocker",
             "dcm2niix==v1.0.20201102",
             "--command-task",
-            "common:shell",
-            "--command-input",
-            "head",
-            "datatype=medimage/nifti-gz,configuration.position=-2,configuration.argstr=''",
-            "--command-output",
-            "brain",
-            "datatype=medimage/nifti-gz,configuration.position=-1,configuration.argstr=''",
-            "--command-configuration",
-            "executable",
-            "mri_convert",
+            "shell::mri_convert <head:medimage/nifti-gz> <brain:medimage/nifti-gz>",
+            # "--command-input",
+            # "head",
+            # "datatype=medimage/nifti-gz,configuration.position=-2,configuration.argstr=''",
+            # "--command-output",
+            # "brain",
+            # "datatype=medimage/nifti-gz,configuration.position=-1,configuration.argstr=''",
+            # "--command-configuration",
+            # "executable",
+            # "mri_convert",
             "--title",
             "MRI Convert",
             "--license",

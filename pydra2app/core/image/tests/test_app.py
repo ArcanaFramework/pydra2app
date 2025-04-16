@@ -216,6 +216,7 @@ def test_multi_command(
             "system": ["vim"],  # just to test it out
             "pip": {
                 "fileformats": None,
+                "pydra": None,
                 "pydra2app": None,
                 "frametree": None,
             },
@@ -240,7 +241,7 @@ def test_multi_command(
         "in_file2",
         "file2",
         "--output",
-        "concatenated",
+        "out_file",
     ]
 
     fnames = ["file1.txt", "file2.txt"]
@@ -248,7 +249,7 @@ def test_multi_command(
     for command in ["two_duplicates", "three_duplicates"]:
 
         # Name the output column based on the command and set the command
-        args = base_args + [command, "--command", command]
+        args = base_args + [command + "_sink", "--command", command]
 
         dc = docker.from_env()
         try:
@@ -267,7 +268,7 @@ def test_multi_command(
 
         # Add source column to saved dataset
         reloaded = dataset.reload()
-        sink = reloaded[command]
+        sink = reloaded[command + "_sink"]
         duplicates = 2 if command == "two_duplicates" else 3
         expected_contents = "\n".join(fnames * duplicates)
         for item in sink:

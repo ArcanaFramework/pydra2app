@@ -142,7 +142,7 @@ class ContainerCommand:
     configuration: ty.Dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
     )
-    parameters: ty.List[str] = attrs.field()
+    parameters: ty.List[str] = attrs.field(converter=list)
     image: App = attrs.field(
         default=None, eq=False, hash=False, metadata={"asdict": False}
     )

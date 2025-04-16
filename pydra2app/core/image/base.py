@@ -67,7 +67,7 @@ class P2AImage:
 
     IN_DOCKER_FRAMETREE_HOME_DIR = "/frametree-home"
     IN_DOCKER_SPEC_PATH = "/pydra2app-spec.yaml"
-    SCHEMA_VERSION = "1.0"
+    SCHEMA_VERSION = "2.0"
     PIP_DEPENDENCIES: ty.Tuple[str, ...] = ()
 
     name: str = attrs.field()

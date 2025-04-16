@@ -7,6 +7,8 @@ from pydra2app.core.cli import make
 from pydra2app.testing.licenses import (
     get_pipeline_image,
     make_dataset,
+)
+from pydra2app.testing.constants import (
     ORG,
     REGISTRY,
     IMAGE_VERSION,
@@ -71,7 +73,7 @@ def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_ru
         f"--input {LICENSE_INPUT_FIELD} '{LICENSE_INPUT_PATH}' "
         f"--output {LICENSE_OUTPUT_FIELD} '{LICENSE_OUTPUT_PATH}' "
         f"--parameter {LICENSE_PATH_PARAM} '{LICENSE_PATH}' "
-        f"--plugin serial "
+        f"--plugin debug "
         f"--raise-errors "
     )
 

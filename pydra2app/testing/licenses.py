@@ -3,6 +3,13 @@ from pathlib import Path
 from pydra2app.core.image import App
 from frametree.core.frameset import FrameSet
 from frametree.common import FileSystem, Samples
+from pydra2app.testing.constants import (
+    ORG,
+    LICENSE_CONTENTS,
+    LICENSE_NAME,
+    LICENSE_INPUT_PATH,
+    LICENSE_PATH_PARAM,
+)
 
 
 def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
@@ -17,7 +24,7 @@ def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
         },
         readme="This is a test README",
         packages={
-            "pip": ["fileformats", "frametree"],
+            "pip": ["fileformats", "frametree", "pydra2app", "pydra"],
         },
         licenses={
             LICENSE_NAME: {
@@ -30,6 +37,7 @@ def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
             "check-license": {
                 "task": "pydra2app.testing.tasks:CheckLicence",
                 "row_frequency": "common:Samples[sample]",
+                "parameters": [LICENSE_PATH_PARAM],
                 # "inputs": [
                 #     {
                 #         "name": LICENSE_INPUT_FIELD,
@@ -71,23 +79,3 @@ def make_dataset(dataset_dir: Path) -> FrameSet:
     dataset = FileSystem().define_frameset(dataset_dir, axes=Samples)
     dataset.save()
     return dataset
-
-
-ORG = "pydra2app-tests"
-REGISTRY = "a.docker.registry.io"
-IMAGE_VERSION = "1.0"
-
-
-LICENSE_CONTENTS = "license contents"
-
-LICENSE_NAME = "testlicense"
-
-LICENSE_INPUT_FIELD = "license_file"
-
-LICENSE_OUTPUT_FIELD = "validated_license_file"
-
-LICENSE_PATH_PARAM = "license_path"
-
-LICENSE_INPUT_PATH = "contents-file"
-
-LICENSE_OUTPUT_PATH = "validated-file"

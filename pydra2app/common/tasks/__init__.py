@@ -1,2 +1,7 @@
-from .shell import shell
-from .utils import identity, IdentityConverter, ExtractFromJson
+from .utils import define_identity, IdentityConverter, ExtractFromJson
+
+__all__ = [
+    "define_identity",
+    "IdentityConverter",
+    "ExtractFromJson",
+]

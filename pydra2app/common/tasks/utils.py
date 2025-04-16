@@ -27,7 +27,7 @@ def define_identity(field_names: ty.List[str]) -> python.Task:
     return Identity
 
 
-@python(outputs=["out_file"])
+@python.define(outputs=["out_file"])
 def IdentityConverter(in_file: FileSet) -> FileSet:
     return in_file
 
