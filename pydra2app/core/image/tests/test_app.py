@@ -303,7 +303,7 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
         },
         "version": "1.0",
         "packages": {
-            "system": ["vim", "git"],  # just to test it out
+            "system": ["git"],  # just to test it out
             "pip": {
                 "pydra2app": None,
                 "frametree": None,
