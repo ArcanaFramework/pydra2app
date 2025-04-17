@@ -41,7 +41,7 @@ def image_spec(command_spec) -> ty.Dict[str, ty.Any]:
         },
         "readme": "This is a test pipeline",
         "packages": {
-            "system": ["vim"],
+            "system": ["vim", "git"],
         },
     }
 

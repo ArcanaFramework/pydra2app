@@ -31,7 +31,7 @@ def test_deploy_make_cli(command_spec, cli_runner, work_dir):
         "commands": {"test-command": command_spec},
         "version": "1.0",
         "packages": {
-            "system": ["vim"],  # just to test it out
+            "system": ["vim", "git"],  # just to test it out
             "pip": {"pydra": None, "pydra2app": None},  # just to test it out
         },
         "authors": [{"name": "Some One", "email": "some.one@an.email.org"}],
@@ -119,7 +119,7 @@ def test_deploy_remake_cli(command_spec, local_docker_registry, cli_runner, run_
         "title": "a test image",
         "commands": {"test-command": command_spec},
         "version": "1.0",
-        "packages": {"system": ["vim"], "pip": ["pydra2app"]},
+        "packages": {"system": ["vim", "git"], "pip": ["pydra2app"]},
         "name": "test_deploy_rebuild_cli",
         "authors": [{"name": "Some One", "email": "some.one@an.email.org"}],
         "docs": {"info_url": "http://concatenate.readthefakedocs.io"},

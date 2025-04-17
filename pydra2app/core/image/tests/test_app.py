@@ -47,7 +47,7 @@ def test_native_python_install(tmp_path):
         },
         "version": "1.0",
         "packages": {
-            "system": ["vim"],  # just to test it out
+            "system": ["vim", "git"],  # just to test it out
             "pip": {
                 "pydra2app": None,
                 "frametree": None,
@@ -119,7 +119,7 @@ def test_add_resources(tmp_path):
         name="test-resource-add-image",
         version="1.0",
         packages={
-            "system": ["vim"],  # just to test it out
+            "system": ["vim", "git"],  # just to test it out
             "pip": {
                 "pydra2app": None,
             },  # just to test out the
@@ -213,7 +213,7 @@ def test_multi_command(
         },
         "version": "1.0",
         "packages": {
-            "system": ["vim"],  # just to test it out
+            "system": ["vim", "git"],  # just to test it out
             "pip": {
                 "fileformats": None,
                 "pydra": None,
@@ -303,7 +303,7 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
         },
         "version": "1.0",
         "packages": {
-            "system": ["vim"],  # just to test it out
+            "system": ["vim", "git"],  # just to test it out
             "pip": {
                 "pydra2app": None,
                 "frametree": None,
