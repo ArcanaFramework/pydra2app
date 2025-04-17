@@ -288,7 +288,7 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
                     "type": "shell",
                     "executable": [
                         "pydra2app",
-                        "--version",
+                        "--version<version>",
                     ],
                     "inputs": {
                         "dummy": {

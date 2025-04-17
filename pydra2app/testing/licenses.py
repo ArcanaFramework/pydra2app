@@ -24,6 +24,7 @@ def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
         },
         readme="This is a test README",
         packages={
+            "system": ["git", "vim"],
             "pip": ["fileformats", "frametree", "pydra2app", "pydra"],
         },
         licenses={
