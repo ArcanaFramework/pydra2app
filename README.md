@@ -1,15 +1,15 @@
 # Pydra2App
 
-[![Tests](https://github.com/ArcanaFramework/pipeline2app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ArcanaFramework/pydra2app/actions/workflows/ci-cd.yml)
-[![Codecov](https://codecov.io/gh/ArcanaFramework/pipeline2app/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/ArcanaFramework/pydra2app)
-[![Python versions](https://img.shields.io/pypi/pyversions/pipeline2app.svg)](https://pypi.python.org/pypi/pydra2app/)
-[![Latest Version](https://img.shields.io/pypi/v/pipeline2app.svg)](https://pypi.python.org/pypi/pydra2app/)
+[![Tests](https://github.com/ArcanaFramework/pydra2app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ArcanaFramework/pydra2app/actions/workflows/ci-cd.yml)
+[![Codecov](https://codecov.io/gh/ArcanaFramework/pydra2app/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/ArcanaFramework/pydra2app)
+[![Python versions](https://img.shields.io/pypi/pyversions/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
+[![Latest Version](https://img.shields.io/pypi/v/pydra2app.svg)](https://pypi.python.org/pypi/pydra2app/)
 [![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://arcanaframework.github.io/pydra2app)
 
 <img src="./docs/source/_static/images/logo_small.png" alt="Logo Small" style="float: right;">
 
 [Pydra2App](http://arcanaframework.github.io/pydra2app) is a tool for quickly turning
-[Pydra](http://pydra.readthedocs.io) tasks and workflows into containerised applications
+[Pydra](http://pydra.readthedocs.io) tasks into containerised applications
 (e.g. [BIDS](http://bids.neuroimaging.io/) Apps or [XNAT](http://xnat.org) pipelines)
 
 ## Documentation

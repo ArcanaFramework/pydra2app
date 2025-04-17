@@ -12,9 +12,9 @@ from click.testing import CliRunner, Result as CliResult
 from frametree.core.store import Store
 from frametree.core import FrameSet
 from fileformats.text import Plain as PlainText
-from pipeline2app.testing.tasks import (
-    concatenate,
-    concatenate_reverse,
+from pydra2app.testing.tasks import (
+    Concatenate,
+    ConcatenateReverse,
     TEST_TASKS,
     BASIC_TASKS,
 )
@@ -29,7 +29,7 @@ from frametree.common import FileSystem
 
 log_level = logging.INFO
 
-logger = logging.getLogger("pipeline2app")
+logger = logging.getLogger("pydra2app")
 logger.setLevel(log_level)
 
 sch = logging.StreamHandler()
@@ -43,7 +43,7 @@ PKG_DIR = Path(__file__).parent
 
 @pytest.fixture
 def work_dir() -> ty.Generator[Path, None, None]:
-    # work_dir = Path.home() / '.pipeline2app-tests'
+    # work_dir = Path.home() / '.pydra2app-tests'
     # work_dir.mkdir(exist_ok=True)
     # return work_dir
     work_dir = mkdtemp()
@@ -53,7 +53,7 @@ def work_dir() -> ty.Generator[Path, None, None]:
 
 @pytest.fixture(scope="session")
 def build_cache_dir() -> Path:
-    # build_cache_dir = Path.home() / '.pipeline2app-test-build-cache'
+    # build_cache_dir = Path.home() / '.pydra2app-test-build-cache'
     # if build_cache_dir.exists():
     #     shutil.rmtree(build_cache_dir)
     # build_cache_dir.mkdir()
@@ -110,7 +110,7 @@ def catch_cli_exceptions() -> bool:
 @pytest.fixture(params=BASIC_TASKS)
 def pydra_task_details(request: pytest.FixtureRequest) -> ty.Tuple[str, ...]:
     func_name = request.param
-    return ("pipeline2app.analysis.tasks.tests.fixtures" + func_name,) + tuple(
+    return ("pydra2app.analysis.tasks.tests.fixtures" + func_name,) + tuple(
         TEST_TASKS[func_name][1:]
     )
 
@@ -167,7 +167,7 @@ def data_store(
 @pytest.fixture
 def delayed_mock_remote(
     work_dir: Path,
-    frametree_home: Path,  # So we save the store definition in the home dir, not ~/.pipeline2app
+    frametree_home: Path,  # So we save the store definition in the home dir, not ~/.pydra2app
 ) -> MockRemote:
     cache_dir = work_dir / "mock-remote-store" / "cache"
     cache_dir.mkdir(parents=True)
@@ -234,54 +234,52 @@ def tmp_dir() -> ty.Generator[Path, None, None]:
 
 
 @pytest.fixture(params=["forward", "reverse"])
-def concatenate_task(request: pytest.FixtureRequest) -> ty.Callable[..., ty.Any]:
+def ConcatenateTask(request: pytest.FixtureRequest) -> ty.Callable[..., ty.Any]:
     if request.param == "forward":
-        task = concatenate
-        # FIXME: Can be removed after https://github.com/nipype/pydra/pull/533 is merged
-        task.__name__ = "concatenate"
+        task = Concatenate
     else:
-        task = concatenate_reverse
+        task = ConcatenateReverse
     return task  # type: ignore[no-any-return]
 
 
 @pytest.fixture(scope="session")
 def command_spec() -> ty.Dict[str, ty.Any]:
     return {
-        "task": "pipeline2app.testing.tasks:concatenate",
-        "inputs": {
-            "first_file": {
-                "datatype": "text/text-file",
-                "field": "in_file1",
-                "column_defaults": {
-                    "row_frequency": "common:Samples[sample]",
-                },
-                "help": "the first file to pass as an input",
-            },
-            "second_file": {
-                "datatype": "text/text-file",
-                "field": "in_file2",
-                "column_defaults": {
-                    "row_frequency": "common:Samples[sample]",
-                },
-                "help": "the second file to pass as an input",
-            },
-        },
-        "outputs": {
-            "concatenated": {
-                "datatype": "text/text-file",
-                "field": "out_file",
-                "help": "an output file",
-            }
-        },
-        "parameters": {
-            "duplicates": {
-                "field": "duplicates",
-                "default": 2,
-                "datatype": "field/integer",
-                "required": True,
-                "help": "a parameter",
-            }
-        },
+        "task": "pydra2app.testing.tasks:Concatenate",
+        # "inputs": {
+        #     "first_file": {
+        #         "datatype": "text/text-file",
+        #         "field": "in_file1",
+        #         "column_defaults": {
+        #             "row_frequency": "common:Samples[sample]",
+        #         },
+        #         "help": "the first file to pass as an input",
+        #     },
+        #     "second_file": {
+        #         "datatype": "text/text-file",
+        #         "field": "in_file2",
+        #         "column_defaults": {
+        #             "row_frequency": "common:Samples[sample]",
+        #         },
+        #         "help": "the second file to pass as an input",
+        #     },
+        # },
+        # "outputs": {
+        #     "concatenated": {
+        #         "datatype": "text/text-file",
+        #         "field": "out_file",
+        #         "help": "an output file",
+        #     }
+        # },
+        # "parameters": {
+        #     "duplicates": {
+        #         "field": "duplicates",
+        #         "default": 2,
+        #         "datatype": "field/integer",
+        #         "required": True,
+        #         "help": "a parameter",
+        #     }
+        # },
         "row_frequency": "common:Samples[sample]",
     }
 

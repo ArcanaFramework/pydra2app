@@ -51,8 +51,8 @@ Outputs do not show up in the XNAT dialog and are specified by a 3-tuple:
 .. .. code-block:: python
 
 ..     import json
-..     from pipeline2app.xnat.deploy import XnatCommand
-..     from pipeline2app.medimage.data import Clinical
+..     from pydra2app.xnat.deploy import XnatCommand
+..     from pydra2app.medimage.data import Clinical
 ..     from fileformats.medimage.data import NiftiGz
 
 ..     xnat_command = XnatCommand(

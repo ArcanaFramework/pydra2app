@@ -21,9 +21,9 @@ import datetime
 package_path = op.abspath(op.join(op.dirname(op.abspath(__file__)), "..", ".."))
 
 sys.path.insert(0, package_path)
-from pipeline2app.core import __version__, __authors__  # noqa
+from pydra2app.core import __version__, __authors__  # noqa
 
-# from pipeline2app import *
+# from pydra2app import *
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -69,7 +69,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "Pipeline2App"
+project = "Pydra2App"
 author = ", ".join(a for a, _ in __authors__)
 copyright = "{}, {}".format(datetime.datetime.now().year, author)
 
@@ -154,10 +154,10 @@ html_theme_options = {
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = "Pipeline2App v{}".format(__version__)
+html_title = "Pydra2App v{}".format(__version__)
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-# html_short_title = 'Pipeline2App v<release>'
+# html_short_title = 'Pydra2App v<release>'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -234,7 +234,7 @@ html_static_path = ["_static"]
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "Pipeline2App"
+htmlhelp_basename = "Pydra2App"
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -253,7 +253,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "pipeline2app.tex", "Pipeline2App Documentation", author, "manual"),
+    (master_doc, "pydra2app.tex", "Pydra2App Documentation", author, "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -281,7 +281,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "pipeline2app", "Pipeline2App Documentation", [author], 1)]
+man_pages = [(master_doc, "pydra2app", "Pydra2App Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -295,10 +295,10 @@ man_pages = [(master_doc, "pipeline2app", "Pipeline2App Documentation", [author]
 texinfo_documents = [
     (
         master_doc,
-        "Pipeline2App",
-        "Pipeline2App Documentation",
+        "Pydra2App",
+        "Pydra2App Documentation",
         author,
-        "Pipeline2App",
+        "Pydra2App",
         "Archive-centered analysis of neuroimaging data",
         "Miscellaneous",
     ),
