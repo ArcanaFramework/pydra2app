@@ -1,4 +1,4 @@
-# Pipeline2App
+# Pydra2App
 
 [![Tests](https://github.com/ArcanaFramework/pipeline2app/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ArcanaFramework/pipeline2app/actions/workflows/ci-cd.yml)
 [![Codecov](https://codecov.io/gh/ArcanaFramework/pipeline2app/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/ArcanaFramework/pipeline2app)
