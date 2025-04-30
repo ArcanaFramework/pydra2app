@@ -14,7 +14,7 @@ import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
 from fileformats.core import DataType, Field
-from pydra.utils import task_fields, task_class_as_dict, task_class_from_dict
+from pydra.utils import get_fields, unstructure
 import pydra.utils.general
 from pydra.utils.typing import optional_type
 from pydra.compose.base import Arg, Out
@@ -58,7 +58,7 @@ def task_converter(
             type_ = field_dct.get("type", None)
             if isinstance(type_, str):
                 field_dct["type"] = ClassResolver.fromstr(type_)
-        task_cls = task_class_from_dict(task_class)
+        task_cls = unstructure(task_class)
     elif issubclass(task_class, pydra.compose.base.Task):
         task_cls = task_class
     else:
@@ -70,7 +70,7 @@ def task_equals(
     task_cls: type[pydra.compose.base.Task],
 ) -> tuple[str, pydra.utils.general._TaskFields]:
     """Used to compare task classes to see if they are equivalent."""
-    return task_cls._task_type(), task_fields(task_cls)
+    return task_cls._task_type(), get_fields(task_cls)
 
 
 def task_serializer(
@@ -84,7 +84,7 @@ def task_serializer(
     task : type[pydra.compose.base.Task]
         the task to serialize
     **kwargs: Any
-        keyword arguments passed to the `task_class_as_dict` serializer
+        keyword arguments passed to the `unstructure` serializer
 
     Returns
     -------
@@ -96,7 +96,7 @@ def task_serializer(
     try:
         address: str = ClassResolver.tostr(task_cls, strip_prefix=False)
     except FrametreeCannotSerializeDynamicDefinitionError:
-        dct: dict[str, ty.Any] = task_class_as_dict(task_cls, **kwargs)
+        dct: dict[str, ty.Any] = unstructure(task_cls, **kwargs)
         return dct
     else:
         return address
@@ -153,7 +153,7 @@ class ContainerCommand:
         fixed in the configuration"""
         return [
             i.name
-            for i in task_fields(self.task)
+            for i in get_fields(self.task)
             if not (
                 i.name == self.task._executor_name
                 or is_fileset_or_union(i.type)
@@ -167,7 +167,7 @@ class ContainerCommand:
         self, attribute: attrs.Attribute[ty.Any], value: ty.List[str]
     ) -> None:
         """Validates that the parameters are valid task inputs"""
-        task_inputs = [i.name for i in task_fields(self.task)]
+        task_inputs = [i.name for i in get_fields(self.task)]
         for param in value:
             if param not in task_inputs:
                 raise ValueError(
@@ -184,7 +184,7 @@ class ContainerCommand:
         self, attribute: attrs.Attribute[ty.Any], value: ty.Dict[str, ty.Any]
     ) -> None:
         """Validates that the configuration arguments are valid task inputs"""
-        task_inputs = [i.name for i in task_fields(self.task)]
+        task_inputs = [i.name for i in get_fields(self.task)]
         for param in value:
             if param not in task_inputs:
                 raise ValueError(
@@ -220,26 +220,26 @@ class ContainerCommand:
         non_inputs = (
             self.parameters + list(self.configuration) + [self.task._executor_name]
         )
-        return [f.name for f in task_fields(self.task) if f.name not in non_inputs]
+        return [f.name for f in get_fields(self.task) if f.name not in non_inputs]
 
     @property
     def outputs(self) -> ty.List[str]:
         """The outputs of the task"""
-        return [o.name for o in task_fields(self.task.Outputs)]
+        return [o.name for o in get_fields(self.task.Outputs)]
 
     @property
     def input_fields(self) -> ty.List[Arg]:
-        fields = task_fields(self.task)
+        fields = get_fields(self.task)
         return [fields[i] for i in self.inputs]
 
     @property
     def output_fields(self) -> ty.List[Out]:
-        fields = task_fields(self.task.Outputs)
+        fields = get_fields(self.task.Outputs)
         return [fields[i] for i in self.outputs]
 
     @property
     def parameter_fields(self) -> ty.List[Arg]:
-        fields = task_fields(self.task)
+        fields = get_fields(self.task)
         return [fields[p] for p in self.parameters]
 
     def input_field(self, name: str) -> Arg:
@@ -248,7 +248,7 @@ class ContainerCommand:
                 f"Input field '{name}' is not a valid input to task {self.task} "
                 f"(available: {self.inputs})"
             )
-        return task_fields(self.task)[name]
+        return get_fields(self.task)[name]
 
     def output_field(self, name: str) -> Arg:
         if name not in self.outputs:
@@ -256,7 +256,7 @@ class ContainerCommand:
                 f"Input field '{name}' is not a valid output of task {self.task} "
                 f"(available: {self.outputs})"
             )
-        return task_fields(self.task.Outputs)[name]
+        return get_fields(self.task.Outputs)[name]
 
     def parameter_field(self, name: str) -> Arg:
         if name not in self.parameters:
@@ -264,7 +264,7 @@ class ContainerCommand:
                 f"Input field '{name}' is not a valid output of task {self.task} "
                 f"(available: {self.parameters})"
             )
-        return task_fields(self.task)[name]
+        return get_fields(self.task)[name]
 
     @property
     def axes(self) -> ty.Type[Axes]:
