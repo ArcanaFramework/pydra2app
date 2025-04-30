@@ -2,7 +2,7 @@ import os
 import docker
 from pathlib import Path
 from copy import deepcopy
-from pydra.utils import task_fields
+from pydra.utils import get_fields
 from frametree.common import FileSystem, Samples
 from pydra2app.core.image import App, P2AImage
 from pydra2app.core import PACKAGE_NAME

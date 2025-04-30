@@ -21,7 +21,7 @@ dependencies = [
     "hatchling >=1.12.2",
     "hatch-vcs >= 0.3.0",
     "neurodocker>=0.9.4",
-    "pydra",
+    "pydra >=1.0a1",
     "toml",
     "typing_extensions",
     "PyYAML>=6.0",

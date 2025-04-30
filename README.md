@@ -8,7 +8,7 @@
 
 <img src="./docs/source/_static/images/logo_small.png" alt="Logo Small" style="float: right;">
 
-[Pydra2App](http://arcanaframework.github.io/pydra2app) is a tool for quickly turning
+[Pydra2App](http://arcanaframework.github.io/pydra2app) is a tool for turning
 [Pydra](http://pydra.readthedocs.io) tasks into containerised applications
 (e.g. [BIDS](http://bids.neuroimaging.io/) Apps or [XNAT](http://xnat.org) pipelines)
 

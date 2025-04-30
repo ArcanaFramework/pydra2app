@@ -48,8 +48,6 @@ jobs:
       run: python3 -m pip install --break-system-packages --upgrade pip
     - name: Install Package
       run: python3 -m pip install --break-system-packages -e .[test]
-    - name: Install development Pydra
-      run: python3 -m pip install --break-system-packages git+https://github.com/nipype/pydra.git@develop
     - name: Change out of root directory
       run: cd docs
     - name: Pytest
@@ -109,8 +107,6 @@ jobs:
       run: |
         python3 -m pip install --break-system-packages --upgrade pip
         pip install .[docs]
-    - name: Install development Pydra
-      run: python3 -m pip install --break-system-packages git+https://github.com/nipype/pydra.git@develop
     - name: Build documentation
       run: |
         cd docs
