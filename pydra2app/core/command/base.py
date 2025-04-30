@@ -14,7 +14,7 @@ import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
 from fileformats.core import DataType, Field
-from pydra.utils import get_fields, unstructure
+from pydra.utils import get_fields, structure, unstructure
 import pydra.utils.general
 from pydra.utils.typing import optional_type
 from pydra.compose.base import Arg, Out
@@ -58,7 +58,7 @@ def task_converter(
             type_ = field_dct.get("type", None)
             if isinstance(type_, str):
                 field_dct["type"] = ClassResolver.fromstr(type_)
-        task_cls = unstructure(task_class)
+        task_cls = structure(task_class)
     elif issubclass(task_class, pydra.compose.base.Task):
         task_cls = task_class
     else:
