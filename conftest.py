@@ -12,7 +12,7 @@ from click.testing import CliRunner, Result as CliResult
 from frametree.core.store import Store
 from frametree.core import FrameSet
 from fileformats.text import Plain as PlainText
-from pydra2app.testing.tasks import (
+from frametree.testing.tasks import (
     Concatenate,
     ConcatenateReverse,
     TEST_TASKS,
@@ -245,41 +245,8 @@ def ConcatenateTask(request: pytest.FixtureRequest) -> ty.Callable[..., ty.Any]:
 @pytest.fixture(scope="session")
 def command_spec() -> ty.Dict[str, ty.Any]:
     return {
-        "task": "pydra2app.testing.tasks:Concatenate",
-        # "inputs": {
-        #     "first_file": {
-        #         "datatype": "text/text-file",
-        #         "field": "in_file1",
-        #         "column_defaults": {
-        #             "row_frequency": "common:Samples[sample]",
-        #         },
-        #         "help": "the first file to pass as an input",
-        #     },
-        #     "second_file": {
-        #         "datatype": "text/text-file",
-        #         "field": "in_file2",
-        #         "column_defaults": {
-        #             "row_frequency": "common:Samples[sample]",
-        #         },
-        #         "help": "the second file to pass as an input",
-        #     },
-        # },
-        # "outputs": {
-        #     "concatenated": {
-        #         "datatype": "text/text-file",
-        #         "field": "out_file",
-        #         "help": "an output file",
-        #     }
-        # },
-        # "parameters": {
-        #     "duplicates": {
-        #         "field": "duplicates",
-        #         "default": 2,
-        #         "datatype": "field/integer",
-        #         "required": True,
-        #         "help": "a parameter",
-        #     }
-        # },
+        "task": "frametree.testing.tasks:Concatenate",
+        "parameters": ["duplicates"],
         "row_frequency": "common:Samples[sample]",
     }
 

@@ -3,7 +3,7 @@ from pathlib import Path
 import typing as ty
 from copy import deepcopy
 import attrs
-from pydra.compose import python, workflow
+from pydra.compose import python
 import fileformats.core
 from fileformats.generic import File
 from fileformats.text import TextFile
@@ -44,99 +44,6 @@ class C:
 @python.define(outputs=["c"])
 def AttrsFunc(a: A, b: B) -> C:
     return C(z=a.x * b.u + a.y * b.v)
-
-
-@python.define(outputs=["out_file"])
-def Concatenate(
-    in_file1: File,
-    in_file2: File,
-    out_file: ty.Optional[Path] = None,
-    duplicates: int = 1,
-) -> File:
-    """Concatenates the contents of two files and writes them to a third
-
-    Parameters
-    ----------
-    in_file1 : Path
-        A text file
-    in_file2 : Path
-        Another text file
-    out_file : Path
-       The path to write the output file to
-
-    Returns
-    -------
-    Path
-        A text file made by concatenating the two inputs
-    """
-    if out_file is None:
-        out_file = Path("out_file.txt").absolute()
-    contents = []
-    for _ in range(duplicates):
-        for fname in (in_file1, in_file2):
-            with open(fname) as f:
-                contents.append(f.read())
-    with open(out_file, "w") as f:
-        f.write("\n".join(contents))
-    return out_file
-
-
-@python.define(outputs=["out_file"])
-def Reverse(in_file: File, out_file: ty.Optional[Path] = None) -> File:
-    """Reverses the contents of a file and outputs it to another file
-
-    Parameters
-    ----------
-    in_file : Path
-        A text file
-    out_file : Path
-       The path to write the output file to
-
-    Returns
-    -------
-    Path
-        A text file with reversed contents to the original
-    """
-    if out_file is None:
-        out_file = Path("out_file.txt").absolute()
-    with open(in_file) as f:
-        contents = f.read()
-    with open(out_file, "w") as f:
-        f.write(contents[::-1])
-    return out_file
-
-
-@workflow.define(outputs=["out_file"])
-def ConcatenateReverse(in_file1: File, in_file2: File, duplicates: int = 1) -> File:
-    """A simple workflow that has the same signature as concatenate, but
-    concatenates reversed contents of the input files instead
-
-    Parameters
-    ----------
-    name : str
-        name of the workflow to be created
-    **kwargs
-        keyword arguments passed through to the workflow init, can be any of
-        the workflow's input spec, i.e. ['in_file1', 'in_file2', 'duplicates']
-
-    Returns
-    -------
-    Workflow
-        the workflow that
-    """
-    reverse1 = workflow.add(Reverse(in_file=in_file1), name="reverse1")
-
-    reverse2 = workflow.add(Reverse(in_file=in_file2), name="reverse2")
-
-    concatenate = workflow.add(
-        Concatenate(
-            in_file1=reverse1.out_file,
-            in_file2=reverse2.out_file,
-            duplicates=duplicates,
-        )
-    )
-
-    return concatenate.out_file
 
 
 @python.define
