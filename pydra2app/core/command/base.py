@@ -132,12 +132,12 @@ class ContainerCommand:
     STORE_TYPE = "file_system"
     AXES: ty.Optional[ty.Type[Axes]] = None
 
-    name: str = attrs.field()
     task: type[pydra.compose.base.Task] = attrs.field(
         converter=task_converter,
         metadata={"serializer": task_serializer},
         eq=task_equals,
     )
+    name: str = attrs.field()
     row_frequency: ty.Optional[Axes] = attrs.field(default=None)
     configuration: ty.Dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
@@ -146,6 +146,10 @@ class ContainerCommand:
     image: App = attrs.field(
         default=None, eq=False, hash=False, metadata={"asdict": False}
     )
+
+    @name.default
+    def _default_name(self) -> str:
+        return self.task.__name__
 
     @parameters.default
     def _default_parameters(self) -> ty.List[str]:
@@ -159,6 +163,7 @@ class ContainerCommand:
                 or is_fileset_or_union(i.type)
                 or i.type is DataRow
                 or i.name in self.configuration
+                or isinstance(i, Out)
             )
         ]
 
@@ -220,7 +225,11 @@ class ContainerCommand:
         non_inputs = (
             self.parameters + list(self.configuration) + [self.task._executor_name]
         )
-        return [f.name for f in get_fields(self.task) if f.name not in non_inputs]
+        return [
+            f.name
+            for f in get_fields(self.task)
+            if f.name not in non_inputs and not isinstance(f, Out)
+        ]
 
     @property
     def outputs(self) -> ty.List[str]:
@@ -470,7 +479,7 @@ class ContainerCommand:
                         Field.from_primitive(inpt.type)
                         if inspect.isclass(inpt.type)
                         and not issubclass(inpt.type, DataType)
-                        else inpt.type
+                        else inpt.type.convertible_from()
                     )  # TODO: Create a union of all the convertible datatypes for FileSet types
                     column = frameset.add_source(
                         name=default_column_name,

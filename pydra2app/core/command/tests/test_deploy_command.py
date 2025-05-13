@@ -57,7 +57,7 @@ def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
 
     command_spec = ContainerCommand(
         name="concatenate",
-        task="pydra2app.testing.tasks:" + ConcatenateTask.__name__,
+        task="frametree.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
     )
     # Start generating the arguments for the CLI
@@ -102,7 +102,7 @@ def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
 
     command_spec = ContainerCommand(
         name="concatenate",
-        task="pydra2app.testing.tasks:" + ConcatenateTask.__name__,
+        task="frametree.testing.tasks:" + ConcatenateTask.__name__,
         row_frequency=bp.axes.default(),
     )
 

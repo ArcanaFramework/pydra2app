@@ -196,7 +196,7 @@ def test_multi_command(
 
     two_dup_spec = {
         "name": "concatenate",
-        "task": "pydra2app.testing.tasks:Concatenate",
+        "task": "frametree.testing.tasks:Concatenate",
         "row_frequency": simple_dataset_blueprint.axes.default().tostr(),
         "configuration": {"duplicates": 2},
     }
