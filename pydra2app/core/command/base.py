@@ -52,6 +52,10 @@ def task_converter(
             package=PACKAGE_NAME,
         )(task_class)
     elif isinstance(task_class, dict):
+
+        if task_class["type"] == "python":
+            task_class["function"] = ClassResolver.fromstr(task_class["function"])
+
         for field_dct in list(task_class.get("inputs", {}).values()) + list(
             task_class.get("outputs", {}).values()
         ):
@@ -59,6 +63,7 @@ def task_converter(
                 type_ = field_dct.get("type", None)
                 if isinstance(type_, str):
                     field_dct["type"] = ClassResolver.fromstr(type_)
+
         task_cls = structure(task_class)
     elif issubclass(task_class, pydra.compose.base.Task):
         task_cls = task_class
