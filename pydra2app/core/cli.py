@@ -808,6 +808,14 @@ def ext() -> None:
     help="Packages to install via NeuroDocker",
 )
 @click.option(
+    "--packages-conda",
+    "-n",
+    type=str,
+    multiple=True,
+    metavar="<package-name>[==<version>]",
+    help="Packages to install via Conda",
+)
+@click.option(
     "--command-parameter",
     "-p",
     "command_parameters",
@@ -874,6 +882,7 @@ def bootstrap(
     packages_pip: ty.List[str],
     packages_system: ty.List[str],
     packages_neurodocker: ty.List[str],
+    packages_conda: ty.List[str],
     command_parameters: ty.List[str],
     command_configuration: ty.List[ty.Tuple[str, str]],
     frequency: str,
@@ -945,6 +954,7 @@ def bootstrap(
             "pip": split_versions(packages_pip),
             "system": split_versions(packages_system),
             "neurodocker": split_versions(packages_neurodocker),
+            "conda": split_versions(packages_conda),
         },
         "commands": {
             name: {
