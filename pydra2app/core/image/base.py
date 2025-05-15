@@ -147,13 +147,15 @@ class P2AImage:
 
         dockerfile = self.construct_dockerfile(build_dir, **kwargs)
 
-        if not generate_only:
+        image_reference = reference if reference is not None else self.reference
+
+        if generate_only:
+            self.write_dockerfile(dockerfile, build_dir, image_reference)
+        else:
             self.build(
                 dockerfile,
                 build_dir,
-                image_reference=(
-                    reference if reference is not None else self.reference
-                ),
+                image_reference=image_reference,
                 no_cache=no_cache,
                 stream_output=stream_output,
             )
@@ -329,6 +331,33 @@ class P2AImage:
         return dockerfile
 
     @classmethod
+    def write_dockerfile(
+        cls,
+        dockerfile: DockerRenderer,
+        build_dir: Path,
+        image_reference: str,
+    ) -> None:
+        """Writes the dockerfile to the specified build directory
+
+        Parameters
+        ----------
+        dockerfile : DockerRenderer
+            Neurodocker renderer to build
+        build_dir : Path
+            path of the build directory
+        image_reference : str
+            Docker image tag to assign to the built image
+        """
+        # Save generated dockerfile to file
+        out_file = build_dir / "Dockerfile"
+        out_file.parent.mkdir(exist_ok=True, parents=True)
+        with open(str(out_file), "w") as f:
+            f.write(dockerfile.render())
+        logger.info(
+            "Dockerfile for '%s' generated at %s", image_reference, str(out_file)
+        )
+
+    @classmethod
     def build(
         cls,
         dockerfile: DockerRenderer,
@@ -366,15 +395,8 @@ class P2AImage:
         """
         if stream_output is None:
             stream_output = logger.level <= logging.INFO
-        # Save generated dockerfile to file
-        out_file = build_dir / "Dockerfile"
-        out_file.parent.mkdir(exist_ok=True, parents=True)
-        with open(str(out_file), "w") as f:
-            f.write(dockerfile.render())
-        logger.info(
-            "Dockerfile for '%s' generated at %s", image_reference, str(out_file)
-        )
 
+        cls.write_dockerfile(dockerfile, build_dir, image_reference)
         dc = docker.from_env()
 
         response = dc.api.build(
