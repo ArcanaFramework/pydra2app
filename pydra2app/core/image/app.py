@@ -284,7 +284,7 @@ class App(P2AImage):
                 and default_axes
             ):
                 cmd["row_frequency"] = default_axes[cmd["row_frequency"]]
-            if cmd["task"].get("type") == "python":
+            if isinstance(cmd["task"], dict) and cmd["task"].get("type") == "python":
                 cmd["task"]["function"] = ClassResolver.fromstr(cmd["task"]["function"])
         image = cls(**yml_dict)
 
