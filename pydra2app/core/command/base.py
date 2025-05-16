@@ -245,7 +245,7 @@ class ContainerCommand:
     @property
     def input_fields(self) -> ty.List[Arg]:
         fields = get_fields(self.task)
-        return [fields[i] for i in self.inputs]
+        return [fields[i] for i in self.inputs if fields[i].type is not DataRow]
 
     @property
     def output_fields(self) -> ty.List[Out]:
@@ -396,9 +396,7 @@ class ContainerCommand:
                 f"available={list(self.parameters)}\n"
             )
 
-        if missing := set(
-            i.name for i in self.input_fields if i.mandatory and i.type is not DataRow
-        ) - set(
+        if missing := set(i.name for i in self.input_fields if i.mandatory) - set(
             n
             for n, v in input_values.items()
             if v or (v == "" and self.input_field(n).type is str)
