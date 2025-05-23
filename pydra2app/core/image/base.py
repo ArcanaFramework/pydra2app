@@ -69,6 +69,7 @@ class P2AImage:
     IN_DOCKER_SPEC_PATH = "/pydra2app-spec.yaml"
     SCHEMA_VERSION = "2.0"
     PIP_DEPENDENCIES: ty.Tuple[str, ...] = ()
+    DEFAULT_PYTHON_VERSION = "3.11"
 
     name: str = attrs.field()
     version: Version = attrs.field(
@@ -601,10 +602,14 @@ class P2AImage:
         )
 
         pip_strs = []
+        local_pip_specs = []
         for pip_spec in pip_specs:
             if use_local_packages:
                 pip_spec = pip_spec.local_package_location(pypi_fallback=pypi_fallback)
-            pip_strs.append(self.pip_spec2str(pip_spec, dockerfile, build_dir))
+            if pip_spec.file_path:
+                local_pip_specs.append(pip_spec)
+            else:
+                pip_strs.append(self.pip_spec2str(pip_spec, dockerfile, build_dir))
 
         conda_pkg_names = set(p.name for p in self.packages.conda)
         conda_strs: ty.List[str] = []
@@ -619,7 +624,7 @@ class P2AImage:
 
         if not self.base_image.python:
             if "python" not in conda_pkg_names:
-                conda_strs.append("python==3.11")
+                conda_strs.append(f"python=={self.DEFAULT_PYTHON_VERSION}")
             conda_pip_strs = pip_strs
         else:
             conda_pip_strs = []
@@ -633,14 +638,27 @@ class P2AImage:
                 conda_install=" ".join(conda_strs),
                 pip_install=" ".join(conda_pip_strs),
             )
-
+        activate_conda = self.activate_conda() if self.base_image.conda_env else []
         if self.base_image.python:
-            activate_conda = self.activate_conda() if self.base_image.conda_env else []
             dockerfile.run(
                 " ".join(
                     activate_conda
                     + [self.base_image.python, "-m", "pip", "install"]
                     + pip_strs
+                )
+            )
+        # Local pip packages in a separate layer to avoid having to re-install
+        # everything if a local package changes (e.g. during development)
+        if local_pip_specs:
+            python_cmd = self.base_image.python if self.base_image.python else "python3"
+            dockerfile.run(
+                " ".join(
+                    activate_conda
+                    + [python_cmd, "-m", "pip", "install"]
+                    + [
+                        self.pip_spec2str(s, dockerfile, build_dir)
+                        for s in local_pip_specs
+                    ]
                 )
             )
 
