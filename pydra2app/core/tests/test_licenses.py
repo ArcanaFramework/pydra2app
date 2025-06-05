@@ -73,7 +73,7 @@ def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_ru
         f"--input {LICENSE_INPUT_FIELD} '{LICENSE_INPUT_PATH}' "
         f"--output {LICENSE_OUTPUT_FIELD} '{LICENSE_OUTPUT_PATH}' "
         f"--parameter {LICENSE_PATH_PARAM} '{LICENSE_PATH}' "
-        f"--plugin debug "
+        f"--worker debug "
         f"--raise-errors "
     )
 
