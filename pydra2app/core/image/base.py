@@ -845,6 +845,8 @@ class P2AImage:
                 return value.value
             elif isinstance(value, PurePath):
                 return str(value)
+            # elif isinstance(value, pydra.compose.base.Task):
+            #     return unstructure(value)
             elif isclass(value) or isfunction(value) or ty.get_origin(value):
                 return ClassResolver.tostr(value, strip_prefix=False)
             return listify_containers(value)
