@@ -639,7 +639,7 @@ class P2AImage:
                 pip_install=" ".join(conda_pip_strs),
             )
         activate_conda = self.activate_conda() if self.base_image.conda_env else []
-        if self.base_image.python:
+        if pip_strs and self.base_image.python:
             dockerfile.run(
                 " ".join(
                     activate_conda
