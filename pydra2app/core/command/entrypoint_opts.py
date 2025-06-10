@@ -122,8 +122,8 @@ def execution(func):
                 ),
             ),
             optgroup.option(
-                "--plugin",
-                default="cf",
+                "--worker",
+                default="debug",
                 help=("The Pydra plugin with which to process the task/workflow"),
             ),
             optgroup.option(

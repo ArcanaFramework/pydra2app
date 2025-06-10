@@ -316,7 +316,7 @@ class ContainerCommand:
         dataset_name: ty.Optional[str] = None,
         overwrite: bool = False,
         loglevel: str = "warning",
-        plugin: ty.Optional[str] = None,
+        worker: ty.Optional[str] = None,
         export_work: ty.Optional[Path] = None,
         raise_errors: bool = False,
         keep_running_on_errors: bool = False,
@@ -606,7 +606,7 @@ class ContainerCommand:
 
         # execute the workflow
         try:
-            outputs = wf(cache_root=pipeline_cache_dir, worker=plugin)
+            outputs = wf(cache_root=pipeline_cache_dir, worker=worker)
         except RuntimeError:
             msg = show_workflow_errors(
                 pipeline_cache_dir, omit_nodes=["per_node", "main"]
