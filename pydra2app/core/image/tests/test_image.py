@@ -128,6 +128,8 @@ def test_registry_tags(
     docker_registry: str,
     image_spec: ty.Dict[str, ty.Any],
 ) -> None:
+    if docker_registry == "ghcr.io":
+        pytest.skip("No login credentials for GitHub Container Registry")
 
     image_spec_cpy = copy(image_spec)
     if docker_registry == DOCKER_HUB:
