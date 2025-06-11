@@ -248,6 +248,16 @@ containing multiple specifications
         "Defaults to True if the log-level <= info"
     ),
 )
+@click.option(
+    "--access-token",
+    type=str,
+    default=None,
+    help=(
+        "An access token to use when connecting to the Docker registry. "
+        "If not provided, the default Docker configuration will be used"
+    ),
+    envvar="P2A_ACCESS_TOKEN",
+)
 def make(
     target: str,
     spec_path: Path,
@@ -274,6 +284,7 @@ def make(
     source_package: ty.Sequence[Path],
     export_files: ty.Sequence[ty.Tuple[Path, Path]],
     stream_logs: ty.Optional[bool],
+    access_token: ty.Optional[str],
 ) -> None:
 
     if check_registry is None:
@@ -358,6 +369,7 @@ def make(
             license_paths=license_paths,
             licenses_to_download=set(license_to_download),
             source_packages=source_package,
+            access_token=access_token,
         )
 
     # Check the target registry to see a) if the images with the same tag

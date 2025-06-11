@@ -91,6 +91,7 @@ class P2AImage:
     readme: ty.Optional[str] = attrs.field(default=None)
     labels: ty.Optional[ty.Dict[str, str]] = attrs.field(default=None)
     schema_version: str = attrs.field(default=SCHEMA_VERSION)
+    access_token: ty.Optional[str] = attrs.field(default=None, repr=False)
 
     @property
     def reference(self) -> str:
@@ -177,22 +178,15 @@ class P2AImage:
                 tags.extend(tag["name"] for tag in data["results"])
                 url = data["next"]  # Get the URL for the next page of results
         elif self.registry == GITHUB_CONTAINER_REGISTRY:
-            token_uri = f"https://{self.registry}/token?scope=repository:{self.org}/{self.name}:pull"
-            response = requests.get(token_uri)
-            if response.status_code == 404:
-                return []
-            elif response.status_code != 200:
-                response.raise_for_status()
-            registry_token = response.json().get("token")
-            url = f"https://{self.registry}/v2/{self.org}/{self.name}/tags/list"
+            url = f"https://api.github.com/orgs/{self.org}/packages/container/{self.name}/versions"
             headers = {
                 "Accept": "application/vnd.github.v3+json",
-                "Authorization": f"Bearer {registry_token}",
+                "Authorization": f"Bearer {self.access_token}",
             }
             response = requests.get(url, headers=headers)
             if response.status_code != 200:
                 response.raise_for_status()
-            tags = response.json().get("tags", [])
+            tags = [p["metadata"]["container"]["tags"][0] for p in response.json()]
         else:
             protocol = "http" if self.registry.startswith("localhost") else "https"
             url = f"{protocol}://{self.registry}/v2/{self.org}/{self.name}/tags/list"
