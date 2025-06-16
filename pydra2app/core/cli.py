@@ -249,6 +249,17 @@ containing multiple specifications
     ),
 )
 @click.option(
+    "--docker-user",
+    type=str,
+    default=None,
+    help=(
+        "The user to run the container as. If not specified, the container will run as "
+        "the root user. This is useful for running the container in a non-privileged "
+        "environment where root access is not available"
+    ),
+    envvar="P2A_DOCKER_USER",
+)
+@click.option(
     "--access-token",
     type=str,
     default=None,
@@ -284,6 +295,7 @@ def make(
     source_package: ty.Sequence[Path],
     export_files: ty.Sequence[ty.Tuple[Path, Path]],
     stream_logs: ty.Optional[bool],
+    docker_user: ty.Optional[str],
     access_token: ty.Optional[str],
 ) -> None:
 
@@ -349,6 +361,19 @@ def make(
     target_cls: App = ClassResolver(App, package=PACKAGE_NAME)(target)
 
     dc = docker.from_env()
+
+    if docker_user is not None:
+        if access_token is None:
+            raise ValueError(
+                "If you specify a user, you must also provide an access token to log "
+                "in to the registry"
+            )
+
+        dc.login(
+            username=docker_user,  # e.g. your GitHub username
+            password=access_token,  # must have correct scopes: write:packages
+            registry=registry,  # e.g. ghcr.io
+        )
 
     license_paths = {}
     for lic_name, lic_src in license:
