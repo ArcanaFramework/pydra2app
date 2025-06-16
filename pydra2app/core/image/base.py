@@ -168,6 +168,7 @@ class P2AImage:
         if self.registry == DOCKER_HUB:
             url = f"https://hub.docker.com/v2/repositories/{self.org}/{self.name}/tags/"
             tags = []
+            logger.info("Fetching tags for '%s' from Docker Hub", self.path)
             while url:
                 response = requests.get(url)
                 if response.status_code == 404:
@@ -178,6 +179,14 @@ class P2AImage:
                 tags.extend(tag["name"] for tag in data["results"])
                 url = data["next"]  # Get the URL for the next page of results
         elif self.registry == GITHUB_CONTAINER_REGISTRY:
+            if not self.access_token:
+                raise Pydra2AppBuildError(
+                    "Access token is required to fetch tags from GitHub Container Registry"
+                )
+            logger.info(
+                "Fetching tags for '%s' from GitHub Container Registry with access token",
+                self.path,
+            )
             url = f"https://api.github.com/orgs/{self.org}/packages/container/{self.name}/versions"
             headers = {
                 "Accept": "application/vnd.github.v3+json",
@@ -188,6 +197,7 @@ class P2AImage:
                 response.raise_for_status()
             tags = [p["metadata"]["container"]["tags"][0] for p in response.json()]
         else:
+            logger.info("Fetching tags for '%s' from %s", self.path, self.registry)
             protocol = "http" if self.registry.startswith("localhost") else "https"
             url = f"{protocol}://{self.registry}/v2/{self.org}/{self.name}/tags/list"
             response = requests.get(url)
