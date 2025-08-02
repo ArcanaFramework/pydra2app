@@ -33,7 +33,7 @@ def image_spec(command_spec) -> ty.Dict[str, ty.Any]:
         "org": "australian-imaging-service",
         "name": "test-pipeline",
         "version": "1.0.0",
-        "title": "A pipeline to test Pipeline2app's deployment tool",
+        "title": "A pipeline to test pydra2app's deployment tool",
         "commands": {"concatenate-test": command_spec},
         "authors": [{"name": "Thomas G. Close", "email": "thomas.close@sydney.edu.au"}],
         "docs": {
