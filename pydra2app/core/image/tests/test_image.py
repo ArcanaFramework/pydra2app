@@ -87,7 +87,7 @@ def image_tags(
 
         try:
             dc.api.pull(image.reference)
-        except docker.errors.APIError as e:
+        except (docker.errors.APIError, docker.errors.NotFound) as e:
             if e.response and e.response.status_code in (404, 500):
                 image.make(build_dir=build_dir)
                 try:
