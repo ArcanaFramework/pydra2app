@@ -876,11 +876,11 @@ def ext() -> None:
     "--frequency",
     "-f",
     type=str,
-    default="common:Clinical[session]",
+    default="medimage/session",
     help=(
         "The level in the data tree that the pipeline will operate on, e.g. "
-        "common:Clinical[session] designates that the pipeline runs on 'sessions' "
-        "as opposed to 'subjects'"
+        '"medimage/session" designates that the pipeline runs on "sessions" '
+        'as opposed to "subjects"'
     ),
 )
 @click.option(
@@ -996,7 +996,7 @@ def bootstrap(
         "commands": {
             name: {
                 "task": task,
-                "row_frequency": frequency,
+                "operates_on": frequency,
                 "parameters": list(command_parameters),
                 "configuration": dict(command_configuration),
             }

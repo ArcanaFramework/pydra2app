@@ -13,7 +13,7 @@ from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 from fileformats.core import converter
 from frametree.core.frameset import FrameSet
-from frametree.common import FileSystem
+from frametree.file_system import FileSystem
 from frametree.testing import TestAxes
 from pydra2app.core.command.base import ContainerCommand
 from frametree.core.exceptions import FrameTreeDataMatchError
@@ -58,7 +58,7 @@ def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
     command_spec = ContainerCommand(
         name="concatenate",
         task="frametree.testing.tasks:" + ConcatenateTask.__name__,
-        row_frequency=bp.axes.default(),
+        operates_on=bp.axes.default(),
     )
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
@@ -103,7 +103,7 @@ def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
     command_spec = ContainerCommand(
         name="concatenate",
         task="frametree.testing.tasks:" + ConcatenateTask.__name__,
-        row_frequency=bp.axes.default(),
+        operates_on=bp.axes.default(),
     )
 
     # Start generating the arguments for the CLI
@@ -159,7 +159,7 @@ def test_command_execute_on_row(cli_runner, work_dir):
     command_spec = ContainerCommand(
         name="plus-10",
         task="pydra2app.testing.tasks:Plus10ToFileNumbers",
-        row_frequency=bp.axes.default(),
+        operates_on=bp.axes.default(),
         # inputs=[
         #     {
         #         "name": "a_row",
@@ -207,7 +207,7 @@ def test_command_execute_with_converter_args(
     command_spec = ContainerCommand(
         name="identity",
         task="pydra2app.testing.tasks:IdentityEncodedText",
-        row_frequency=bp.axes.default(),
+        operates_on=bp.axes.default(),
     )
 
     command_spec.execute(
@@ -271,7 +271,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
     command_spec = ContainerCommand(
         name="shell-test",
         task="shell",
-        row_frequency=bp.axes.default(),
+        operates_on=bp.axes.default(),
         inputs=[
             {
                 "name": "source1",

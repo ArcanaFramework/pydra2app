@@ -2,7 +2,8 @@ import typing as ty
 from pathlib import Path
 from pydra2app.core.image import App
 from frametree.core.frameset import FrameSet
-from frametree.common import FileSystem, Samples
+from frametree.file_system import FileSystem
+from frametree.axes.samples import Samples
 from pydra2app.testing.constants import (
     ORG,
     LICENSE_CONTENTS,
@@ -37,7 +38,7 @@ def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
         commands={
             "check-license": {
                 "task": "pydra2app.testing.tasks:CheckLicence",
-                "row_frequency": "common:Samples[sample]",
+                "operates_on": "samples/sample",
                 "parameters": [LICENSE_PATH_PARAM],
                 # "inputs": [
                 #     {

@@ -117,7 +117,7 @@ class ContainerCommand:
     ----------
     task : pydra.compose.base.Task or str
         the task to run or the location of the class
-    row_frequency: Axes, optional
+    operates_on: Axes, optional
         the frequency that the command operates on
     parameters: list[str], optional
         inputs of the task to be treated as fixed parameters entered
@@ -144,7 +144,7 @@ class ContainerCommand:
         eq=task_equals,
     )
     name: str = attrs.field()
-    row_frequency: ty.Optional[Axes] = attrs.field(default=None)
+    operates_on: ty.Optional[Axes] = attrs.field(default=None)
     configuration: ty.Dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
     )
@@ -204,21 +204,21 @@ class ContainerCommand:
                 )
 
     def __attrs_post_init__(self) -> None:
-        if isinstance(self.row_frequency, Axes):
+        if isinstance(self.operates_on, Axes):
             pass
-        elif isinstance(self.row_frequency, str):
+        elif isinstance(self.operates_on, str):
             try:
-                self.row_frequency = Axes.fromstr(self.row_frequency)
+                self.operates_on = Axes.fromstr(self.operates_on)
             except ValueError:
                 if self.AXES:
-                    self.row_frequency = self.AXES[self.row_frequency]
+                    self.operates_on = self.AXES[self.operates_on]
                 else:
                     raise ValueError(
-                        f"'{self.row_frequency}' row frequency cannot be resolved to a axes, "
+                        f"'{self.operates_on}' row frequency cannot be resolved to a axes, "
                         "needs to be of form <axes>[<row-frequency>]"
                     )
         elif self.AXES:
-            self.row_frequency = self.AXES.default()
+            self.operates_on = self.AXES.default()
         else:
             raise ValueError(
                 f"Value for row_frequency must be provided to {type(self).__name__}.__init__ "
@@ -283,7 +283,7 @@ class ContainerCommand:
 
     @property
     def axes(self) -> ty.Type[Axes]:
-        return type(self.row_frequency)
+        return type(self.operates_on)
 
     def configuration_args(self) -> ty.List[str]:
 
@@ -593,7 +593,7 @@ class ContainerCommand:
                 task,
                 inputs=pipeline_inputs,
                 outputs=pipeline_outputs,
-                row_frequency=self.row_frequency,
+                row_frequency=self.operates_on,
                 overwrite=overwrite,
                 converter_args=converter_args,
             )

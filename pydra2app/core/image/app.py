@@ -279,11 +279,11 @@ class App(P2AImage):
             commands = commands.values()
         for cmd in commands:
             if (
-                "row_frequency" in cmd
-                and re.match(r"\w+", cmd["row_frequency"])
+                "operates_on" in cmd
+                and re.match(r"\w+", cmd["operates_on"])
                 and default_axes
             ):
-                cmd["row_frequency"] = default_axes[cmd["row_frequency"]]
+                cmd["operates_on"] = default_axes[cmd["operates_on"]]
             if isinstance(cmd["task"], dict) and cmd["task"].get("type") == "python":
                 cmd["task"]["function"] = ClassResolver.fromstr(cmd["task"]["function"])
         image = cls(**yml_dict)
@@ -446,9 +446,9 @@ class App(P2AImage):
                     class_address = command.task.__name__
                 tbl_cmd.write_row("Task", class_address)
                 freq_name = (
-                    command.row_frequency.name
-                    if not isinstance(command.row_frequency, str)
-                    else re.match(r".*\[(\w+)\]", command.row_frequency).group(1)
+                    command.operates_on.name
+                    if not isinstance(command.operates_on, str)
+                    else re.match(r".*\[(\w+)\]", command.operates_on).group(1)
                 )
                 tbl_cmd.write_row("Operates on", freq_name)
 

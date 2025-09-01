@@ -34,7 +34,7 @@ source columns to the frameset (see FrameTree_). They are specified by
 * name of field in the pydra task input interface
 * datatype required by pydra task
 * description of input that will be exposed to the XNAT UI
-* the row row_frequency of the column (see FrameTree_)
+* the row_frequency of the column (see FrameTree_)
 
 Parameters are passed directly through the pipeline add method (see FrameTree_) that
 is run in the container, and consist of a 2-tuple with
@@ -52,7 +52,7 @@ Outputs do not show up in the XNAT dialog and are specified by a 3-tuple:
 
 ..     import json
 ..     from pydra2app.xnat.deploy import XnatCommand
-..     from pydra2app.medimage.data import Clinical
+..     from pydra2app.medimage.data import MedImage
 ..     from fileformats.medimage.data import NiftiGz
 
 ..     xnat_command = XnatCommand(
@@ -82,7 +82,7 @@ Outputs do not show up in the XNAT dialog and are specified by a 3-tuple:
 ..             ('output_biasfield', True),
 ..             ('output_biascorrected', True),
 ..             ('bias_lowpass', 5.0)],
-..         row_frequency='session')
+..         operates_on='session')
 
 ..         with open("/path/to/a/file", "w") as f:
 ..             json.dump(f, xnat_command.make_json())

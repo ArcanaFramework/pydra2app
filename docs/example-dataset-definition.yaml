@@ -25,7 +25,7 @@ metadata: # Primarily required for BIDS export
   sources: []
   type: derivative
 grid:
-  space: /clinical # This could be extended
+  space: /medimage # This could be extended
   hierarchy: # This is fixed for XNAT
     - subject
     - session

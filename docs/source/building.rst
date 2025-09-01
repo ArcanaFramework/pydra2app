@@ -63,7 +63,7 @@ the full configuration required to build an XNAT docker image looks like
         configuration:
             output_biasfield: true
             bias_lowpass: 5.0
-        row_frequency: session
+        operates_on: session
 
 
 The CLI command to build the image from the YAML_ configuration is
