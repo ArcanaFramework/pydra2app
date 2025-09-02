@@ -3,7 +3,8 @@ import docker
 from pathlib import Path
 from copy import deepcopy
 from pydra.utils import get_fields
-from frametree.common import FileSystem, Samples
+from frametree.file_system import FileSystem
+from frametree.axes.samples import Samples
 from pydra2app.core.image import App, P2AImage
 from pydra2app.core import PACKAGE_NAME
 from conftest import TestDatasetBlueprint
@@ -42,7 +43,7 @@ def test_native_python_install(tmp_path):
                         }
                     },
                 },
-                "row_frequency": "common:Samples[sample]",
+                "operates_on": "samples/sample",
             },
         },
         "version": "1.0",
@@ -197,7 +198,7 @@ def test_multi_command(
     two_dup_spec = {
         "name": "concatenate",
         "task": "frametree.testing.tasks:Concatenate",
-        "row_frequency": simple_dataset_blueprint.axes.default().tostr(),
+        "operates_on": simple_dataset_blueprint.axes.default().tostr(),
         "configuration": {"duplicates": 2},
     }
 
@@ -298,7 +299,7 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
                         }
                     },
                 },
-                "row_frequency": "common:Samples[sample]",
+                "operates_on": "samples/sample",
             },
         },
         "version": "1.0",

@@ -182,7 +182,7 @@ docs:
 commands:
   identity-task:
     task: pydra2app.testing.tasks:IdentityTextFile
-    row_frequency: common:Samples[sample]
+    operates_on: samples/sample
     """.strip(),
         """
 ---
@@ -293,7 +293,7 @@ a test of the YAML join functionality
     #         field: flags
     #         datatype: field/text
     #         help: description of flags param
-    #     row_frequency: common:Clinical[session]
+    #     row_frequency: medimage/session
     #     configuration:
     #       executable: /usr/local/miniconda/bin/mriqc
     #       dataset: /work/bids-dataset

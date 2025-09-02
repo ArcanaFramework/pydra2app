@@ -25,7 +25,7 @@ from frametree.testing.blueprint import (
     GOOD_DATASETS,
 )
 from frametree.testing import TestAxes, MockRemote, AlternateMockRemote
-from frametree.common import FileSystem
+from frametree.file_system import FileSystem
 
 log_level = logging.INFO
 
@@ -247,7 +247,7 @@ def command_spec() -> ty.Dict[str, ty.Any]:
     return {
         "task": "frametree.testing.tasks:Concatenate",
         "parameters": ["duplicates"],
-        "row_frequency": "common:Samples[sample]",
+        "operates_on": "samples/sample",
     }
 
 

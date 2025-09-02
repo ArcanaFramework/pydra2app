@@ -1,7 +1,7 @@
 import typing as ty
 from pathlib import Path
 import random
-import docker
+import docker.errors
 import os
 import logging
 from copy import copy
@@ -33,7 +33,7 @@ def image_spec(command_spec) -> ty.Dict[str, ty.Any]:
         "org": "australian-imaging-service",
         "name": "test-pipeline",
         "version": "1.0.0",
-        "title": "A pipeline to test Pipeline2app's deployment tool",
+        "title": "A pipeline to test pydra2app's deployment tool",
         "commands": {"concatenate-test": command_spec},
         "authors": [{"name": "Thomas G. Close", "email": "thomas.close@sydney.edu.au"}],
         "docs": {
@@ -57,7 +57,9 @@ def docker_registry(request: pytest.FixtureRequest, local_docker_registry: str) 
 
 
 @pytest.fixture
-def image_tags(image_spec, docker_registry, tmp_path) -> ty.List[str]:
+def image_tags(
+    image_spec: dict[str, ty.Any], docker_registry: str, tmp_path: Path
+) -> ty.List[str]:
 
     registry_prefix = docker_registry.split(".")[0].upper()
     username = os.environ.get(f"{registry_prefix}_USERNAME")
@@ -85,8 +87,8 @@ def image_tags(image_spec, docker_registry, tmp_path) -> ty.List[str]:
 
         try:
             dc.api.pull(image.reference)
-        except docker.errors.APIError as e:
-            if e.response.status_code in (404, 500):
+        except (docker.errors.APIError, docker.errors.NotFound) as e:
+            if e.response is not None and e.response.status_code in (404, 500):
                 image.make(build_dir=build_dir)
                 try:
                     dc.api.push(image.reference)
@@ -101,7 +103,7 @@ def image_tags(image_spec, docker_registry, tmp_path) -> ty.List[str]:
     return sorted(pushed)
 
 
-def test_sort_versions():
+def test_sort_versions() -> None:
 
     rng = random.Random(42)
 
