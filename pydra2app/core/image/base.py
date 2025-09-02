@@ -16,8 +16,10 @@ from build import ProjectBuilder
 import attrs
 import yaml
 import docker.errors
+from looseversion import LooseVersion
 from deepdiff import DeepDiff
 from typing_extensions import Self
+import neurodocker
 from neurodocker.reproenv import DockerRenderer
 from pydra2app.core import __version__
 from pydra2app.core import PACKAGE_NAME
@@ -34,8 +36,11 @@ from pydra2app.core.utils import (
 )
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from .components import Packages, BaseImage, PipPackage, Resource, Version
+import platform
 
 logger = logging.getLogger("pydra2app")
+
+HAS_MINICONDA_ARCH = LooseVersion(neurodocker.__version__) > LooseVersion("2.0.2")
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
@@ -634,6 +639,14 @@ class P2AImage:
             conda_pip_strs = []
 
         if conda_strs:
+            arch = (
+                "aarch64"
+                if platform.machine().lower() in ("arm64", "aarch64")
+                else "x86_64"
+            )
+            miniconda_kwargs: dict[str, ty.Any] = (
+                {"arch": arch} if HAS_MINICONDA_ARCH else {}
+            )
             dockerfile.add_registered_template(
                 "miniconda",
                 version="latest",
@@ -641,6 +654,7 @@ class P2AImage:
                 env_exists=False,
                 conda_install=" ".join(conda_strs),
                 pip_install=" ".join(conda_pip_strs),
+                **miniconda_kwargs,
             )
         activate_conda = self.activate_conda() if self.base_image.conda_env else []
         if pip_strs and self.base_image.python:
