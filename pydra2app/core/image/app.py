@@ -460,7 +460,7 @@ class App(P2AImage):
                     "Required",
                     "Description",
                 )
-                for inpt in command.input_fields:
+                for inpt in command.source_fields:
                     tbl_inputs.write_row(
                         escaped_md(inpt.name),
                         self._data_format_html(inpt.type),
@@ -477,7 +477,7 @@ class App(P2AImage):
                     "Always generated",
                     "Description",
                 )
-                for outpt in command.output_fields:
+                for outpt in command.sink_fields:
                     tbl_outputs.write_row(
                         escaped_md(outpt.name),
                         self._data_format_html(optional_type(outpt.type)),

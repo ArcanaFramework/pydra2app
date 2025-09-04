@@ -10,7 +10,7 @@ from pydra2app.core import PACKAGE_NAME
 from conftest import TestDatasetBlueprint
 
 
-def test_native_python_install(tmp_path):
+def test_native_python_install(tmp_path: Path) -> None:
 
     SAMPLE_INDEX = "1"
     OUTPUT_COL_NAME = "printed_version"
@@ -103,7 +103,7 @@ def test_native_python_install(tmp_path):
 
     dataset = FileSystem().load_frameset(dataset_dir)
 
-    def strip_ver_timestamp(ver_str):
+    def strip_ver_timestamp(ver_str: str) -> str:
         parts = str(ver_str).split("+")
         try:
             parts[1] = parts[1].split(".")[0]
@@ -114,7 +114,7 @@ def test_native_python_install(tmp_path):
     assert str(dataset[OUTPUT_COL_NAME][SAMPLE_INDEX]).split(",")[0] == PACKAGE_NAME
 
 
-def test_add_resources(tmp_path):
+def test_add_resources(tmp_path: Path) -> None:
 
     img = P2AImage(
         name="test-resource-add-image",
@@ -288,8 +288,9 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
                 "task": {
                     "type": "shell",
                     "executable": [
-                        "pydra2app",
+                        "dummy-command",
                         "--version<version>",
+                        "<in_file:text/plain>",
                     ],
                     "inputs": {
                         "dummy": {
@@ -327,7 +328,7 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
     app = App.load(test_spec)
 
     # Serialize the app to a file
-    save_path = tmp_path / (app.name + ".json")
+    save_path = tmp_path / (app.name + ".yaml")
     app.save(save_path)
     reloaded_app = App.load(save_path)
     assert app.commands[0] == reloaded_app.commands[0]

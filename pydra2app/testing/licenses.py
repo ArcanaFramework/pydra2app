@@ -39,7 +39,7 @@ def get_pipeline_image(license_path: str, app_cls: ty.Type[App] = App) -> App:
             "check-license": {
                 "task": "pydra2app.testing.tasks:CheckLicence",
                 "operates_on": "samples/sample",
-                "parameters": [LICENSE_PATH_PARAM],
+                # "parameters": [LICENSE_PATH_PARAM],
                 # "inputs": [
                 #     {
                 #         "name": LICENSE_INPUT_FIELD,

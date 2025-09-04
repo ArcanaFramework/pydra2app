@@ -80,6 +80,7 @@ def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
         loglevel="debug",
         dataset_hierarchy=",".join(bp.hierarchy),
         pipeline_name="test_pipeline",
+        save_frameset=True,
     )
     # Add source column to saved dataset
     reloaded = saved_dataset.reload()
@@ -272,7 +273,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
         name="shell-test",
         task="shell",
         operates_on=bp.axes.default(),
-        inputs=[
+        sources=[
             {
                 "name": "source1",
                 "datatype": "text/text-file",
@@ -292,7 +293,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
                 },
             },
         ],
-        outputs=[
+        sinks=[
             {
                 "name": "sink1",
                 "datatype": "text/text-file",
