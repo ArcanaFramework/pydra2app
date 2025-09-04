@@ -183,6 +183,10 @@ def sources_converter(
                 src = {"row_frequency": src}
             source = ContainerCommandSource.fromdict(name, src, self_)
         source._field_object = self_._input_fields[source.field]
+        if source.type is DataRow:
+            raise ValueError(
+                f"DataRow input fields cannot be used as a source type ('{source.field}')"
+            )
         sources.append(source)
     return sources
 
@@ -338,6 +342,10 @@ def parameters_converter(
         else:
             parameter = ContainerCommandParameter.fromdict(name, prm, self_)
         parameter._field_object = self_._input_fields[parameter.field]
+        if parameter.type is DataRow:
+            raise ValueError(
+                f"DataRow input fields cannot be used as a parameter type ('{parameter.field}')"
+            )
         parameters.append(parameter)
     return parameters
 
@@ -763,18 +771,17 @@ class ContainerCommand:
 
         converter_args = {}  # Arguments passed to converter
         pipeline_inputs = []
+        # Add inputs for data row objects if present
+        for inpt in self._input_fields:
+            if inpt.type is DataRow:
+                pipeline_inputs.append(("frametree_data_row__", inpt.name, inpt.type))
+        # Add inputs for sources
         for source in self.sources:
-            if source.type is DataRow:
-                pipeline_inputs.append(
-                    ("frametree_data_row__", source.name, source.type)
-                )
-                continue
             input_path = input_values.get(source.name, None)
             if not input_path:
                 assert not source.mandatory, "missing " + source.name
                 logger.info("No value provided for input '%s', skipping", source.name)
                 continue
-
             path, qualifiers = self.extract_qualifiers_from_path(input_path)
             source_kwargs = qualifiers.pop("criteria", {})
             if match := re.match(r"<(\w+)(@\w+)?>", path):

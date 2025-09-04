@@ -50,7 +50,9 @@ def encoded_text_converter():
     return None
 
 
-def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
+def test_command_execute(
+    ConcatenateTask: ty.Callable[..., ty.Any], saved_dataset: FrameSet, work_dir: Path
+) -> None:
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
@@ -96,7 +98,9 @@ def test_command_execute(ConcatenateTask, saved_dataset, work_dir):
         assert contents == expected_contents
 
 
-def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
+def test_command_execute_fail(
+    ConcatenateTask: ty.Callable[..., ty.Any], saved_dataset: FrameSet, work_dir: Path
+) -> None:
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
     duplicates = 1
@@ -131,7 +135,9 @@ def test_command_execute_fail(ConcatenateTask, saved_dataset, work_dir):
         )
 
 
-def test_command_execute_on_row(cli_runner, work_dir):
+def test_command_execute_on_row(
+    cli_runner: ty.Callable[..., ty.Any], work_dir: Path
+) -> None:
 
     # Create test dataset consisting of a single row with a range of filenames
     # from 0 to 4
