@@ -28,7 +28,7 @@ VERSIONS = [
 
 
 @pytest.fixture
-def image_spec(command_spec) -> ty.Dict[str, ty.Any]:
+def image_spec(command_spec: ty.Dict[str, ty.Any]) -> ty.Dict[str, ty.Any]:
     return {
         "org": "australian-imaging-service",
         "name": "test-pipeline",

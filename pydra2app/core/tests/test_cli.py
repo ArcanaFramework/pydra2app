@@ -20,7 +20,11 @@ from frametree.core.utils import show_cli_trace
 
 
 # @pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")
-def test_deploy_make_cli(command_spec, cli_runner, work_dir):
+def test_deploy_make_cli(
+    command_spec: dict[str, ty.Any],
+    cli_runner: ty.Callable[..., ty.Any],
+    work_dir: Path,
+) -> None:
 
     DOCKER_ORG = "testorg"
     DOCKER_REGISTRY = "test.registry.org"
@@ -410,7 +414,7 @@ def _make_docs(
         }
 
 
-def test_bootstrap(cli_runner, work_dir):
+def test_bootstrap(cli_runner: ty.Callable[..., ty.Any], work_dir: Path) -> None:
 
     out_yaml = work_dir / "out-spec.yaml"
 

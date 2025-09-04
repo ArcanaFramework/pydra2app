@@ -246,7 +246,6 @@ def ConcatenateTask(request: pytest.FixtureRequest) -> ty.Callable[..., ty.Any]:
 def command_spec() -> ty.Dict[str, ty.Any]:
     return {
         "task": "frametree.testing.tasks:Concatenate",
-        "parameters": ["duplicates"],
         "operates_on": "samples/sample",
     }
 

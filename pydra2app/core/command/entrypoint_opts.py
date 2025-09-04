@@ -6,7 +6,7 @@ from click_option_group import optgroup
 from pydra2app.core.image import App
 
 
-def data_columns(func):
+def data_columns(func: ty.Callable[..., None]) -> ty.Callable[..., None]:
 
     return _apply_options(
         func,
@@ -44,7 +44,7 @@ def data_columns(func):
     )
 
 
-def parameterisation(func):
+def parameterisation(func: ty.Callable[..., None]) -> ty.Callable[..., None]:
     return _apply_options(
         func,
         [
@@ -85,7 +85,7 @@ def parameterisation(func):
     )
 
 
-def execution(func):
+def execution(func: ty.Callable[..., None]) -> ty.Callable[..., None]:
     return _apply_options(
         func,
         [
@@ -141,6 +141,14 @@ def execution(func):
                     "over the whole dataset)"
                 ),
             ),
+            optgroup.option(
+                "--save-frameset",
+                default=False,
+                type=bool,
+                help=(
+                    "Whether to save the frameset definition within the project or not"
+                ),
+            ),
             # optgroup.option(
             #     "--single-row",
             #     type=str,
@@ -156,7 +164,7 @@ def execution(func):
     )
 
 
-def dataset_config(func):
+def dataset_config(func: ty.Callable[..., None]) -> ty.Callable[..., None]:
     return _apply_options(
         func,
         [
@@ -179,7 +187,7 @@ def dataset_config(func):
     )
 
 
-def debugging(func):
+def debugging(func: ty.Callable[..., None]) -> ty.Callable[..., None]:
 
     return _apply_options(
         func,
@@ -220,7 +228,9 @@ def debugging(func):
     )
 
 
-def _apply_options(func, options: ty.List[click.Option]):
+def _apply_options(
+    func: ty.Callable[..., None], options: ty.List[click.Option]
+) -> ty.Callable[..., None]:
 
     for opt in reversed(options):
         func = opt(func)

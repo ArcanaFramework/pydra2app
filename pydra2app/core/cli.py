@@ -853,14 +853,26 @@ def ext() -> None:
     help="Packages to install via Conda",
 )
 @click.option(
-    "--command-parameter",
-    "-p",
-    "command_parameters",
+    "--command-source",
+    "-s",
+    "command_sources",
     type=str,
     multiple=True,
     help=(
-        "Parameter specifications, name and attribute pairs. Attributes are comma-separated "
+        "Inputs that are to be pulled from the data store (as opposed to parameters/configuration)."
+        "Attributes are comma-separated "
         "name/value pairs, e.g. 'datatype=str,help='compression level'"
+    ),
+)
+@click.option(
+    "--command-sink",
+    "-s",
+    "command_sinks",
+    type=str,
+    multiple=True,
+    help=(
+        "Outputs that are to be pushed to the data store (omitted outputs will be discarded)."
+        "Attributes are comma-separated name/value pairs, e.g. 'datatype=str,help='compression level'"
     ),
 )
 @click.option(
@@ -920,7 +932,8 @@ def bootstrap(
     packages_system: ty.List[str],
     packages_neurodocker: ty.List[str],
     packages_conda: ty.List[str],
-    command_parameters: ty.List[str],
+    command_sources: ty.List[str],
+    command_sinks: ty.List[str],
     command_configuration: ty.List[ty.Tuple[str, str]],
     frequency: str,
     licenses: ty.List[ty.Tuple[str, str, str, str]],
@@ -997,7 +1010,8 @@ def bootstrap(
             name: {
                 "task": task,
                 "operates_on": frequency,
-                "parameters": list(command_parameters),
+                "sources": list(command_sources),
+                "sinks": list(command_sinks),
                 "configuration": dict(command_configuration),
             }
         },
