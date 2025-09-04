@@ -20,7 +20,7 @@ import pydra.utils.general
 from pydra.utils.typing import optional_type
 from pydra.compose.base import Arg, Out
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
-from pydra.utils.typing import is_fileset_or_union
+from pydra.utils.typing import is_union, is_fileset_or_union  # , is_subclass_or_union
 from frametree.core.serialize import ClassResolver
 from frametree.core.utils import show_workflow_errors, path2label
 from frametree.core.row import DataRow
@@ -34,6 +34,42 @@ from pydra2app.core import PACKAGE_NAME
 
 if ty.TYPE_CHECKING:
     from ..image import App
+
+
+# Just until this gets added to Pydra
+
+
+def is_subclass_or_union(
+    type_: type, reference: type, allow_none: bool | None = None
+) -> bool:
+    """Check if the type is a subclass of given reference or a Union containing
+    that reference type
+
+    Parameters
+    ----------
+    type_ : type
+        the type to check
+    reference : type
+        the reference type to check whether the type is a sub-class of or not
+    allow_none : bool, optional
+        whether to allow None as a valid type, by default None. If None, then None
+        is not allowed at the outer layer, but is allowed within a Union
+
+    Returns
+    -------
+    bool
+        whether the type is a FileSet or a Union containing a FileSet
+    """
+    if type_ is None and allow_none:
+        return True
+    if is_union(type_):
+        return any(
+            is_subclass_or_union(t, allow_none=allow_none or allow_none is None)
+            for t in ty.get_args(type_)
+        )
+    elif not inspect.isclass(type_):
+        return False
+    return issubclass(type_, reference)
 
 
 logger = logging.getLogger("pydra2app")
@@ -298,7 +334,7 @@ class ContainerCommandParameter:
     def type(self) -> type[DataType]:
         return (
             self._field_object.type
-            if issubclass(self._field_object.type, DataType)
+            if is_subclass_or_union(self._field_object.type, DataType)
             else Field.from_primitive(self._field_object.type)
         )
 

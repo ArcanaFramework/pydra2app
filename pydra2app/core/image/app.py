@@ -460,12 +460,12 @@ class App(P2AImage):
                     "Required",
                     "Description",
                 )
-                for inpt in command.source_fields:
+                for src in command.sources:
                     tbl_inputs.write_row(
-                        escaped_md(inpt.name),
-                        self._data_format_html(inpt.type),
-                        "Y" if inpt.mandatory else "N",
-                        inpt.help,
+                        escaped_md(src.name),
+                        self._data_format_html(src.type),
+                        "Y" if src.mandatory else "N",
+                        src.help,
                     )
                 f.write("\n")
 
@@ -477,12 +477,12 @@ class App(P2AImage):
                     "Always generated",
                     "Description",
                 )
-                for outpt in command.sink_fields:
+                for sink in command.sinks:
                     tbl_outputs.write_row(
-                        escaped_md(outpt.name),
-                        self._data_format_html(optional_type(outpt.type)),
-                        "Y" if not is_optional(outpt.type) else "N",
-                        outpt.help,
+                        escaped_md(sink.name),
+                        self._data_format_html(optional_type(sink.type)),
+                        "Y" if not is_optional(sink.type) else "N",
+                        sink.help,
                     )
                 f.write("\n")
 
@@ -491,7 +491,7 @@ class App(P2AImage):
                     tbl_params = MarkdownTable(
                         f, "Name", "Data-type(s)", "Default", "Description"
                     )
-                    for param in command.parameter_fields:
+                    for param in command.parameters:
                         tbl_params.write_row(
                             escaped_md(param.name),
                             self._data_format_html(param.type),
