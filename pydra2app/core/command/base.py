@@ -1,6 +1,7 @@
 from __future__ import annotations
 import shutil
 import re
+import os
 from copy import copy
 import tempfile
 import json
@@ -15,12 +16,18 @@ import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
 from fileformats.core import DataType, Field
+import fileformats.field as ffield
 from pydra.utils import get_fields, structure, unstructure
 import pydra.utils.general
-from pydra.utils.typing import optional_type
 from pydra.compose.base import Arg, Out
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
-from pydra.utils.typing import is_union, is_fileset_or_union  # , is_subclass_or_union
+from pydra.utils.typing import (
+    is_union,
+    is_optional,
+    optional_type,
+    is_container,
+    is_fileset_or_union,
+)  # , is_subclass_or_union
 from frametree.core.serialize import ClassResolver
 from frametree.core.utils import show_workflow_errors, path2label
 from frametree.core.row import DataRow
@@ -64,7 +71,9 @@ def is_subclass_or_union(
         return True
     if is_union(type_):
         return any(
-            is_subclass_or_union(t, allow_none=allow_none or allow_none is None)
+            is_subclass_or_union(
+                t, reference, allow_none=allow_none or allow_none is None
+            )
             for t in ty.get_args(type_)
         )
     elif not inspect.isclass(type_):
@@ -332,11 +341,7 @@ class ContainerCommandParameter:
 
     @property
     def type(self) -> type[DataType]:
-        return (
-            self._field_object.type
-            if is_subclass_or_union(self._field_object.type, DataType)
-            else Field.from_primitive(self._field_object.type)
-        )
+        return convert_to_datatype(self.field_type)
 
     @property
     def mandatory(self) -> bool:
@@ -397,6 +402,26 @@ def parameters_serialiser(
     if not dct:
         return None
     return dct
+
+
+def convert_to_datatype(type_: type) -> type[DataType]:
+    if is_optional(type_):
+        non_none = [a for a in ty.get_args(type_) if a is not type(None)]
+        if len(non_none) == 1:
+            return convert_to_datatype(non_none[0]) | None  # type: ignore
+        return ty.Union[tuple(convert_to_datatype(a) for a in non_none) + (None,)]  # type: ignore
+    if is_union(type_):
+        return ty.Union[tuple(convert_to_datatype(t) for t in ty.get_args(type_))]  # type: ignore
+    if is_container(type_) and type_ is not str:
+        return ty.get_origin(type_)[tuple(convert_to_datatype(t) for t in ty.get_args(type_))]  # type: ignore
+    if inspect.isclass(type_) and issubclass(type_, DataType):
+        return type_
+    if issubclass(type_, (str, os.PathLike)):
+        return ffield.Text
+    try:
+        return Field.from_primitive(type_)
+    except StopIteration:
+        raise Pydra2AppUsageError(f"Cannot convert type '{type_}' to a DataType")
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
