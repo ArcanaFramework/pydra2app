@@ -219,13 +219,11 @@ def sources_converter(
     for name, src in value.items():
         if isinstance(src, ContainerCommandSource):
             source = src
-        elif not isinstance(src, (dict, str, Axes)):
+        elif not isinstance(src, (dict, str)):
             raise ValueError(f"Invalid source definition for '{name}': {src}")
         else:
             if isinstance(src, str):
-                src = Axes.fromstr(src)
-            if isinstance(src, Axes):
-                src = {"row_frequency": src}
+                src = {"field": src}
             source = ContainerCommandSource.fromdict(name, src, self_)
         source._field_object = self_._input_fields[source.field]
         if source.type is DataRow:
@@ -304,10 +302,12 @@ def sinks_converter(
     for name, snk in value.items():
         if isinstance(snk, ContainerCommandSink):
             sink = snk
-        elif isinstance(snk, dict):
-            sink = ContainerCommandSink.fromdict(name, snk, self_)
-        else:
+        elif not isinstance(snk, (dict, str)):
             raise ValueError(f"Invalid sink definition for '{name}': {snk}")
+        else:
+            if isinstance(snk, str):
+                snk = {"field": snk}
+            sink = ContainerCommandSink.fromdict(name, snk, self_)
         sink._field_object = self_._output_fields[sink.field]
         sinks.append(sink)
     return sinks
@@ -378,9 +378,11 @@ def parameters_converter(
     for name, prm in value.items():
         if isinstance(prm, ContainerCommandParameter):
             parameter = prm
-        elif not isinstance(prm, dict):
+        elif not isinstance(prm, (str, dict)):
             raise ValueError(f"Invalid parameter definition for '{name}': {prm}")
         else:
+            if isinstance(prm, str):
+                prm = {"field": prm}
             parameter = ContainerCommandParameter.fromdict(name, prm, self_)
         parameter._field_object = self_._input_fields[parameter.field]
         if parameter.type is DataRow:

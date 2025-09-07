@@ -44,6 +44,7 @@ def test_native_python_install(tmp_path: Path) -> None:
                     },
                 },
                 "operates_on": "samples/sample",
+                "sinks": {"pydra2app_version": "stdout"},
             },
         },
         "version": "1.0",
@@ -82,7 +83,7 @@ def test_native_python_install(tmp_path: Path) -> None:
         "print_version",
         "True",
         "--output",
-        "stdout",
+        "pydra2app_version",
         OUTPUT_COL_NAME,
     ]
 
@@ -235,6 +236,7 @@ def test_multi_command(
     volume_mount = str(dataset.id) + ":/dataset:rw"
     base_args = [
         "/dataset",
+        "--save-frameset",
         "--input",
         "in_file1",
         "file1",
