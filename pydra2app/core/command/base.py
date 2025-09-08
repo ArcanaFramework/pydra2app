@@ -176,7 +176,7 @@ class ContainerCommandSource:
 
     def asdict(self, **kwargs: ty.Any) -> dict[str, ty.Any]:
         delta: dict[str, ty.Any] = {}
-        if self.field != self._field_object.name:
+        if self.field != self.name:
             delta["field"] = self.field
         if self.type is not self._field_object.type:
             delta["type"] = self.type
@@ -263,7 +263,7 @@ class ContainerCommandSink:
 
     def asdict(self, **kwargs: ty.Any) -> dict[str, ty.Any]:
         delta: dict[str, ty.Any] = {}
-        if self.field != self._field_object.name:
+        if self.field != self.name:
             delta["field"] = self.field
         if self.type is not self._field_object.type:
             delta["type"] = self.type
@@ -349,7 +349,7 @@ class ContainerCommandParameter:
 
     def asdict(self, **kwargs: ty.Any) -> dict[str, ty.Any]:
         delta: dict[str, ty.Any] = {}
-        if self.field != self._field_object.name:
+        if self.field != self.name:
             delta["field"] = self.field
         if self.help != self._field_object.help:
             delta["help"] = self.help

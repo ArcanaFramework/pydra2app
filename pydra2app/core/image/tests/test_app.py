@@ -6,6 +6,7 @@ from pydra.utils import get_fields
 from frametree.file_system import FileSystem
 from frametree.axes.samples import Samples
 import fileformats.field as ffield
+from fileformats.generic import File
 from pydra2app.core.image import App, P2AImage
 from pydra2app.core.command.base import ContainerCommand, ContainerCommandSink
 from pydra2app.core import PACKAGE_NAME
@@ -13,7 +14,6 @@ from conftest import TestDatasetBlueprint
 import pytest
 
 
-@pytest.mark.xfail
 def test_native_python_install(tmp_path: Path) -> None:
 
     SAMPLE_INDEX = "1"
@@ -80,6 +80,7 @@ def test_native_python_install(tmp_path: Path) -> None:
     volume_mount = str(dataset_dir) + ":/dataset:rw"
     args = [
         "/dataset",
+        "--save-frameset",
         "--parameter",
         "dummy",
         "1",
@@ -370,15 +371,14 @@ def test_command():
     assert sink.field == "stdout"
     assert sink.type is ffield.Text
     assert len(cmd.parameters) == 3
-    params = {p.name for p in cmd.parameters}
+    params = {p.name: p for p in cmd.parameters}
     assert set(params) == {"dummy", "print_version", "append_args"}
-    assert cmd.parameters["dummy"].type is ffield.Integer | None
-    assert cmd.parameters["dummy"].help is "not actually used"
-    assert cmd.parameters["dummy"].argstr is None
-    assert cmd.parameters["print_version"].type is ffield.Boolean
-    assert cmd.parameters["print_version"].help is None
-    assert cmd.parameters["print_version"].argstr == "--version{print_version}"
-    assert cmd.parameters["print_version"].default is False
-    assert cmd.parameters["append_args"].type is ffield.Text | None
-    assert cmd.parameters["append_args"].help is None
-    assert cmd.parameters["append_args"].default is False
+    assert params["dummy"].type == ffield.Integer | None
+    assert params["dummy"].help == "not actually used"
+    assert params["print_version"].type == ffield.Boolean
+    assert params["print_version"].help == ""
+    assert params["append_args"].type == list[ffield.Text | File]
+    assert (
+        params["append_args"].help
+        == "Additional free-form arguments to append to the end of the command."
+    )
