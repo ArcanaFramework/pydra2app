@@ -142,7 +142,7 @@ def execution(func: ty.Callable[..., None]) -> ty.Callable[..., None]:
                 ),
             ),
             optgroup.option(
-                "--save-frameset",
+                "--save-frameset/--dont-save-frameset",
                 default=False,
                 type=bool,
                 help=(

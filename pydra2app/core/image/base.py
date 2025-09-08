@@ -414,6 +414,7 @@ class P2AImage:
         )
         last_event = None
         result_stream, progress_stream = itertools.tee(response)
+        image_id = None
         for chunk in progress_stream:
             if "stream" in chunk:
                 if stream_output:
@@ -423,7 +424,7 @@ class P2AImage:
                 )
                 if match:
                     logging.info("Successfully built docker image %s", image_reference)
-                    return match.group(2)
+                    image_id = match.group(2)
             if "error" in chunk:
                 raise docker.errors.BuildError(
                     chunk["error"],
@@ -433,7 +434,9 @@ class P2AImage:
                     ),
                 )
             last_event = chunk
-        raise docker.errors.BuildError(last_event or "Unknown", result_stream)
+        if image_id is None:
+            raise docker.errors.BuildError(last_event or "Unknown", result_stream)
+        return image_id
 
     def init_dockerfile(self) -> DockerRenderer:
         dockerfile = DockerRenderer(self.base_image.package_manager).from_(

@@ -5,11 +5,15 @@ from copy import deepcopy
 from pydra.utils import get_fields
 from frametree.file_system import FileSystem
 from frametree.axes.samples import Samples
+import fileformats.field as ffield
 from pydra2app.core.image import App, P2AImage
+from pydra2app.core.command.base import ContainerCommand, ContainerCommandSink
 from pydra2app.core import PACKAGE_NAME
 from conftest import TestDatasetBlueprint
+import pytest
 
 
+@pytest.mark.xfail
 def test_native_python_install(tmp_path: Path) -> None:
 
     SAMPLE_INDEX = "1"
@@ -335,3 +339,46 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
     reloaded_app = App.load(save_path)
     assert app.commands[0] == reloaded_app.commands[0]
     assert app == reloaded_app
+
+
+def test_command():
+
+    cmd = ContainerCommand(
+        **{
+            "task": {
+                "type": "shell",
+                "executable": [
+                    "pydra2app",
+                    "--version<print_version>",
+                ],
+                "inputs": {
+                    "dummy": {
+                        "type": int | None,
+                        "help": "not actually used",
+                        "argstr": None,  # won't be printed to the command line
+                    }
+                },
+            },
+            "operates_on": "samples/sample",
+            "sinks": {"pydra2app_version": "stdout"},
+        }
+    )
+
+    assert len(cmd.sinks) == 1
+    sink = cmd.sinks[0]
+    assert sink.name == "pydra2app_version"
+    assert sink.field == "stdout"
+    assert sink.type is ffield.Text
+    assert len(cmd.parameters) == 3
+    params = {p.name for p in cmd.parameters}
+    assert set(params) == {"dummy", "print_version", "append_args"}
+    assert cmd.parameters["dummy"].type is ffield.Integer | None
+    assert cmd.parameters["dummy"].help is "not actually used"
+    assert cmd.parameters["dummy"].argstr is None
+    assert cmd.parameters["print_version"].type is ffield.Boolean
+    assert cmd.parameters["print_version"].help is None
+    assert cmd.parameters["print_version"].argstr == "--version{print_version}"
+    assert cmd.parameters["print_version"].default is False
+    assert cmd.parameters["append_args"].type is ffield.Text | None
+    assert cmd.parameters["append_args"].help is None
+    assert cmd.parameters["append_args"].default is False

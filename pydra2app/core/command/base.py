@@ -163,7 +163,7 @@ class ContainerCommandSource:
     type: type[DataType] = attrs.field()
     field: str = attrs.field()
     help: str = attrs.field()
-    _field_object: Arg = attrs.field()
+    _field_object: Arg = attrs.field(repr=False)
     _operates_on: Axes = attrs.field()
 
     @property
@@ -255,7 +255,7 @@ class ContainerCommandSink:
     type: type[DataType] = attrs.field()
     field: str = attrs.field()
     help: str = attrs.field()
-    _field_object: Out = attrs.field()
+    _field_object: Out = attrs.field(repr=False)
 
     @property
     def field_type(self) -> type[DataType]:
@@ -333,7 +333,7 @@ class ContainerCommandParameter:
     name: str = attrs.field()
     field: str = attrs.field()
     help: str = attrs.field()
-    _field_object: Out = attrs.field()
+    _field_object: Out = attrs.field(repr=False)
 
     @property
     def field_type(self) -> type[DataType]:
