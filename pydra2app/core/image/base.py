@@ -444,18 +444,20 @@ class P2AImage:
         )
         return dockerfile
 
-    def save(self, yml_path: Path) -> None:
+    def save(self, yml_path: Path, sort_keys: bool = False) -> None:
         """Saves the specification to a YAML file that can be loaded again
 
         Parameters
         ----------
         yml_path : Path
             path to file to save the spec to
+        sort_keys : bool, optional
+            whether to sort the keys in the output YAML file, by default False
         """
         yml_dct = self.asdict()
         yml_dct["type"] = ClassResolver.tostr(self, strip_prefix=False)
         with open(yml_path, "w") as f:
-            yaml.dump(yml_dct, f)
+            yaml.dump(yml_dct, f, sort_keys=sort_keys)
 
     def insert_spec(self, dockerfile: DockerRenderer, build_dir: Path) -> None:
         """Generate Neurodocker instructions to save the specification inside the built
