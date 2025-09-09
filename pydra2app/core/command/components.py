@@ -150,7 +150,7 @@ class ContainerCommandSource:
     help: str = attrs.field()
     _field_object: Arg = attrs.field(repr=False)
     _operates_on: Axes = attrs.field()
-    _command: "ContainerCommand" = attrs.field(repr=False, default=None)
+    _command: "ContainerCommand" = attrs.field(repr=False, eq=False, default=None)
 
     @property
     def mandatory(self) -> bool:
@@ -221,14 +221,16 @@ def sources_converter(
 
 def sources_serialiser(
     sources: ty.List[ty.Any], **kwargs: ty.Any
-) -> dict[str, ContainerCommandSource] | None:
+) -> list[str] | dict[str, ContainerCommandSource] | None:
     if not sources:
         return None
-    dct = {s.name: s.asdict(**kwargs) for s in sources}
-    command = next(iter(sources))._command
-    if set(dct) == set(command._default_sources()) and all(not v for v in dct.values()):
-        return None
-    return dct
+    serialized = {s.name: s.asdict(**kwargs) for s in sources}
+    if all(not v for v in serialized.values()):
+        serialized = list(serialized)
+        command = next(iter(sources))._command
+        if set(serialized) == set(command._default_sources()):
+            return None
+    return serialized
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
@@ -240,7 +242,7 @@ class ContainerCommandSink:
     field: str = attrs.field()
     help: str = attrs.field()
     _field_object: Out = attrs.field(repr=False)
-    _command: "ContainerCommand" = attrs.field(repr=False, default=None)
+    _command: "ContainerCommand" = attrs.field(repr=False, eq=False, default=None)
 
     @property
     def field_type(self) -> type[DataType]:
@@ -299,13 +301,15 @@ def sinks_converter(
 
 def sinks_serialiser(
     sinks: ty.List[ty.Any], **kwargs: ty.Any
-) -> dict[str, ContainerCommandSink] | None:
+) -> list[str] | dict[str, ContainerCommandSink] | None:
     if not sinks:
         return None
     dct = {s.name: s.asdict(**kwargs) for s in sinks}
-    command = next(iter(sinks))._command
-    if set(dct) == set(command._default_sinks()) and all(not v for v in dct.values()):
-        return None
+    if all(not v for v in dct.values()):
+        dct = list(dct)
+        command = next(iter(sinks))._command
+        if set(dct) == set(command._default_sinks()):
+            return None
     return dct
 
 
@@ -317,7 +321,7 @@ class ContainerCommandParameter:
     field: str = attrs.field()
     help: str = attrs.field()
     _field_object: Out = attrs.field(repr=False)
-    _command: "ContainerCommand" = attrs.field(repr=False, default=None)
+    _command: "ContainerCommand" = attrs.field(repr=False, eq=False, default=None)
 
     @property
     def field_type(self) -> type[DataType]:
@@ -380,16 +384,16 @@ def parameters_converter(
 
 def parameters_serialiser(
     parameters: ty.List[ty.Any], **kwargs: ty.Any
-) -> dict[str, ContainerCommandParameter] | None:
+) -> list[str] | dict[str, ContainerCommandParameter] | None:
     if not parameters:
         return None
-    dct = {p.name: p.asdict(**kwargs) for p in parameters}
+    serialized = {p.name: p.asdict(**kwargs) for p in parameters}
     command = next(iter(parameters))._command
-    if set(dct) == set(command._default_parameters()) and all(
-        not v for v in dct.values()
-    ):
-        return None
-    return dct
+    if all(not v for v in serialized.values()):
+        serialized = list(serialized)
+        if set(serialized) == set(command._default_parameters()):
+            return None
+    return serialized
 
 
 def convert_to_datatype(type_: type) -> type[DataType]:
