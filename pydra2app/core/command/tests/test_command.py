@@ -439,7 +439,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
                 "sinks[1].name": "my_app_stdout",
                 "sinks[1].field": "stdout",
                 "sinks[1].type": ffield.Text,
-                "parameter_names": ["template", "flag", "param"],
+                "parameter_names": ["param", "template"],
                 "parameters[0].name": "template",
                 "parameters[0].type": Png | None,
                 "parameters[0].help": "",

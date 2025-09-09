@@ -150,6 +150,7 @@ class ContainerCommandSource:
     help: str = attrs.field()
     _field_object: Arg = attrs.field(repr=False)
     _operates_on: Axes = attrs.field()
+    _command: "ContainerCommand" = attrs.field(repr=False, default=None)
 
     @property
     def mandatory(self) -> bool:
@@ -185,6 +186,7 @@ class ContainerCommandSource:
             help=delta.get("help", obj.help),
             field_object=obj,
             operates_on=command.operates_on,
+            command=command,
         )
 
 
@@ -219,13 +221,12 @@ def sources_converter(
 
 def sources_serialiser(
     sources: ty.List[ty.Any], **kwargs: ty.Any
-) -> dict[str, ContainerCommandSource]:
-    dct = {}
-    for src in sources:
-        src_dict = src.asdict(**kwargs)
-        if src_dict:
-            dct[src.name] = src_dict
-    if not dct:
+) -> dict[str, ContainerCommandSource] | None:
+    if not sources:
+        return None
+    dct = {s.name: s.asdict(**kwargs) for s in sources}
+    command = next(iter(sources))._command
+    if set(dct) == set(command._default_sources()) and all(not v for v in dct.values()):
         return None
     return dct
 
@@ -239,6 +240,7 @@ class ContainerCommandSink:
     field: str = attrs.field()
     help: str = attrs.field()
     _field_object: Out = attrs.field(repr=False)
+    _command: "ContainerCommand" = attrs.field(repr=False, default=None)
 
     @property
     def field_type(self) -> type[DataType]:
@@ -266,6 +268,7 @@ class ContainerCommandSink:
             field=delta.get("field", name),
             help=delta.get("help", obj.help),
             field_object=obj,
+            command=command,
         )
 
 
@@ -296,13 +299,12 @@ def sinks_converter(
 
 def sinks_serialiser(
     sinks: ty.List[ty.Any], **kwargs: ty.Any
-) -> dict[str, ContainerCommandSink]:
-    dct = {}
-    for sink in sinks:
-        sink_dict = sink.asdict(**kwargs)
-        if sink_dict:
-            dct[sink.name] = sink_dict
-    if not dct:
+) -> dict[str, ContainerCommandSink] | None:
+    if not sinks:
+        return None
+    dct = {s.name: s.asdict(**kwargs) for s in sinks}
+    command = next(iter(sinks))._command
+    if set(dct) == set(command._default_sinks()) and all(not v for v in dct.values()):
         return None
     return dct
 
@@ -315,6 +317,7 @@ class ContainerCommandParameter:
     field: str = attrs.field()
     help: str = attrs.field()
     _field_object: Out = attrs.field(repr=False)
+    _command: "ContainerCommand" = attrs.field(repr=False, default=None)
 
     @property
     def field_type(self) -> type[DataType]:
@@ -344,6 +347,7 @@ class ContainerCommandParameter:
             field=delta.get("field", name),
             help=delta.get("help", obj.help),
             field_object=obj,
+            command=command,
         )
 
 
@@ -376,13 +380,14 @@ def parameters_converter(
 
 def parameters_serialiser(
     parameters: ty.List[ty.Any], **kwargs: ty.Any
-) -> dict[str, ContainerCommandParameter]:
-    dct = {}
-    for parameter in parameters:
-        parameter_dict = parameter.asdict(**kwargs)
-        if parameter_dict:
-            dct[parameter.name] = parameter_dict
-    if not dct:
+) -> dict[str, ContainerCommandParameter] | None:
+    if not parameters:
+        return None
+    dct = {p.name: p.asdict(**kwargs) for p in parameters}
+    command = next(iter(parameters))._command
+    if set(dct) == set(command._default_parameters()) and all(
+        not v for v in dct.values()
+    ):
         return None
     return dct
 
