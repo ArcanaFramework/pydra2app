@@ -21,7 +21,7 @@ from frametree.core.axes import Axes
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from pydra.utils.typing import is_optional, optional_type
 from pydra2app.core.utils import is_relative_to
-from ..command.base import ContainerCommand, command_serializer
+from ..command.base import ContainerCommand
 from .base import P2AImage
 from .components import ContainerAuthor, License, Docs, PipPackage
 
@@ -77,8 +77,7 @@ class App(P2AImage):
     )
     docs: Docs = attrs.field(converter=ObjectConverter(Docs))  # type: ignore[misc]
     commands: ty.List[ContainerCommand] = attrs.field(
-        converter=ObjectListConverter(ContainerCommand)  # type: ignore[misc]
-        metadata={"serializer": command_serializer},
+        converter=ObjectListConverter(ContainerCommand),  # type: ignore[misc]
     )
     loaded_from: Path = attrs.field(
         default=None, metadata={"asdict": False}, eq=False, hash=False

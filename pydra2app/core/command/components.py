@@ -1,21 +1,11 @@
 from __future__ import annotations
-import shutil
-import re
 import os
-from copy import copy
-import tempfile
-import json
 import inspect
 import logging
-from pathlib import Path
 import typing as ty
-from functools import cached_property
-import sys
-from collections import defaultdict
 import attrs
-from attrs.converters import default_if_none
 import pydra.compose.base
-from fileformats.core import DataType, Field, from_mime
+from fileformats.core import DataType, Field
 import fileformats.field as ffield
 from pydra.utils import get_fields, structure, unstructure
 import pydra.utils.general
@@ -24,23 +14,18 @@ from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionE
 from pydra.utils.typing import (
     is_union,
     is_optional,
-    optional_type,
     is_container,
-    is_fileset_or_union,
 )  # , is_subclass_or_union
 from frametree.core.serialize import ClassResolver
-from frametree.core.utils import show_workflow_errors, path2label
 from frametree.core.row import DataRow
-from frametree.core.frameset.base import FrameSet
-from frametree.core.store import Store
 from frametree.core.axes import Axes
 from pydra2app.core.exceptions import Pydra2AppUsageError
-from frametree.core.serialize import ObjectListConverter
 from pydra2app.core import PACKAGE_NAME
 
 
 if ty.TYPE_CHECKING:
     from ..image import App
+    from .base import ContainerCommand
 
 
 # Just until this gets added to Pydra
@@ -178,7 +163,7 @@ class ContainerCommandSource:
         delta: dict[str, ty.Any] = {}
         if self.field != self.name:
             delta["field"] = self.field
-        if self.type is not convert_to_datatype(self._field_object.type):
+        if self.type is not self._field_object.type:
             delta["type"] = self.type
         if self.row_frequency is not self._operates_on:
             delta["row_frequency"] = self.row_frequency
@@ -192,11 +177,10 @@ class ContainerCommandSource:
         type_ = delta.get("type", obj.type)
         if isinstance(type_, str):
             type_ = ClassResolver.fromstr(type_)
-        type_ = convert_to_datatype(type_)
         return cls(
             name=name,
             row_frequency=delta.get("row_frequency", command.operates_on),
-            type=type_,
+            type=convert_to_datatype(type_),
             field=delta.get("field", name),
             help=delta.get("help", obj.help),
             field_object=obj,
@@ -219,10 +203,10 @@ def sources_converter(
         elif src is not None and not isinstance(src, (dict, str)):
             raise ValueError(f"Invalid source definition for '{name}': {src}")
         else:
+            if src is None:
+                src = {}
             if isinstance(src, str):
                 src = {"field": src}
-            elif src is None:
-                src = {}
             source = ContainerCommandSource.fromdict(name, src, self_)
         source._field_object = self_._input_fields[source.field]
         if source.type is DataRow:
@@ -236,7 +220,14 @@ def sources_converter(
 def sources_serialiser(
     sources: ty.List[ty.Any], **kwargs: ty.Any
 ) -> dict[str, ContainerCommandSource]:
-    return {s.name: s.asdict(**kwargs) for s in sources}
+    dct = {}
+    for src in sources:
+        src_dict = src.asdict(**kwargs)
+        if src_dict:
+            dct[src.name] = src_dict
+    if not dct:
+        return None
+    return dct
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
@@ -257,7 +248,7 @@ class ContainerCommandSink:
         delta: dict[str, ty.Any] = {}
         if self.field != self.name:
             delta["field"] = self.field
-        if self.type is not convert_to_datatype(self._field_object.type):
+        if self.type is not self._field_object.type:
             delta["type"] = self.type
         if self.help != self._field_object.help:
             delta["help"] = self.help
@@ -268,11 +259,10 @@ class ContainerCommandSink:
         obj = command._output_fields[delta.get("field", name)]
         type_ = delta.get("type", obj.type)
         if isinstance(type_, str):
-            type_ = from_mime(type_)
-        type_ = convert_to_datatype(type_)
+            type_ = ClassResolver.fromstr(type_)
         return cls(
             name=name,
-            type=type_,
+            type=convert_to_datatype(type_),
             field=delta.get("field", name),
             help=delta.get("help", obj.help),
             field_object=obj,
@@ -294,20 +284,107 @@ def sinks_converter(
         elif snk is not None and not isinstance(snk, (dict, str)):
             raise ValueError(f"Invalid sink definition for '{name}': {snk}")
         else:
+            if snk is None:
+                snk = {}
             if isinstance(snk, str):
                 snk = {"field": snk}
-            elif snk is None:
-                snk = {}
             sink = ContainerCommandSink.fromdict(name, snk, self_)
         sink._field_object = self_._output_fields[sink.field]
         sinks.append(sink)
     return sinks
 
 
+def sinks_serialiser(
+    sinks: ty.List[ty.Any], **kwargs: ty.Any
+) -> dict[str, ContainerCommandSink]:
+    dct = {}
+    for sink in sinks:
+        sink_dict = sink.asdict(**kwargs)
+        if sink_dict:
+            dct[sink.name] = sink_dict
+    if not dct:
+        return None
+    return dct
+
+
+@attrs.define(kw_only=True, auto_attribs=False)
+class ContainerCommandParameter:
+    """Define a parameter for a container command."""
+
+    name: str = attrs.field()
+    field: str = attrs.field()
+    help: str = attrs.field()
+    _field_object: Out = attrs.field(repr=False)
+
+    @property
+    def field_type(self) -> type[DataType]:
+        return self._field_object.type
+
+    @property
+    def type(self) -> type[DataType]:
+        return convert_to_datatype(self.field_type)
+
+    @property
+    def mandatory(self) -> bool:
+        return self._field_object.mandatory
+
+    def asdict(self, **kwargs: ty.Any) -> dict[str, ty.Any]:
+        delta: dict[str, ty.Any] = {}
+        if self.field != self.name:
+            delta["field"] = self.field
+        if self.help != self._field_object.help:
+            delta["help"] = self.help
+        return delta
+
+    @classmethod
+    def fromdict(cls, name: str, delta: dict[str, ty.Any], command: "ContainerCommand"):
+        obj = command._input_fields[delta.get("field", name)]
+        return cls(
+            name=name,
+            field=delta.get("field", name),
+            help=delta.get("help", obj.help),
+            field_object=obj,
+        )
+
+
+def parameters_converter(
+    value: dict[str, Axes] | ty.Collection[str],
+    self_: "ContainerCommand",
+) -> list[ContainerCommandParameter]:
+    if value is None:
+        value = self_._default_parameters()
+    if not isinstance(value, dict):
+        value = {s: {} for s in value}
+    parameters: list[ContainerCommandParameter] = []
+    for name, prm in value.items():
+        if isinstance(prm, ContainerCommandParameter):
+            parameter = prm
+        elif not isinstance(prm, (str, dict)):
+            raise ValueError(f"Invalid parameter definition for '{name}': {prm}")
+        else:
+            if isinstance(prm, str):
+                prm = {"field": prm}
+            parameter = ContainerCommandParameter.fromdict(name, prm, self_)
+        parameter._field_object = self_._input_fields[parameter.field]
+        if parameter.type is DataRow:
+            raise ValueError(
+                f"DataRow input fields cannot be used as a parameter type ('{parameter.field}')"
+            )
+        parameters.append(parameter)
+    return parameters
+
+
 def parameters_serialiser(
     parameters: ty.List[ty.Any], **kwargs: ty.Any
 ) -> dict[str, ContainerCommandParameter]:
-    return {p.name: p.asdict(**kwargs) for p in parameters}
+    dct = {}
+    for parameter in parameters:
+        parameter_dict = parameter.asdict(**kwargs)
+        if parameter_dict:
+            dct[parameter.name] = parameter_dict
+    if not dct:
+        return None
+    return dct
 
 
 def convert_to_datatype(type_: type) -> type[DataType]:

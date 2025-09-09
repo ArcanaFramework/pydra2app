@@ -1,11 +1,9 @@
 from __future__ import annotations
 import shutil
 import re
-import os
 from copy import copy
 import tempfile
 import json
-import inspect
 import logging
 from pathlib import Path
 import typing as ty
@@ -15,27 +13,20 @@ from collections import defaultdict
 import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
-from fileformats.core import DataType, Field, from_mime
-import fileformats.field as ffield
-from pydra.utils import get_fields, structure, unstructure
+from fileformats.core import Field
+from pydra.utils import get_fields, unstructure
 import pydra.utils.general
-from pydra.compose.base import Arg, Out
-from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
+from pydra.compose.base import Out
 from pydra.utils.typing import (
-    is_union,
-    is_optional,
     optional_type,
-    is_container,
     is_fileset_or_union,
-)  # , is_subclass_or_union
-from frametree.core.serialize import ClassResolver
+)
 from frametree.core.utils import show_workflow_errors, path2label
 from frametree.core.row import DataRow
 from frametree.core.frameset.base import FrameSet
 from frametree.core.store import Store
 from frametree.core.axes import Axes
 from pydra2app.core.exceptions import Pydra2AppUsageError
-from frametree.core.serialize import ObjectListConverter
 from pydra2app.core import PACKAGE_NAME
 from .components import (
     ContainerCommandSource,
@@ -55,18 +46,7 @@ from .components import (
 if ty.TYPE_CHECKING:
     from ..image import App
 
-
-# Just until this gets added to Pydra
-
-
-def command_serializer(
-    command: "ContainerCommand",
-    **kwargs: ty.Any,
-) -> dict[str, ty.Any]:
-    dct: dict[str, ty.Any] = unstructure(command, **kwargs)
-    if "image" in dct:
-        del dct["image"]
-    return dct
+logger = logging.getLogger("pydra2app")
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
