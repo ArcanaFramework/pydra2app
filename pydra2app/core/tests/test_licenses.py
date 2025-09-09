@@ -1,5 +1,6 @@
 import pytest
 from pathlib import Path
+import typing as ty
 import docker
 import docker.errors
 from frametree.core.utils import show_cli_trace
@@ -22,7 +23,12 @@ from pydra2app.testing.constants import (
 )
 
 
-def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_runner):
+def test_buildtime_license(
+    license_file: Path,
+    run_prefix: str,
+    work_dir: Path,
+    cli_runner: ty.Callable[..., ty.Any],
+) -> None:
 
     # Create pipeline
     image_name = f"license-buildtime-{run_prefix}"
@@ -97,7 +103,7 @@ def test_buildtime_license(license_file, run_prefix: str, work_dir: Path, cli_ru
 
 
 @pytest.fixture
-def license_file(work_dir) -> Path:
+def license_file(work_dir: Path) -> Path:
     license_src = work_dir / "license_file.txt"
 
     with open(license_src, "w") as f:

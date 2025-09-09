@@ -4,23 +4,23 @@ import re
 from copy import copy
 import tempfile
 import json
-import inspect
 import logging
 from pathlib import Path
 import typing as ty
+from functools import cached_property
 import sys
 from collections import defaultdict
 import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
-from fileformats.core import DataType, Field
-from pydra.utils import get_fields, structure, unstructure
+from fileformats.core import Field
+from pydra.utils import get_fields, unstructure
 import pydra.utils.general
-from pydra.utils.typing import optional_type
-from pydra.compose.base import Arg, Out
-from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
-from pydra.utils.typing import is_fileset_or_union
-from frametree.core.serialize import ClassResolver
+from pydra.compose.base import Out
+from pydra.utils.typing import (
+    optional_type,
+    is_fileset_or_union,
+)
 from frametree.core.utils import show_workflow_errors, path2label
 from frametree.core.row import DataRow
 from frametree.core.frameset.base import FrameSet
@@ -28,84 +28,25 @@ from frametree.core.store import Store
 from frametree.core.axes import Axes
 from pydra2app.core.exceptions import Pydra2AppUsageError
 from pydra2app.core import PACKAGE_NAME
-
+from .components import (
+    ContainerCommandSource,
+    ContainerCommandSink,
+    ContainerCommandParameter,
+    sources_converter,
+    sinks_converter,
+    parameters_converter,
+    sources_serialiser,
+    sinks_serialiser,
+    parameters_serialiser,
+    task_converter,
+    task_serializer,
+    task_equals,
+)
 
 if ty.TYPE_CHECKING:
     from ..image import App
 
-
 logger = logging.getLogger("pydra2app")
-
-DEFAULT_TASK_NAME = "ContainerCommandTask"
-
-
-def task_converter(
-    task_class: str | dict[str, ty.Any],
-) -> type[pydra.compose.base.Task]:
-
-    task_cls: type[pydra.compose.base.Task]
-
-    if isinstance(task_class, str):
-        task_cls = ClassResolver(  # type: ignore[misc]
-            pydra.compose.base.Task,
-            alternative_types=[ty.Callable],
-            package=PACKAGE_NAME,
-        )(task_class)
-    elif isinstance(task_class, dict):
-
-        if task_class["type"] == "python":
-            task_class["function"] = ClassResolver.fromstr(task_class["function"])
-
-        for field_dct in list(task_class.get("inputs", {}).values()) + list(
-            task_class.get("outputs", {}).values()
-        ):
-            if isinstance(field_dct, dict):
-                type_ = field_dct.get("type", None)
-                if isinstance(type_, str):
-                    field_dct["type"] = ClassResolver.fromstr(type_)
-
-        task_cls = structure(task_class)
-    elif issubclass(task_class, pydra.compose.base.Task):
-        task_cls = task_class
-    else:
-        raise TypeError(f"Cannot convert {type(task_class)} ({task_class}) to a task")
-    return task_cls
-
-
-def task_equals(
-    task_cls: type[pydra.compose.base.Task],
-) -> tuple[str, pydra.utils.general._TaskFields]:
-    """Used to compare task classes to see if they are equivalent."""
-    return task_cls._task_type(), get_fields(task_cls)
-
-
-def task_serializer(
-    task_cls: type[pydra.compose.base.Task],
-    **kwargs: ty.Any,
-) -> str | dict[str, ty.Any]:
-    """Serializes a task to a dictionary
-
-    Parameters
-    ----------
-    task : type[pydra.compose.base.Task]
-        the task to serialize
-    **kwargs: Any
-        keyword arguments passed to the `unstructure` serializer
-
-    Returns
-    -------
-    str | dict[str, ty.Any]
-        the serialized task, either as a import location, or as a serialised dictionary
-        of the task definition if the import location is not available (i.e. the task was
-        dynamically created)
-    """
-    try:
-        address: str = ClassResolver.tostr(task_cls, strip_prefix=False)
-    except FrametreeCannotSerializeDynamicDefinitionError:
-        dct: dict[str, ty.Any] = unstructure(task_cls, **kwargs)
-        return dct
-    else:
-        return address
 
 
 @attrs.define(kw_only=True, auto_attribs=False)
@@ -119,24 +60,25 @@ class ContainerCommand:
         the task to run or the location of the class
     operates_on: Axes, optional
         the frequency that the command operates on
-    parameters: list[str], optional
-        inputs of the task to be treated as fixed parameters entered
-        by the user (i.e. rather than drawn from the data store). By default,
-        any non-file task input is considered a parameter, however, if a list of
-        parameters is provided then only those inputs will be treated as parameters
-        and any non-file inputs will be treated as fields to be pulled from metadata.
-        File inputs marked as parameters will be treated as paths to local files (i.e.
-        outside of the store) or URLs to be downloaded from the web depending on their
-        format.
+    sources : dict[str, Axes]
+        the inputs of the task that are to be sourced from the data store,
+        as opposed to those hard-coded in the configuration dict and those
+        presented as user-settable parameters.
+    sinks : list[str]
+        the outputs of the task that are to be stored in the data store, omitted
+        outputs are ignored
     configuration: ty.Dict[str, ty.Any]
         constant values used to configure the task/workflow, i.e. not presented to the
         user.
     image: App
         back-reference to the image the command is installed in
+    save_frameset : bool
+        Whether to save the frameset definition by default (can be overridden by flags passed
+        to the command)
     """
 
     STORE_TYPE = "file_system"
-    AXES: ty.Optional[ty.Type[Axes]] = None
+    AXES: type[Axes] | None = None
 
     task: type[pydra.compose.base.Task] = attrs.field(
         converter=task_converter,
@@ -144,64 +86,124 @@ class ContainerCommand:
         eq=task_equals,
     )
     name: str = attrs.field()
-    operates_on: ty.Optional[Axes] = attrs.field(default=None)
-    configuration: ty.Dict[str, ty.Any] = attrs.field(
+    operates_on: Axes = attrs.field()
+    configuration: dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
     )
-    parameters: ty.List[str] = attrs.field(converter=list)
+    sources: list[ContainerCommandSource] = attrs.field(
+        converter=attrs.Converter(  # type: ignore[call-overload]
+            sources_converter, takes_self=True
+        ),
+        metadata={"serializer": sources_serialiser},
+    )
+    sinks: list[ContainerCommandSink] = attrs.field(
+        converter=attrs.Converter(  # type: ignore[call-overload]
+            sinks_converter, takes_self=True
+        ),
+        metadata={"serializer": sinks_serialiser},
+    )
+    parameters: list[ContainerCommandParameter] = attrs.field(
+        converter=attrs.Converter(  # type: ignore[call-overload]
+            parameters_converter, takes_self=True
+        ),
+        metadata={"serializer": parameters_serialiser},
+    )
+    # parameters: list[str] = attrs.field(converter=list)
     image: App = attrs.field(
         default=None, eq=False, hash=False, metadata={"asdict": False}
     )
+    save_frameset: bool = False
 
-    @name.default
+    @name.default  # pyright: ignore[reportAttributeAccessIssue]
     def _default_name(self) -> str:
         return self.task.__name__
 
-    @parameters.default
-    def _default_parameters(self) -> ty.List[str]:
-        """By default, any non-file task input is considered a parameter that is not
-        fixed in the configuration"""
-        return [
+    @operates_on.default  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
+    def _default_operates_on(self) -> Axes:
+        if self.AXES is None:
+            raise ValueError(
+                f"No default AXES has been defined for ({type(self)}) therefore 'operates_on' must be provided"
+            )
+        return self.AXES.default()  # type: ignore[union-attr]
+
+    @sources.default  # pyright: ignore[reportAttributeAccessIssue]
+    def _default_sources(self) -> list[str]:
+        return [  # pyright: ignore[reportReturnType]
             i.name
-            for i in get_fields(self.task)
-            if not (
-                i.name == self.task._executor_name
-                or is_fileset_or_union(i.type)
-                or i.type is DataRow
-                or i.name in self.configuration
-                or isinstance(i, Out)
+            for i in self._input_fields
+            if (
+                is_fileset_or_union(i.type)
+                and i.name not in self.configuration
+                and not isinstance(i, Out)
             )
         ]
 
-    @parameters.validator
+    @sinks.default  # pyright: ignore[reportAttributeAccessIssue]
+    def _default_sinks(self) -> list[str]:
+        return [  # pyright: ignore[reportReturnType]
+            o.name for o in self._output_fields if is_fileset_or_union(o.type)
+        ]
+
+    @parameters.default  # pyright: ignore[reportAttributeAccessIssue]
+    def _default_parameters(self) -> list[str]:
+        non_parameters = (
+            self.source_names + list(self.configuration) + [self.task._executor_name]
+        )
+        return [  # pyright: ignore[reportReturnType]
+            i.name
+            for i in self._input_fields
+            if not (i.name in non_parameters or i.type is DataRow or isinstance(i, Out))
+        ]
+
+    @sources.validator  # pyright: ignore[reportAttributeAccessIssue]
+    def _validate_sources(
+        self, _: attrs.Attribute[ty.Any], sources: ty.List[ContainerCommandSource]
+    ) -> None:
+        """Validates that the sources are valid task inputs"""
+        for source in sources:
+            if source.name in self.configuration:
+                raise ValueError(
+                    f"Source '{source}' cannot be both a source and a configuration "
+                    "argument"
+                )
+
+    @parameters.validator  # pyright: ignore[reportAttributeAccessIssue]
     def _validate_parameters(
-        self, attribute: attrs.Attribute[ty.Any], value: ty.List[str]
+        self, _: attrs.Attribute[ty.Any], parameters: ty.List[ContainerCommandParameter]
     ) -> None:
         """Validates that the parameters are valid task inputs"""
-        task_inputs = [i.name for i in get_fields(self.task)]
-        for param in value:
-            if param not in task_inputs:
-                raise ValueError(
-                    f"Parameter '{param}' is not a valid input to task {self.task}"
-                )
-            if param in self.configuration:
+        for param in parameters:
+            if param.name in self.configuration:
                 raise ValueError(
                     f"Parameter '{param}' cannot be both a parameter and a configuration "
                     "argument"
                 )
+            if param.name in self.source_names:
+                raise ValueError(
+                    f"Parameter '{param}' cannot be both a parameter and a source "
+                    "argument"
+                )
 
-    @configuration.validator
+    @configuration.validator  # pyright: ignore[reportAttributeAccessIssue]
     def _validate_configuration(
-        self, attribute: attrs.Attribute[ty.Any], value: ty.Dict[str, ty.Any]
+        self, attribute: attrs.Attribute[ty.Any], configuration: ty.Dict[str, ty.Any]
     ) -> None:
         """Validates that the configuration arguments are valid task inputs"""
-        task_inputs = [i.name for i in get_fields(self.task)]
-        for param in value:
+        task_inputs = [i.name for i in self._input_fields]
+        for param in configuration:
             if param not in task_inputs:
                 raise ValueError(
                     f"Configuration argument '{param}' is not a valid input to task "
                     f"{self.task}"
                 )
+
+    @cached_property
+    def _input_fields(self) -> pydra.utils.general._TaskFieldsList:
+        return get_fields(self.task)
+
+    @cached_property
+    def _output_fields(self) -> pydra.utils.general._TaskFieldsList:
+        return get_fields(self.task.Outputs)
 
     def __attrs_post_init__(self) -> None:
         if isinstance(self.operates_on, Axes):
@@ -226,60 +228,43 @@ class ContainerCommand:
             )
 
     @property
-    def inputs(self) -> ty.List[str]:
-        """The inputs to the task"""
-        non_inputs = (
-            self.parameters + list(self.configuration) + [self.task._executor_name]
-        )
-        return [
-            f.name
-            for f in get_fields(self.task)
-            if f.name not in non_inputs and not isinstance(f, Out)
-        ]
+    def source_names(self) -> list[str]:
+        return [s.name for s in self.sources]
 
     @property
-    def outputs(self) -> ty.List[str]:
-        """The outputs of the task"""
-        return [o.name for o in get_fields(self.task.Outputs)]
+    def sink_names(self) -> list[str]:
+        return [s.name for s in self.sinks]
 
     @property
-    def input_fields(self) -> ty.List[Arg]:
-        fields = get_fields(self.task)
-        return [fields[i] for i in self.inputs if fields[i].type is not DataRow]
+    def parameter_names(self) -> list[str]:
+        return [p.name for p in self.parameters]
 
-    @property
-    def output_fields(self) -> ty.List[Out]:
-        fields = get_fields(self.task.Outputs)
-        return [fields[i] for i in self.outputs]
-
-    @property
-    def parameter_fields(self) -> ty.List[Arg]:
-        fields = get_fields(self.task)
-        return [fields[p] for p in self.parameters]
-
-    def input_field(self, name: str) -> Arg:
-        if name not in self.inputs:
+    def source(self, name: str) -> ContainerCommandSource:
+        try:
+            return next(s for s in self.sources if s.name == name)
+        except StopIteration:
             raise ValueError(
-                f"Input field '{name}' is not a valid input to task {self.task} "
-                f"(available: {self.inputs})"
+                f"Input field '{name}' is not a source name of {self}"
+                f"(available: {self.source_names})"
             )
-        return get_fields(self.task)[name]
 
-    def output_field(self, name: str) -> Arg:
-        if name not in self.outputs:
+    def sink(self, name: str) -> ContainerCommandSink:
+        try:
+            return next(s for s in self.sinks if s.name == name)
+        except StopIteration:
+            raise ValueError(
+                f"Input field '{name}' is not a sink name of {self}"
+                f"(available: {self.sink_names})"
+            )
+
+    def parameter(self, name: str) -> ContainerCommandParameter:
+        try:
+            return next(p for p in self.parameters if p.name == name)
+        except StopIteration:
             raise ValueError(
                 f"Input field '{name}' is not a valid output of task {self.task} "
-                f"(available: {self.outputs})"
+                f"(available: {self.parameter_names})"
             )
-        return get_fields(self.task.Outputs)[name]
-
-    def parameter_field(self, name: str) -> Arg:
-        if name not in self.parameters:
-            raise ValueError(
-                f"Input field '{name}' is not a valid output of task {self.task} "
-                f"(available: {self.parameters})"
-            )
-        return get_fields(self.task)[name]
 
     @property
     def axes(self) -> ty.Type[Axes]:
@@ -321,6 +306,7 @@ class ContainerCommand:
         raise_errors: bool = False,
         keep_running_on_errors: bool = False,
         pipeline_name: ty.Optional[str] = None,
+        save_frameset: bool = False,
         **store_kwargs: ty.Any,
     ) -> None:
         """Runs the command within the entrypoint of the container image.
@@ -335,14 +321,16 @@ class ContainerCommand:
 
         Parameters
         ----------
-        dataset : FrameSet
-            dataset ID str (<store-nickname>//<dataset-id>:<dataset-name>)
+        address : str
+            the address of the dataset/frameset, i.e. <store-nickname>//<dataset-id>:<dataset-name>
         input_values : dict[str, str]
             values passed to the inputs of the command
         output_values : dict[str, str]
             values passed to the outputs of the command
         parameter_values : dict[str, ty.Any]
             values passed to the parameters of the command
+        work_dir : Path, optional
+            the working directory for the command
         store_cache_dir : Path
             cache path used to download data from the store to the working node (if necessary)
         pipeline_cache_dir : Path
@@ -360,6 +348,8 @@ class ContainerCommand:
             raise errors instead of capturing and logging (for debugging)
         pipeline_name : str
             the name to give to the pipeline, defaults to the name of the command image
+        save_frameset : bool
+            Save the frameset definition that is used to run the pipeline
         **store_kwargs: Any
             keyword args passed through to Store.load
         """
@@ -375,41 +365,45 @@ class ContainerCommand:
             parameter_values = {}
         elif not isinstance(parameter_values, dict):
             parameter_values = dict(parameter_values)
+        if isinstance(ids, str):
+            ids = ids.split(",")
+        # Check whether save_frameset is set at the command specification level
+        save_frameset |= self.save_frameset
 
-        if unrecognised := set(input_values) - set(self.inputs):
+        if unrecognised := set(input_values) - set(self.source_names):
             raise ValueError(
                 f"Unrecognised input values passed to command {self.name}:\n"
                 f"unrecognised={unrecognised}\n"
-                f"available={list(self.inputs)}\n"
+                f"available={self.source_names}\n"
             )
-        if unrecognised := set(output_values) - set(self.outputs):
+        if unrecognised := set(output_values) - set(self.sink_names):
             raise ValueError(
                 f"Unrecognised output values passed to command {self.name}:\n"
                 f"unrecognised={unrecognised}\n"
-                f"available={list(self.outputs)}\n"
+                f"available={self.sink_names}\n"
             )
 
-        if unrecognised := set(parameter_values) - set(self.parameters):
+        if unrecognised := set(parameter_values) - set(self.parameter_names):
             raise ValueError(
                 f"Unrecognised parameter values passed to command {self.name}:\n"
                 f"unrecognised={unrecognised}\n"
-                f"available={list(self.parameters)}\n"
+                f"available={self.parameter_names}\n"
             )
 
-        if missing := set(i.name for i in self.input_fields if i.mandatory) - set(
+        if missing := set(s.name for s in self.sources if s.mandatory) - set(
             n
             for n, v in input_values.items()
-            if v or (v == "" and self.input_field(n).type is str)
+            if v or (v == "" and self.source(n).type is str)
         ):
             raise ValueError(
                 f"Missing mandatory input values passed to command {self.name}:\n"
                 f"missing={missing}\n"
             )
 
-        if missing := set(p.name for p in self.parameter_fields if p.mandatory) - set(
+        if missing := set(p.name for p in self.parameters if p.mandatory) - set(
             n
             for n, v in parameter_values.items()
-            if v or (v == "" and self.parameter_field(n).type is str)
+            if v or (v == "" and self.parameter(n).type is str)
         ):
             raise ValueError(
                 f"Missing mandatory parameter values passed to command {self.name}:\n"
@@ -436,8 +430,19 @@ class ContainerCommand:
         store_cache_dir = work_dir / "store-cache"
         pipeline_cache_dir = work_dir / "pydra"
 
+        load_kwargs = copy(store_kwargs)
+
+        # If the frameset isn't being saved and all the sources are at the same
+        # frequency as the command operates on, only load those rows that are to be
+        # processed
+        if (
+            all(s.row_frequency is self.operates_on for s in self.sources)
+            and not save_frameset
+        ):
+            load_kwargs["include"] = {self.operates_on: ids}
+
         frameset = self.load_frameset(
-            address, store_cache_dir, dataset_hierarchy, dataset_name, **store_kwargs
+            address, store_cache_dir, dataset_hierarchy, dataset_name, **load_kwargs
         )
 
         # Install required software licenses from store into container
@@ -452,17 +457,17 @@ class ContainerCommand:
 
         converter_args = {}  # Arguments passed to converter
         pipeline_inputs = []
-        for input_name in self.inputs:
-            inpt = self.input_field(input_name)
+        # Add inputs for data row objects if present
+        for inpt in self._input_fields:
             if inpt.type is DataRow:
                 pipeline_inputs.append(("frametree_data_row__", inpt.name, inpt.type))
-                continue
-            input_path = input_values.get(input_name, None)
+        # Add inputs for sources
+        for source in self.sources:
+            input_path = input_values.get(source.name, None)
             if not input_path:
-                assert not inpt.mandatory, "missing " + input_name
-                logger.info("No value provided for input '%s', skipping", input_name)
+                assert not source.mandatory, "missing " + source.name
+                logger.info("No value provided for input '%s', skipping", source.name)
                 continue
-
             path, qualifiers = self.extract_qualifiers_from_path(input_path)
             source_kwargs = qualifiers.pop("criteria", {})
             if match := re.match(r"<(\w+)(@\w+)?>", path):
@@ -474,20 +479,14 @@ class ContainerCommand:
                     column = frameset[column_name]
                 logger.info(f"Found existing source column {column}")
             else:
-                default_column_name = f"{path2label(self.name)}_{input_name}"
+                default_column_name = f"{path2label(self.name)}_{source.name}"
                 try:
                     column = frameset[default_column_name]
                 except KeyError:
                     logger.info(f"Adding new source column '{default_column_name}'")
-                    datatype = (
-                        Field.from_primitive(inpt.type)
-                        if inspect.isclass(inpt.type)
-                        and not issubclass(inpt.type, DataType)
-                        else inpt.type.convertible_from()
-                    )  # TODO: Create a union of all the convertible datatypes for FileSet types
                     column = frameset.add_source(
                         name=default_column_name,
-                        datatype=datatype,
+                        datatype=source.type,
                         path=path,
                         is_regex=True,
                         **source_kwargs,
@@ -495,20 +494,19 @@ class ContainerCommand:
                 else:
                     logger.info("Found existing source column %s", default_column_name)
 
-            pipeline_inputs.append((column.name, inpt.name, inpt.type))
+            pipeline_inputs.append((column.name, source.field, source.field_type))
             converter_args[column.name] = qualifiers.pop("converter", {})
             if qualifiers:
                 raise Pydra2AppUsageError(
                     "Unrecognised qualifier namespaces extracted from path for "
-                    f"{inpt.name} (expected ['criteria', 'converter']): {qualifiers}"
+                    f"{source.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
 
         pipeline_outputs = []
-        for output_name in self.outputs:
-            output = self.output_field(output_name)
-            output_path = output_values.get(output_name, None)
+        for sink in self.sinks:
+            output_path = output_values.get(sink.name, None)
             if not output_path:
-                logger.info("No value provided for output '%s', skipping", output_name)
+                logger.info("No value provided for output '%s', skipping", sink.name)
                 continue
             path, qualifiers = self.extract_qualifiers_from_path(output_path)
             if "@" not in path:
@@ -523,22 +521,17 @@ class ContainerCommand:
                 logger.info(f"Found existing sink column {column}")
             else:
                 logger.info(f"Adding new source column '{sink_name}'")
-                datatype = (
-                    Field.from_primitive(output.type)
-                    if not issubclass(output.type, DataType)
-                    else output.type
-                )
                 frameset.add_sink(
                     name=sink_name,
-                    datatype=datatype,
+                    datatype=sink.type,
                     path=path,
                 )
-            pipeline_outputs.append((sink_name, output.name, output.type))
+            pipeline_outputs.append((sink_name, sink.field, sink.field_type))
             converter_args[sink_name] = qualifiers.pop("converter", {})
             if qualifiers:
                 raise Pydra2AppUsageError(
                     "Unrecognised qualifier namespaces extracted from path for "
-                    f"{output_name} (expected ['criteria', 'converter']): {qualifiers}"
+                    f"{sink.name} (expected ['criteria', 'converter']): {qualifiers}"
                 )
 
         # if not pipeline_outputs and task_outputs:
@@ -547,11 +540,12 @@ class ContainerCommand:
         #         f"(available: {list(task_outputs.keys())})"
         #     )
 
-        frameset.save()  # Save definitions of the newly added columns
+        if save_frameset:
+            frameset.save()  # Save definitions of the newly added columns
 
         task_kwargs = copy(self.configuration)
         for param_name, param_value in parameter_values.items():
-            param = self.parameter_field(param_name)
+            param = self.parameter(param_name)
             logger.info(
                 "Parameter %s (type %s) passed value %s",
                 param_name,
@@ -597,9 +591,6 @@ class ContainerCommand:
                 overwrite=overwrite,
                 converter_args=converter_args,
             )
-
-        if isinstance(ids, str):
-            ids = ids.split(",")
 
         # Instantiate the Pydra workflow
         wf = pipeline(ids=ids)

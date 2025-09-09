@@ -159,7 +159,7 @@ def ContentsAreNumeric(in_file: File) -> bool:
 
 @python.define(outputs=[LICENSE_OUTPUT_FIELD])
 def CheckLicence(
-    expected_license_path: File,
+    expected_license_path: Path,
     expected_license_contents: File,
 ) -> File:
     """Checks the `expected_license_path` to see if there is a file with the same contents
