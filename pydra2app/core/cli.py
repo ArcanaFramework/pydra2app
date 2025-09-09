@@ -622,7 +622,11 @@ The generated documentation will be saved to OUTPUT.
 @click.option(
     "--default-axes",
     default=None,
-    help=("The default axes to assume if it isn't explicitly stated in the command"),
+    help=(
+        "The default axes to assume if it isn't explicitly stated in the command, "
+        "can be either the full path to the class, e.g. mypackage.axes:MyAxes, or the "
+        "name of module within the frametree.axes subpackage, e.g. 'medimage'"
+    ),
 )
 @click.option(
     "--spec-root",
@@ -649,7 +653,18 @@ def make_docs(
 
     output.mkdir(parents=True, exist_ok=True)
 
-    default_axes = ClassResolver.fromstr(default_axes)
+    if default_axes:
+        if ":" in default_axes:
+            default_axes = ClassResolver.fromstr(default_axes)
+        else:
+            try:
+                mod = import_module(f"frametree.axes.{default_axes}")
+            except ModuleNotFoundError as e:
+                raise ValueError(
+                    f"Could not find frametree.axes.{default_axes} module, does the "
+                    f"'frametree-axes-{default_axes}' package need to be installed?"
+                ) from e
+            default_axes = getattr(mod, "Axes")
 
     with ClassResolver.FALLBACK_TO_STR:
         image_specs = App.load_tree(

@@ -186,7 +186,7 @@ docs:
 commands:
   identity-task:
     task: pydra2app.testing.tasks:IdentityTextFile
-    operates_on: samples/sample
+    operates_on: sample
     """.strip(),
         """
 ---
@@ -398,6 +398,8 @@ def _make_docs(
             out_dir.as_posix(),
             "--spec-root",
             str(work_dir),
+            "--default-axes",
+            "samples",
         ]
         + (["--flatten" if flatten else "--no-flatten"] if flatten is not None else [])
         + list(args),
