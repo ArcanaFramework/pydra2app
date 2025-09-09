@@ -3,19 +3,24 @@ import typing as ty
 from functools import reduce
 from operator import mul
 from pathlib import Path
+import re
 import pytest
 from frametree.testing.blueprint import (
     TestDatasetBlueprint,
     FileSetEntryBlueprint as FileBP,
 )
 from pydra.compose import python
-from fileformats.text import TextFile
+from fileformats.text import TextFile, Plain as PlainText
 from fileformats.testing import EncodedText
 from fileformats.core import converter
+from fileformats.image import Png
+import fileformats.field as ffield
+from fileformats.generic import File
 from frametree.core.frameset import FrameSet
 from frametree.file_system import FileSystem
 from frametree.testing import TestAxes
 from pydra2app.core.command.base import ContainerCommand
+from pydra2app.core import App
 from frametree.core.exceptions import FrameTreeDataMatchError
 
 
@@ -342,3 +347,159 @@ def test_shell_command_execute(saved_dataset, work_dir):
         with open(item) as f:
             contents = f.read()
         assert contents == expected_contents
+
+
+@pytest.mark.parametrize(
+    ["cmd_spec", "expected_attrs"],
+    [
+        (
+            {
+                "task": {
+                    "type": "shell",
+                    "executable": [
+                        "pydra2app",
+                        "--version<print_version>",
+                    ],
+                    "inputs": {
+                        "dummy": {
+                            "type": int | None,
+                            "help": "not actually used",
+                            "argstr": None,  # won't be printed to the command line
+                        }
+                    },
+                },
+                "operates_on": "samples/sample",
+                "sinks": {"pydra2app_version": "stdout"},
+            },
+            {
+                "source_names": [],
+                "sink_names": ["pydra2app_version"],
+                "sinks[0].name": "pydra2app_version",
+                "sinks[0].field": "stdout",
+                "sinks[0].type": ffield.Text,
+                "parameter_names": ["dummy", "print_version", "append_args"],
+                "parameters[0].name": "dummy",
+                "parameters[0].type": ffield.Integer | None,
+                "parameters[0].help": "not actually used",
+                "parameters[1].name": "print_version",
+                "parameters[1].type": ffield.Boolean,
+                "parameters[1].help": "",
+                "parameters[2].name": "append_args",
+                "parameters[2].type": list[ffield.Text | File],
+                "parameters[2].help": "Additional free-form arguments to append to the end of the command.",
+            },
+        ),
+        (
+            {
+                "task": {
+                    "type": "shell",
+                    "executable": [
+                        "my-app",
+                        "<in_file:generic/file>",
+                        "<out|out_file:image/png>",
+                        "--optional-file",
+                        "<optional_file:generic/file?>",
+                        "--template",
+                        "<template:image/png?>",
+                        "--flag<flag>",
+                        "--param",
+                        "<param:int?>",
+                        # "--file-pair",
+                        # "<file_pair:text/plain,text/plain?>",
+                        "--not-needed-file",
+                        "<out|not_needed:generic/file>",
+                    ],
+                },
+                "operates_on": "samples/sample",
+                "sources": {
+                    "an_image": "in_file",
+                    "optional_file": None,
+                    # "file_pair": None,
+                },
+                "sinks": {"my_app_out_file": "out_file", "my_app_stdout": "stdout"},
+                "parameters": ["template", "param"],
+            },
+            {
+                "source_names": ["an_image", "optional_file"],  # , "file_pair"
+                "sink_names": ["my_app_out_file", "my_app_stdout"],
+                "parameter_names": ["template", "param"],
+                "sources[0].name": "an_image",
+                "sources[0].field": "in_file",
+                "sources[0].type": File,
+                "sources[0].help": "",
+                # "sources[1].name": "file_pair",
+                # "sources[1].field": "file_pair",
+                # "sources[1].type": tuple[PlainText, PlainText] | None,
+                "sources[1].name": "optional_file",
+                "sources[1].field": "optional_file",
+                "sources[1].type": File | None,
+                "sinks[0].name": "my_app_out_image",
+                "sinks[0].field": "out_file",
+                "sinks[0].type": Png,
+                "sinks[1].name": "my_app_stdout",
+                "sinks[1].field": "stdout",
+                "sinks[1].type": ffield.Text,
+                "parameter_names": ["template", "flag", "param"],
+                "parameters[0].name": "template",
+                "parameters[0].type": Png | None,
+                "parameters[0].help": "",
+                "parameters[1].name": "flag",
+                "parameters[1].type": ffield.Boolean,
+                "parameters[1].help": "",
+                "parameters[2].name": "param",
+                "parameters[2].type": ffield.Integer | None,
+                "parameters[2].help": "",
+            },
+        ),
+    ],
+)
+def test_command_serialization(
+    cmd_spec: dict[str, ty.Any], expected_attrs: dict[str, ty.Any], tmp_path: Path
+) -> None:
+
+    app = App(
+        **{
+            "name": "native_python_test",
+            "title": "a test image spec",
+            "commands": {
+                "a-command": cmd_spec,
+            },
+            "version": "1.0",
+            "packages": {
+                "system": ["vim", "git"],  # just to test it out
+                "pip": {
+                    "pydra2app": None,
+                    "frametree": None,
+                    "pydra": None,
+                },  # just to test out the
+            },
+            "base_image": {
+                "name": "python",
+                "tag": "3.12.5-slim-bookworm",
+                "python": "python3",
+                "package_manager": "apt",
+                "conda_env": None,
+            },
+            "authors": [{"name": "Some One", "email": "some.one@an.email.org"}],
+            "docs": {
+                "info_url": "http://concatenate.readthefakedocs.io",
+            },
+        }
+    )
+
+    # Round trip to file and back again
+    app.save(tmp_path / "app_spec.yaml")
+    app = App.load(tmp_path / "app_spec.yaml")
+
+    cmd = app.commands[0]
+
+    for attr_path, expected in expected_attrs.items():
+        match = re.match(r"^(\w+)(\[.+\])?(\.\w+)?$", attr_path)
+        actual = getattr(cmd, match.group(1))
+        if match.group(2):
+            actual = actual[int(match.group(2)[1:-1])]
+        if match.group(3):
+            actual = getattr(actual, match.group(3)[1:])
+        assert (
+            actual == expected
+        ), f"Attribute '{attr_path}' expected {expected} but got {actual}"
