@@ -70,7 +70,7 @@ def test_command_execute(
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec.execute(
-        address=saved_dataset.locator,
+        address=saved_dataset.address,
         input_values=[
             ("in_file1", "file1"),
             ("in_file2", "file2"),
@@ -120,7 +120,7 @@ def test_command_execute_fail(
     # Add source to loaded dataset
     with pytest.raises(FrameTreeDataMatchError):
         command_spec.execute(
-            address=saved_dataset.locator,
+            address=saved_dataset.address,
             input_values=[
                 ("in_file1", "bad-file-path"),
                 ("in_file2", "file1"),
@@ -185,7 +185,7 @@ def test_command_execute_on_row(
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec.execute(
-        address=dataset.locator,
+        address=dataset.address,
         raise_errors=True,
         worker="debug",
         work_dir=str(work_dir),
@@ -223,7 +223,7 @@ def test_command_execute_with_converter_args(
     )
 
     command_spec.execute(
-        address=saved_dataset.locator,
+        address=saved_dataset.address,
         input_values=[
             ("in_file", "<file1> converter.shift=3"),
         ],
@@ -238,7 +238,7 @@ def test_command_execute_with_converter_args(
         pipeline_name="test_pipeline",
     )
     command_spec.execute(
-        address=saved_dataset.locator,
+        address=saved_dataset.address,
         input_values=[
             ("in_file", "<file1> converter.shift=3"),
         ],
@@ -320,7 +320,7 @@ def test_shell_command_execute(saved_dataset, work_dir):
     # Start generating the arguments for the CLI
     # Add source to loaded dataset
     command_spec.execute(
-        address=saved_dataset.locator,
+        address=saved_dataset.address,
         input_values=[
             ("source1", "file1"),
             ("source2", "file2"),

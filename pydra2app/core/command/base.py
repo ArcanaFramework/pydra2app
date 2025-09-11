@@ -440,6 +440,15 @@ class ContainerCommand:
             and not save_frameset
         ):
             load_kwargs["include"] = {self.operates_on: ids}
+            logger.info(
+                "Loading frameset restricted to %s with IDs: %s", self.operates_on, ids
+            )
+        else:
+            logger.info(
+                "Loading frameset without restrictions, save_frameset=%s, row_frequencies=%s",
+                save_frameset,
+                list(set(s.row_frequency for s in self.sources)),
+            )
 
         frameset = self.load_frameset(
             address, store_cache_dir, dataset_hierarchy, dataset_name, **load_kwargs
