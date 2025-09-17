@@ -252,7 +252,7 @@ a test of the YAML join functionality
     #     git:
     #   pip:
     #     - pydra
-    #     - pydra-dcm2niix
+    #     - pydra-tasks-dcm2niix
     #   neurodocker:
     #     dcm2niix: v1.0.20201102
     # licenses:
