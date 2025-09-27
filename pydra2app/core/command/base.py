@@ -436,12 +436,25 @@ class ContainerCommand:
         # frequency as the command operates on, only load those rows that are to be
         # processed
         if (
-            all(s.row_frequency is self.operates_on for s in self.sources)
+            all(Axes.fromstr(s.row_frequency) is self.operates_on for s in self.sources)
             and not save_frameset
         ):
-            load_kwargs["include"] = {self.operates_on: ids}
             logger.info(
-                "Loading frameset restricted to %s with IDs: %s", self.operates_on, ids
+                "Defining emphemeral frameset restricted to %s of %s to avoid loading project",
+                ids,
+                self.operates_on,
+            )
+            store_cache_dir.mkdir(parents=True, exist_ok=True)
+            store_name, dataset_id, _ = FrameSet.parse_id_str(address)
+            store = Store.load(store_name, cache_dir=store_cache_dir)
+            if dataset_hierarchy is None:
+                hierarchy = self.axes.default().span()
+            else:
+                hierarchy = dataset_hierarchy.split(",")
+            frameset = store.define_frameset(
+                id=dataset_id,
+                hierarchy=hierarchy,
+                include={self.operates_on: ids},
             )
         else:
             logger.info(
@@ -450,9 +463,9 @@ class ContainerCommand:
                 list(set(s.row_frequency for s in self.sources)),
             )
 
-        frameset = self.load_frameset(
-            address, store_cache_dir, dataset_hierarchy, dataset_name, **load_kwargs
-        )
+            frameset = self.load_frameset(
+                address, store_cache_dir, dataset_hierarchy, dataset_name, **load_kwargs
+            )
 
         # Install required software licenses from store into container
         if self.image is not None:
