@@ -337,8 +337,8 @@ class ContainerCommand:
             cache path created when running the pipelines
         plugin : str
             Pydra plugin used to execute the pipeline
-        ids : list[str]
-            IDs of the dataset rows to run the pipeline over
+        ids : list[str] | None
+            IDs of the dataset rows to run the pipeline over,
         overwrite : bool, optional
             overwrite existing outputs
         export_work : Path
@@ -438,6 +438,7 @@ class ContainerCommand:
         if (
             all(Axes.fromstr(s.row_frequency) is self.operates_on for s in self.sources)
             and not save_frameset
+            and ids is not None
         ):
             logger.info(
                 "Defining emphemeral frameset restricted to %s of %s to avoid loading project",
@@ -453,6 +454,7 @@ class ContainerCommand:
                 hierarchy = dataset_hierarchy.split(",")
             frameset = store.define_frameset(
                 id=dataset_id,
+                axes=self.axes,
                 hierarchy=hierarchy,
                 include={self.operates_on: ids},
             )
