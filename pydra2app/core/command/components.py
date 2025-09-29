@@ -332,6 +332,10 @@ class ContainerCommandParameter:
         return convert_to_datatype(self.field_type)
 
     @property
+    def default(self) -> ty.Any:
+        return self._field_object.default
+
+    @property
     def mandatory(self) -> bool:
         return self._field_object.mandatory
 

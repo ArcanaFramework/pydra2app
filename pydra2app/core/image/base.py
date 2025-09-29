@@ -310,6 +310,8 @@ class P2AImage:
 
         dockerfile = self.init_dockerfile()
 
+        dockerfile.env(CONDA_PLUGINS_AUTO_ACCEPT_TOS="true")
+
         dockerfile.user("root")
 
         self.install_system_packages(dockerfile)

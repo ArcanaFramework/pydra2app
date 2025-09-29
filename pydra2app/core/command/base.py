@@ -337,8 +337,8 @@ class ContainerCommand:
             cache path created when running the pipelines
         plugin : str
             Pydra plugin used to execute the pipeline
-        ids : list[str]
-            IDs of the dataset rows to run the pipeline over
+        ids : list[str] | None
+            IDs of the dataset rows to run the pipeline over,
         overwrite : bool, optional
             overwrite existing outputs
         export_work : Path
@@ -436,14 +436,38 @@ class ContainerCommand:
         # frequency as the command operates on, only load those rows that are to be
         # processed
         if (
-            all(s.row_frequency is self.operates_on for s in self.sources)
+            all(Axes.fromstr(s.row_frequency) is self.operates_on for s in self.sources)
             and not save_frameset
+            and ids is not None
         ):
-            load_kwargs["include"] = {self.operates_on: ids}
+            logger.info(
+                "Defining emphemeral frameset restricted to %s of %s to avoid loading project",
+                ids,
+                self.operates_on,
+            )
+            store_cache_dir.mkdir(parents=True, exist_ok=True)
+            store_name, dataset_id, _ = FrameSet.parse_id_str(address)
+            store = Store.load(store_name, cache_dir=store_cache_dir)
+            if dataset_hierarchy is None:
+                hierarchy = self.axes.default().span()
+            else:
+                hierarchy = dataset_hierarchy.split(",")
+            frameset = store.define_frameset(
+                id=dataset_id,
+                axes=self.axes,
+                hierarchy=hierarchy,
+                include={self.operates_on: ids},
+            )
+        else:
+            logger.info(
+                "Loading frameset without restrictions, save_frameset=%s, row_frequencies=%s",
+                save_frameset,
+                list(set(s.row_frequency for s in self.sources)),
+            )
 
-        frameset = self.load_frameset(
-            address, store_cache_dir, dataset_hierarchy, dataset_name, **load_kwargs
-        )
+            frameset = self.load_frameset(
+                address, store_cache_dir, dataset_hierarchy, dataset_name, **load_kwargs
+            )
 
         # Install required software licenses from store into container
         if self.image is not None:
