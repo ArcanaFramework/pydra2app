@@ -209,16 +209,7 @@ class ContainerCommand:
         if isinstance(self.operates_on, Axes):
             pass
         elif isinstance(self.operates_on, str):
-            try:
-                self.operates_on = Axes.fromstr(self.operates_on)
-            except ValueError:
-                if self.AXES:
-                    self.operates_on = self.AXES[self.operates_on]
-                else:
-                    raise ValueError(
-                        f"'{self.operates_on}' row frequency cannot be resolved to a axes, "
-                        "needs to be of form <axes>[<row-frequency>]"
-                    )
+            self.operates_on = Axes.fromstr(self.operates_on, axes=self.AXES)
         elif self.AXES:
             self.operates_on = self.AXES.default()
         else:
@@ -300,7 +291,7 @@ class ContainerCommand:
         dataset_hierarchy: ty.Optional[str] = None,
         dataset_name: ty.Optional[str] = None,
         overwrite: bool = False,
-        loglevel: str = "warning",
+        loggers: ty.Sequence[tuple[str, str]] = (),
         worker: ty.Optional[str] = None,
         export_work: ty.Optional[Path] = None,
         raise_errors: bool = False,
@@ -413,10 +404,23 @@ class ContainerCommand:
         if isinstance(export_work, bytes):
             export_work = Path(export_work.decode("utf-8"))
 
-        if loglevel != "none":
-            logging.basicConfig(
-                stream=sys.stdout, level=getattr(logging, loglevel.upper())
+        for lgr, level in loggers:
+            if isinstance(level, str):
+                level = level.upper()
+            logger_obj = logging.getLogger(lgr)
+            logger_obj.setLevel(level)
+            # Clear any existing handlers that would clash with new handlers
+            for handler in logger_obj.handlers[:]:
+                if (
+                    isinstance(handler, logging.StreamHandler)
+                    and handler.stream == sys.stdout
+                ):
+                    logger_obj.removeHandler(handler)
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(
+                logging.Formatter("%(name)s: %(levelname)s: %(message)s")
             )
+            logger_obj.addHandler(handler)
 
         if work_dir is None:
             work_dir = Path(tempfile.mkdtemp())
@@ -436,7 +440,10 @@ class ContainerCommand:
         # frequency as the command operates on, only load those rows that are to be
         # processed
         if (
-            all(Axes.fromstr(s.row_frequency) is self.operates_on for s in self.sources)
+            all(
+                Axes.fromstr(s.row_frequency, axes=self.AXES) is self.operates_on
+                for s in self.sources
+            )
             and not save_frameset
             and ids is not None
         ):
@@ -447,7 +454,7 @@ class ContainerCommand:
             )
             store_cache_dir.mkdir(parents=True, exist_ok=True)
             store_name, dataset_id, _ = FrameSet.parse_id_str(address)
-            store = Store.load(store_name, cache_dir=store_cache_dir)
+            store = Store.load(store_name, cache_dir=store_cache_dir, **load_kwargs)
             if dataset_hierarchy is None:
                 hierarchy = self.axes.default().span()
             else:

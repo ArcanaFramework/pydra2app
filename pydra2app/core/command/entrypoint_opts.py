@@ -127,10 +127,14 @@ def execution(func: ty.Callable[..., None]) -> ty.Callable[..., None]:
                 help=("The Pydra plugin with which to process the task/workflow"),
             ),
             optgroup.option(
-                "--loglevel",
+                "--logger",
+                "loggers",
+                nargs=2,
                 type=str,
-                default="info",
-                help=("The level of detail logging information is presented"),
+                default=(),
+                multiple=True,
+                metavar="<logger-name> <loglevel>",
+                help=("Specific loggers to set at specific loglevels"),
             ),
             optgroup.option(
                 "--ids",
