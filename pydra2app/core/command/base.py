@@ -14,7 +14,7 @@ import attrs
 from attrs.converters import default_if_none
 import pydra.compose.base
 from fileformats.core import Field
-from pydra.utils import get_fields, unstructure
+from pydra.utils import get_fields
 import pydra.utils.general
 from pydra.compose.base import Out
 from pydra.utils.typing import (
@@ -27,7 +27,6 @@ from frametree.core.frameset.base import FrameSet
 from frametree.core.store import Store
 from frametree.core.axes import Axes
 from pydra2app.core.exceptions import Pydra2AppUsageError
-from pydra2app.core import PACKAGE_NAME
 from .components import (
     ContainerCommandSource,
     ContainerCommandSink,
