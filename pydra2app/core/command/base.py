@@ -600,7 +600,7 @@ class ContainerCommand:
                         pass
                     param_value = field_type(param_value)
 
-            task_kwargs[param_name] = param_value
+            task_kwargs[param.field] = param_value
 
         task = self.task(**task_kwargs)
 
