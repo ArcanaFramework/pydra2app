@@ -10,10 +10,10 @@ from frametree.testing.blueprint import (
     FileSetEntryBlueprint as FileBP,
 )
 from pydra.compose import python
-from fileformats.text import TextFile, Plain as PlainText
+from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 from fileformats.core import converter
-from fileformats.image import Png
+from fileformats.image import RasterImage, Png
 import fileformats.field as ffield
 from fileformats.generic import File
 from frametree.core.frameset import FrameSet
@@ -195,6 +195,17 @@ def test_command_execute_on_row(
     )
 
     assert get_dataset_filenumbers() == [i + 10 for i in filenumbers]
+
+
+def test_command_convertible_source_types() -> None:
+
+    command_spec = ContainerCommand(
+        name="identity",
+        task="pydra2app.testing.tasks:IdentityPng",
+        operates_on="samples/sample",
+    )
+
+    assert command_spec.source("in_file").type == Png | RasterImage
 
 
 def test_command_execute_with_converter_args(

@@ -178,7 +178,11 @@ class ContainerCommandSource:
         obj = command._input_fields[delta.get("field", name)]
         type_ = delta.get(
             "type",
-            obj.type.convertible_from() if is_fileset_or_union(obj.type) else obj.type,
+            (
+                obj.type.convertible_from()
+                if is_fileset_or_union(obj.type)
+                else obj.type
+            ),
         )
         if isinstance(type_, str):
             type_ = ClassResolver.fromstr(type_)
