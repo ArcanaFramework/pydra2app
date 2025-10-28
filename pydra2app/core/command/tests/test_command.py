@@ -496,9 +496,9 @@ def test_command_serialization(
 
     # Round trip to file and back again
     app.save(tmp_path / "app_spec.yaml")
-    app = App.load(tmp_path / "app_spec.yaml")
+    reloaded_app = App.load(tmp_path / "app_spec.yaml")
 
-    cmd = app.commands[0]
+    cmd = reloaded_app.commands[0]
 
     for attr_path, expected in expected_attrs.items():
         match = re.match(r"^(\w+)(\[.+\])?(\.\w+)?$", attr_path)
