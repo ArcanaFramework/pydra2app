@@ -216,7 +216,7 @@ a test of the YAML join functionality
 #### Inputs
 |Name|Data-type(s)|Required|Description|
 |----|------------|--------|-----------|
-|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file" aria-label="text/text-file">text/text-file</span>|Y|the input text file|
+|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="testing/encoded-text,text/text-file" aria-label="testing/encoded-text,text/text-file">testing/encoded-text,text/text-file</span>|Y|the input text file|
 
 #### Outputs
 |Name|Data-type(s)|Always generated|Description|
