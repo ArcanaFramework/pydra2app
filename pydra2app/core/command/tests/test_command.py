@@ -24,37 +24,6 @@ from pydra2app.core import App
 from frametree.core.exceptions import FrameTreeDataMatchError
 
 
-# Set up converter between text and encoded-text and back again
-@pytest.fixture(scope="session")
-def encoded_text_converter():
-    @converter(
-        source_format=EncodedText, target_format=TextFile, out_filename="out_file.txt"
-    )
-    @converter(
-        source_format=TextFile, target_format=EncodedText, out_filename="out_file.enc"
-    )
-    @python.define(outputs=["out_file"])
-    def EncoderTask(
-        in_file: ty.Union[str, bytes, os.PathLike],
-        out_filename: str,
-        shift: int = 0,
-    ) -> Path:
-        def encode_text(text: str, shift: int) -> str:
-            encoded = []
-            for c in text:
-                encoded.append(chr(ord(c) + shift))
-            return "".join(encoded)
-
-        with open(in_file) as f:
-            contents = f.read()
-        encoded = encode_text(contents, shift)
-        with open(out_filename, "w") as f:
-            f.write(encoded)
-        return Path(out_filename).absolute()
-
-    return None
-
-
 def test_command_execute(
     ConcatenateTask: ty.Callable[..., ty.Any], saved_dataset: FrameSet, work_dir: Path
 ) -> None:
@@ -208,9 +177,7 @@ def test_command_convertible_source_types() -> None:
     assert command_spec.source("in_file").type == Png | RasterImage
 
 
-def test_command_execute_with_converter_args(
-    saved_dataset: FrameSet, work_dir: Path, encoded_text_converter
-):
+def test_command_execute_with_converter_args(saved_dataset: FrameSet, work_dir: Path):
     """Test passing arguments to file format converter tasks via input/output
     "qualifiers", e.g. 'converter.shift=3' using the pydra2app-run-pipeline CLI
     tool (as used in the XNAT CS commands)
@@ -236,7 +203,7 @@ def test_command_execute_with_converter_args(
     command_spec.execute(
         address=saved_dataset.address,
         input_values=[
-            ("in_file", "<file1> converter.shift=3"),
+            ("in_file", "<file1> converter.shift=4"),
         ],
         output_values=[
             ("out_file", "sink1"),
@@ -251,10 +218,10 @@ def test_command_execute_with_converter_args(
     command_spec.execute(
         address=saved_dataset.address,
         input_values=[
-            ("in_file", "<file1> converter.shift=3"),
+            ("in_file", "<file1> converter.shift=4"),
         ],
         output_values=[
-            ("out_file", "sink2 converter.shift=-3"),
+            ("out_file", "sink2 converter.shift=4"),
         ],
         raise_errors=True,
         worker="debug",
@@ -268,7 +235,7 @@ def test_command_execute_with_converter_args(
     reloaded = saved_dataset.reload()
     unencoded_contents = "file1.txt"
     encoded_contents = (
-        "iloh41w{w"  # 'file1.txt' characters shifted up by 3 in ASCII code
+        "iloh41w{w"  # 'file1.txt' characters shifted up by 4-1=3 in ASCII code
     )
     for row in reloaded.rows(frequency="abcd"):
         enc_cell = row.cell("sink1", allow_empty=False)
