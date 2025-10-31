@@ -70,6 +70,7 @@ docs = [
 ]
 test = [
     "fileformats-medimage-extras",
+    "fileformats-extras[image,vendor_openxmlformats_officedocument]",
     "pytest>=6.2.5",
     "pytest-cov>=2.12.1",
     "pytest-env>=0.6.2",

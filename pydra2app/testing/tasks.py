@@ -6,6 +6,7 @@ import attrs
 from pydra.compose import python
 import fileformats.core
 from fileformats.generic import File
+from fileformats.image import Png
 from fileformats.text import TextFile
 from fileformats.testing import EncodedText
 import fileformats.text
@@ -88,6 +89,11 @@ def IdentityTextFile(in_file: TextFile) -> TextFile:
 
 @python.define(outputs=["out_file"])
 def IdentityEncodedText(in_file: EncodedText) -> EncodedText:
+    return in_file
+
+
+@python.define(outputs=["out_file"])
+def IdentityPng(in_file: Png) -> Png:
     return in_file
 
 

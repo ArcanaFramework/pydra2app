@@ -8,6 +8,7 @@ import pydra.compose.base
 from fileformats.core import DataType, Field
 import fileformats.field as ffield
 from pydra.utils import get_fields, structure, unstructure
+from pydra.utils.typing import is_fileset_or_union
 import pydra.utils.general
 from pydra.compose.base import Arg, Out
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
@@ -19,6 +20,7 @@ from pydra.utils.typing import (
 from frametree.core.serialize import ClassResolver
 from frametree.core.row import DataRow
 from frametree.core.axes import Axes
+from frametree.core.utils import convertible_from
 from pydra2app.core.exceptions import Pydra2AppUsageError
 from pydra2app.core import PACKAGE_NAME
 
@@ -175,7 +177,7 @@ class ContainerCommandSource:
     @classmethod
     def fromdict(cls, name: str, delta: dict[str, ty.Any], command: "ContainerCommand"):
         obj = command._input_fields[delta.get("field", name)]
-        type_ = delta.get("type", obj.type)
+        type_ = delta.get("type", convertible_from(obj.type))
         if isinstance(type_, str):
             type_ = ClassResolver.fromstr(type_)
         return cls(

@@ -16,7 +16,7 @@ from frametree.core.serialize import (
     ClassResolver,
 )
 from typing_extensions import Self
-from fileformats.core import DataType
+from fileformats.core import DataType, to_mime
 from frametree.core.axes import Axes
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from pydra.utils.typing import is_optional, optional_type
@@ -508,7 +508,11 @@ class App(P2AImage):
 
     @classmethod
     def _data_format_html(cls, datatype: ty.Union[str, DataType]) -> str:
-        datatype_str = datatype.mime_like if not isinstance(datatype, str) else datatype
+        datatype_str = (
+            to_mime(datatype, official=False)
+            if not isinstance(datatype, str)
+            else datatype
+        )
 
         return (
             f'<span data-toggle="tooltip" data-placement="bottom" title="{datatype_str}" '

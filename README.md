@@ -25,7 +25,8 @@ python3 -m pip install pydra2app
 ```
 
 This will enable you run basic apps against generic directory trees, however, if you want
-to build specific apps you will also need to install the appropriate extension package, e.g.
+to build apps that can be run against datasets stored in specific data stores (see the [Frametree](https://arcanaframework.github.io/frametree) for available stores), you will also need to install the appropriate
+extension package, e.g.
 
 ```bash
 python3 -m pip install pydra2app-xnat
