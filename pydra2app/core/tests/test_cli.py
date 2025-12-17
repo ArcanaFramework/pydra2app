@@ -16,6 +16,7 @@ from pydra2app.core.cli import (
     make_docs,
     bootstrap,
 )
+import fileformats.extras.testing  # noqa: F401
 from frametree.core.utils import show_cli_trace
 
 
@@ -216,7 +217,7 @@ a test of the YAML join functionality
 #### Inputs
 |Name|Data-type(s)|Required|Description|
 |----|------------|--------|-----------|
-|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="testing/encoded-text,text/text-file" aria-label="testing/encoded-text,text/text-file">testing/encoded-text,text/text-file</span>|Y|the input text file|
+|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="testing/encoded-text\|text/text-file" aria-label="testing/encoded-text\|text/text-file">testing/encoded-text\|text/text-file</span>|Y|the input text file|
 
 #### Outputs
 |Name|Data-type(s)|Always generated|Description|
