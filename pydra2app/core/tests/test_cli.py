@@ -16,6 +16,7 @@ from pydra2app.core.cli import (
     make_docs,
     bootstrap,
 )
+import fileformats.extras.testing  # noqa: F401
 from frametree.core.utils import show_cli_trace
 
 

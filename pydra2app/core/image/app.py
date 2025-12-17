@@ -280,7 +280,7 @@ class App(P2AImage):
         for cmd in commands:
             if (
                 "operates_on" in cmd
-                and re.match(r"\w+", cmd["operates_on"])
+                and re.match(r"^\w+$", cmd["operates_on"])
                 and default_axes
             ):
                 cmd["operates_on"] = default_axes[cmd["operates_on"]]
@@ -509,10 +509,12 @@ class App(P2AImage):
     @classmethod
     def _data_format_html(cls, datatype: ty.Union[str, DataType]) -> str:
         datatype_str = (
-            to_mime(datatype, official=False)
+            to_mime(optional_type(datatype), official=False)
             if not isinstance(datatype, str)
             else datatype
         )
+        if is_optional(datatype):
+            datatype_str += " (optional)"
 
         return (
             f'<span data-toggle="tooltip" data-placement="bottom" title="{datatype_str}" '
