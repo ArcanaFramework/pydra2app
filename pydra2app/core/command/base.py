@@ -198,10 +198,20 @@ class ContainerCommand:
 
     @cached_property
     def _input_fields(self) -> pydra.utils.general._TaskFieldsList:
+        if isinstance(self.task, str):
+            raise ValueError(
+                f"Task {self.task} needs to be resolved for its input fields to be listed, "
+                "check its package is installed properly"
+            )
         return get_fields(self.task)
 
     @cached_property
     def _output_fields(self) -> pydra.utils.general._TaskFieldsList:
+        if isinstance(self.task, str):
+            raise ValueError(
+                f"Task {self.task} needs to be resolved for its output fields to be listed, "
+                "check its package is installed properly"
+            )
         return get_fields(self.task.Outputs)
 
     def __attrs_post_init__(self) -> None:
