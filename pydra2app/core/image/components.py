@@ -1,8 +1,9 @@
 from __future__ import annotations
 import typing as ty
 from pathlib import Path, PurePath
+import packaging.utils
 import json
-import pkg_resources
+import importlib_metadata
 import logging
 from urllib.parse import urlparse
 import re
@@ -280,11 +281,13 @@ class PipPackage(BasePackage):
         PipPackage
             the pip specification for the installation location of the package
         """
+        all_dists = {
+            packaging.utils.canonicalize_name(d.name): d
+            for d in importlib_metadata.distributions()
+        }
         try:
-            pkg = next(
-                p for p in pkg_resources.working_set if p.project_name == self.name
-            )
-        except StopIteration:
+            dist = all_dists[self.name]
+        except KeyError:
             if pypi_fallback:
                 logger.info(
                     f"Did not find local installation of package {self.name} "
@@ -293,70 +296,55 @@ class PipPackage(BasePackage):
                 return self
             raise Pydra2AppBuildError(
                 f"Did not find {self.name} in installed working set:\n"
-                + "\n".join(
-                    sorted(
-                        p.key + "/" + p.project_name for p in pkg_resources.working_set
-                    )
-                )
+                + "\n".join(sorted(n + "/" + d.name for n, d in all_dists.items()))
             )
         if (
             self.version
             and (
-                not (pkg.version.endswith(".dirty") or self.version.endswith(".dirty"))
+                not (dist.version.endswith(".dirty") or self.version.endswith(".dirty"))
             )
-            and pkg.version != self.version
+            and dist.version != self.version
         ):
             msg = (
                 f"Requested package {self.name}=={self.version} does "
-                "not match installed " + pkg.version
+                "not match installed " + dist.version
             )
             if pypi_fallback:
                 logger.warning(msg + " falling back to installation from PyPI")
                 return self
             raise Pydra2AppBuildError(msg)
-        if pkg.location is None:
-            raise Pydra2AppBuildError(
-                f"Could not find location of package {self.name} in installed working set, "
-                f"{pkg} has no local location"
-            )
-        pkg_loc = Path(pkg.location).resolve()
+
+        direct_url_text = dist.read_text("direct_url.json")
+
         # Determine whether installed version of requirement is locally
         # installed (and therefore needs to be copied into image) or can
         # be just downloaded from PyPI
-        if pkg_loc not in site_pkg_locs:
-            # Copy package into Docker image and instruct pip to install from
-            # that copy
+        if direct_url_text is None:
+            # Download from pypi
             local_spec = PipPackage(
-                name=self.name, file_path=str(pkg_loc), extras=self.extras
+                name=self.name, version=dist.version, extras=self.extras
             )
         else:
-            # Check to see whether package is installed via "direct URL" instead
-            # of through PyPI
-            direct_url_path = Path(pkg.egg_info) / "direct_url.json"
-            if direct_url_path.exists():
-                with open(direct_url_path) as f:
-                    url_spec = json.load(f)
-                url = url_spec["url"]
-                vcs_info = url_spec.get(
-                    "vcs_info", url_spec
-                )  # Fallback to trying to find VCS info in the base url-spec dict
-                if url.startswith("file://"):
-                    local_spec = PipPackage(
-                        name=self.name,
-                        file_path=url[len("file://") :],
-                        extras=self.extras,
-                    )
-                else:
-                    vcs_info = url_spec.get("vcs_info", url_spec)
-                    if "vcs" in vcs_info:
-                        url = vcs_info["vcs"] + "+" + url
-                    if "commit_id" in vcs_info:
-                        url += "@" + vcs_info["commit_id"]
-                    local_spec = PipPackage(name=self.name, url=url, extras=self.extras)
-            else:
+            # Inspect the "direct_url.json" for metadata of local install
+            url_spec = json.loads(direct_url_text)
+            url = url_spec["url"]
+            vcs_info = url_spec.get(
+                "vcs_info", url_spec
+            )  # Fallback to trying to find VCS info in the base url-spec dict
+            if url.startswith("file://"):
                 local_spec = PipPackage(
-                    name=self.name, version=pkg.version, extras=self.extras
+                    name=self.name,
+                    file_path=url[len("file://") :],
+                    extras=self.extras,
                 )
+            else:
+                vcs_info = url_spec.get("vcs_info", url_spec)
+                if "vcs" in vcs_info:
+                    url = vcs_info["vcs"] + "+" + url
+                if "commit_id" in vcs_info:
+                    url += "@" + vcs_info["commit_id"]
+                local_spec = PipPackage(name=self.name, url=url, extras=self.extras)
+
         return local_spec
 
 
