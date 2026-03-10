@@ -146,7 +146,7 @@ class ContainerCommand:
     @parameters.default  # pyright: ignore[reportAttributeAccessIssue]
     def _default_parameters(self) -> list[str]:
         non_parameters = (
-            self.source_names + list(self.configuration) + [self.task._executor_name]
+            [s.field for s in self.sources] + list(self.configuration) + [self.task._executor_name]
         )
         return [  # pyright: ignore[reportReturnType]
             i.name
