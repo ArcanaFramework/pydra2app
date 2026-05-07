@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "pydra2app"
 description = "Pydra2App: a tool for quickly turning Pydra tasks into containerised applications (e.g. BIDS Apps or XNAT pipelines)"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = [
     "attrs>=22.1.0",
     "build >=0.9",

@@ -425,6 +425,45 @@ def test_shell_command_execute(saved_dataset, work_dir):
                 "parameters[1].help": "",
             },
         ),
+        (
+            {
+                "task": {
+                    "type": "shell",
+                    "executable": [
+                        "my-app",
+                        "<in_file:generic/file>",
+                        "<out|out_file:image/png>",
+                        "--optional-file",
+                        "<optional_file:generic/file?>",
+                        "--template",
+                        "<template:image/png?>",
+                        "--flag<flag>",
+                        "--param",
+                        "<param:int?>",
+                        "--not-needed-file",
+                        "<out|not_needed:generic/file>",
+                    ],
+                },
+                "operates_on": "samples/sample",
+                "sources": {
+                    "an_image": "in_file",
+                    "optional_file": None,
+                },
+                "sinks": {"my_app_out_file": "out_file", "my_app_stdout": "stdout"},
+                # parameters intentionally omitted to test default derivation
+            },
+            {
+                "source_names": ["an_image", "optional_file"],
+                "sink_names": ["my_app_out_file", "my_app_stdout"],
+                # in_file and optional_file should NOT appear in parameters
+                "parameter_names": [
+                    "template",
+                    "flag",
+                    "param",
+                    "append_args",
+                ],
+            },
+        ),
     ],
 )
 def test_command_serialization(
