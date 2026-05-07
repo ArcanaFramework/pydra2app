@@ -29,7 +29,6 @@ from pydra2app.core.utils import (
 from pydra2app.core.command import entrypoint_opts
 from pydra2app.core import PACKAGE_NAME
 
-
 logger = logging.getLogger("pydra2app")
 
 
@@ -783,28 +782,24 @@ def ext() -> None:
 @click.option("--title", "-t", type=str, default=None, help="The title of the image")
 @click.option(
     "--docs-url",
-    "-u",
     type=str,
     default="https://place-holder.url",
     help="URL explaining the tool/workflow that is being wrapped into an app",
 )
 @click.option(
     "--registry",
-    "-r",
     type=str,
     default="docker.io",
     help="The Docker registry of the image",
 )
 @click.option(
     "--description",
-    "-d",
     type=str,
     default=None,
     help="A longer form description of the tool/workflow implemented in the pipeline",
 )
 @click.option(
     "--author",
-    "-a",
     "authors",
     nargs=2,
     multiple=True,
@@ -814,7 +809,6 @@ def ext() -> None:
 )
 @click.option(
     "--base-image",
-    "-b",
     type=str,
     nargs=2,
     multiple=True,
@@ -830,14 +824,12 @@ def ext() -> None:
 )
 @click.option(
     "--command-task",
-    "-t",
     type=str,
     default=None,
     help="The module/name of the task class to add as a command or definition string",
 )
 @click.option(
     "--packages-pip",
-    "-y",
     type=str,
     multiple=True,
     metavar="<package-name>[==<version>]",
@@ -845,7 +837,6 @@ def ext() -> None:
 )
 @click.option(
     "--packages-system",
-    "-s",
     type=str,
     multiple=True,
     metavar="<package-name>[==<version>]",
@@ -853,7 +844,6 @@ def ext() -> None:
 )
 @click.option(
     "--packages-neurodocker",
-    "-n",
     type=str,
     multiple=True,
     metavar="<package-name>[==<version>]",
@@ -861,7 +851,6 @@ def ext() -> None:
 )
 @click.option(
     "--packages-conda",
-    "-n",
     type=str,
     multiple=True,
     metavar="<package-name>[==<version>]",
@@ -869,7 +858,6 @@ def ext() -> None:
 )
 @click.option(
     "--command-source",
-    "-s",
     "command_sources",
     type=str,
     multiple=True,
@@ -881,7 +869,6 @@ def ext() -> None:
 )
 @click.option(
     "--command-sink",
-    "-s",
     "command_sinks",
     type=str,
     multiple=True,
@@ -892,7 +879,6 @@ def ext() -> None:
 )
 @click.option(
     "--command-configuration",
-    "-c",
     type=str,
     multiple=True,
     nargs=2,
@@ -901,7 +887,6 @@ def ext() -> None:
 )
 @click.option(
     "--frequency",
-    "-f",
     type=str,
     default="medimage/session",
     help=(
@@ -912,7 +897,6 @@ def ext() -> None:
 )
 @click.option(
     "--license",
-    "-l",
     "licenses",
     nargs=4,
     multiple=True,
