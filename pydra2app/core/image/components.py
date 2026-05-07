@@ -357,9 +357,7 @@ class SystemPackage(BasePackage):
 @attrs.define
 class CondaPackage(BasePackage):
 
-    pass
-
-    # REQUIRED = ["numpy", "traits"]  # FIXME: Not sure if traits is actually required
+    REQUIRED = ["pip"]
 
 
 @attrs.define

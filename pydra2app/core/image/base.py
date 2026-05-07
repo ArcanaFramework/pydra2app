@@ -35,7 +35,7 @@ from pydra2app.core.utils import (
     extract_file_from_docker_image,
 )
 from pydra2app.core.exceptions import Pydra2AppBuildError
-from .components import Packages, BaseImage, PipPackage, Resource, Version
+from .components import Packages, BaseImage, PipPackage, CondaPackage, Resource, Version
 import platform
 
 logger = logging.getLogger("pydra2app")
@@ -628,10 +628,10 @@ class P2AImage:
                 pip_strs.append(self.pip_spec2str(pip_spec, dockerfile, build_dir))
 
         conda_pkg_names = set(p.name for p in self.packages.conda)
-        conda_strs: ty.List[str] = []
-        # for pkg_name in CondaPackage.REQUIRED:
-        #     if pkg_name not in conda_pkg_names:
-        #         conda_strs.append(pkg_name)
+        conda_strs = []
+        for pkg_name in CondaPackage.REQUIRED:
+            if pkg_name not in conda_pkg_names:
+                conda_strs.append(pkg_name)
 
         conda_strs.extend(
             f"{p.name}={p.version}" if p.version is not None else p.name
@@ -645,24 +645,24 @@ class P2AImage:
         else:
             conda_pip_strs = []
 
-        if conda_strs:
-            arch = (
-                "aarch64"
-                if platform.machine().lower() in ("arm64", "aarch64")
-                else "x86_64"
-            )
-            miniconda_kwargs: dict[str, ty.Any] = (
-                {"arch": arch} if HAS_MINICONDA_ARCH else {}
-            )
-            dockerfile.add_registered_template(
-                "miniconda",
-                version="latest",
-                env_name=self.base_image.conda_env,
-                env_exists=False,
-                conda_install=" ".join(conda_strs),
-                pip_install=" ".join(conda_pip_strs),
-                **miniconda_kwargs,
-            )
+        arch = (
+            "aarch64"
+            if platform.machine().lower() in ("arm64", "aarch64")
+            else "x86_64"
+        )
+        miniconda_kwargs: dict[str, ty.Any] = (
+            {"arch": arch} if HAS_MINICONDA_ARCH else {}
+        )
+        dockerfile.add_registered_template(
+            "miniconda",
+            version="latest",
+            env_name=self.base_image.conda_env,
+            env_exists=False,
+            conda_install=" ".join(conda_strs),
+            pip_install=" ".join(conda_pip_strs),
+            **miniconda_kwargs,
+        )
+
         activate_conda = self.activate_conda() if self.base_image.conda_env else []
         if pip_strs and self.base_image.python:
             dockerfile.run(
