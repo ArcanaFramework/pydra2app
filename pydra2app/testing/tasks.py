@@ -88,6 +88,30 @@ def IdentityTextFile(in_file: TextFile) -> TextFile:
 
 
 @python.define(outputs=["out_file"])
+def ConcatenateTextFiles(in_files: ty.List[TextFile]) -> TextFile:
+    """Concatenates the contents of a list of text files into a single new file.
+    Used to test pipelines whose source column is gathered into a list because its
+    row_frequency is finer-grained than the row_frequency the pipeline runs at
+    (e.g. a per-session column sourced by a dataset-wide pipeline).
+
+    Parameters
+    ----------
+    in_files : list[TextFile]
+        the input text files, one per matching child row
+
+    Returns
+    -------
+    out_file: TextFile
+        a text file made by concatenating the contents of all the inputs
+    """
+    out_file = Path("out_file.txt").absolute()
+    contents = [open(f).read() for f in in_files]
+    with open(out_file, "w") as f:
+        f.write("\n".join(contents))
+    return out_file
+
+
+@python.define(outputs=["out_file"])
 def IdentityEncodedText(in_file: EncodedText) -> EncodedText:
     return in_file
 

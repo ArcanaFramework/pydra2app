@@ -166,6 +166,193 @@ def test_command_execute_on_row(
     assert get_dataset_filenumbers() == [i + 10 for i in filenumbers]
 
 
+def test_command_execute_at_root_frequency(
+    ConcatenateTask: ty.Callable[..., ty.Any], work_dir: Path
+) -> None:
+    """Checks that a command can be run with `operates_on` set to the dataset-wide
+    root frequency, so it executes exactly once for the whole dataset - taking its
+    inputs from, and writing its output to, the dataset's root row - rather than
+    once per session row, regardless of how many session rows the dataset contains.
+    """
+
+    # Create a dataset with several unrelated session rows, to check that the
+    # root-frequency command isn't run once per session and only touches the root row
+    bp = TestDatasetBlueprint(
+        axes=TestAxes,
+        hierarchy=["abcd"],
+        dim_lengths=[1, 1, 1, 3],
+    )
+    dataset_path = work_dir / "root_freq_dataset"
+    dataset = bp.make_dataset(FileSystem(), dataset_path)
+
+    # Blueprint `entries` are always created per (leaf) session row, so the two
+    # inputs the command will concatenate are inserted directly into the root row
+    # as sinks instead (mirroring how derivatives are inserted in store tests)
+    fnames = ["file1.txt", "file2.txt"]
+    root_row = dataset.root
+    with dataset.tree:
+        for name, fname in zip(["file1", "file2"], fnames):
+            dataset.add_sink(name, datatype=TextFile, row_frequency=TestAxes.__)
+            src_path = work_dir / fname
+            src_path.write_text(fname)
+            root_row[name] = TextFile(src_path)
+    dataset.save()
+
+    assert len(dataset.rows(TestAxes.abcd)) == 3  # sanity check on session rows
+
+    duplicates = 1
+    command_spec = ContainerCommand(
+        name="concatenate",
+        task="frametree.testing.tasks:" + ConcatenateTask.__name__,
+        operates_on=TestAxes.__,
+    )
+
+    command_spec.execute(
+        address=dataset.address,
+        input_values=[
+            ("in_file1", "<file1>"),
+            ("in_file2", "<file2>"),
+        ],
+        output_values=[
+            ("out_file", "sink_1"),
+        ],
+        parameter_values=[
+            ("duplicates", str(duplicates)),
+        ],
+        raise_errors=True,
+        worker="debug",
+        work_dir=str(work_dir),
+        loglevel="debug",
+        dataset_hierarchy=",".join(bp.hierarchy),
+        pipeline_name="test_pipeline",
+        save_frameset=True,
+    )
+
+    reloaded = dataset.reload()
+    sink = reloaded["sink_1"]
+    # Exactly one output for the whole dataset, not one per session row
+    assert len(sink) == 1
+    if ConcatenateTask.__name__.endswith("Reverse"):
+        fnames = [f[::-1] for f in fnames]
+    expected_contents = "\n".join(fnames * duplicates)
+    item = next(iter(sink))
+    with open(item) as f:
+        contents = f.read()
+    assert contents == expected_contents
+
+
+def test_command_execute_at_root_frequency_gathers_leaf_column(work_dir: Path) -> None:
+    """Checks that a command run with `operates_on` set to the dataset-wide root
+    frequency can source a column whose own row_frequency is finer-grained (e.g. per
+    session): since the column's frequency isn't a parent of the pipeline's, every
+    matching item across the dataset is gathered into a list and passed to the
+    pipeline as a whole, rather than the pipeline being run once per matching row.
+    """
+    num_sessions = 3
+    bp = TestDatasetBlueprint(
+        axes=TestAxes,
+        hierarchy=["abcd"],
+        dim_lengths=[1, 1, 1, num_sessions],
+        # A single entry definition is applied once per (leaf) session row, so this
+        # creates one "file" entry per session, all with the same content
+        entries=[FileBP(path="file", datatype=TextFile, filenames=["file.txt"])],
+    )
+    dataset_path = work_dir / "root_freq_gather_dataset"
+    dataset = bp.make_dataset(FileSystem(), dataset_path)
+    # The "file" column exists once per session row (its natural, leaf frequency)
+    dataset.add_source("file", datatype=TextFile, row_frequency=TestAxes.abcd)
+    dataset.save()
+
+    command_spec = ContainerCommand(
+        name="concatenate-all",
+        task="pydra2app.testing.tasks:ConcatenateTextFiles",
+        operates_on=TestAxes.__,
+        # `in_files` has to be declared explicitly since pydra2app's default source
+        # detection only recognises bare FileSet (or Union[FileSet, ...]) task
+        # inputs, not a List[FileSet] like this one
+        sources=["in_files"],
+    )
+
+    command_spec.execute(
+        address=dataset.address,
+        input_values=[
+            ("in_files", "<file>"),
+        ],
+        output_values=[
+            ("out_file", "sink_1"),
+        ],
+        raise_errors=True,
+        worker="debug",
+        work_dir=str(work_dir),
+        loglevel="debug",
+        dataset_hierarchy=",".join(bp.hierarchy),
+        pipeline_name="test_pipeline",
+        save_frameset=True,
+    )
+
+    reloaded = dataset.reload()
+    sink = reloaded["sink_1"]
+    # Exactly one output for the whole dataset, gathered from all 3 session rows
+    assert len(sink) == 1
+    item = next(iter(sink))
+    with open(item) as f:
+        contents = f.read()
+    # One "file.txt" line gathered from each of the (identical) session rows
+    assert contents.split("\n") == ["file.txt"] * num_sessions
+
+
+def test_command_execute_at_root_frequency_with_data_row(work_dir: Path) -> None:
+    """Checks that a command run with `operates_on` set to the dataset-wide root
+    frequency and a `DataRow`-typed input receives the dataset's root row itself
+    (rather than one of its session rows), giving the task direct access to every
+    entry reachable from the root of the tree.
+    """
+    filenumbers = list(range(5))
+    bp = TestDatasetBlueprint(
+        axes=TestAxes,
+        hierarchy=["abcd"],
+        dim_lengths=[1, 1, 1, 3],
+    )
+    dataset_path = work_dir / "root_freq_data_row_dataset"
+    dataset = bp.make_dataset(FileSystem(), dataset_path)
+
+    # Blueprint `entries` are always created per (leaf) session row, so the numbered
+    # files the command will operate on are inserted directly into the root row as
+    # sinks instead (mirroring how derivatives are inserted in store tests)
+    root_row = dataset.root
+    with dataset.tree:
+        for i in filenumbers:
+            entry_bp = FileBP(path=str(i), datatype=TextFile, filenames=[f"{i}.txt"])
+            dataset.add_sink(entry_bp.path, datatype=TextFile, row_frequency=TestAxes.__)
+            root_row[entry_bp.path] = entry_bp.make_item(index=i)
+    dataset.save()
+
+    def get_root_filenumbers():
+        row = dataset.root
+        return sorted(int(e.base_path.split(".")[0]) for e in row.entries)
+
+    assert get_root_filenumbers() == filenumbers
+    assert len(dataset.rows(TestAxes.abcd)) == 3  # sanity check on session rows
+
+    command_spec = ContainerCommand(
+        name="plus-10",
+        task="pydra2app.testing.tasks:Plus10ToFileNumbers",
+        operates_on=TestAxes.__,
+    )
+
+    command_spec.execute(
+        address=dataset.address,
+        raise_errors=True,
+        worker="debug",
+        work_dir=str(work_dir),
+        loglevel="debug",
+        dataset_hierarchy=",".join(bp.hierarchy),
+        pipeline_name="test_pipeline",
+    )
+
+    assert get_root_filenumbers() == [i + 10 for i in filenumbers]
+
+
 def test_command_convertible_source_types() -> None:
 
     command_spec = ContainerCommand(
