@@ -31,6 +31,7 @@ from .components import (
     ContainerCommandSource,
     ContainerCommandSink,
     ContainerCommandParameter,
+    operates_on_converter,
     sources_converter,
     sinks_converter,
     parameters_converter,
@@ -85,7 +86,11 @@ class ContainerCommand:
         eq=task_equals,
     )
     name: str = attrs.field()
-    operates_on: Axes = attrs.field()
+    operates_on: Axes = attrs.field(
+        converter=attrs.Converter(  # type: ignore[call-overload]
+            operates_on_converter, takes_self=True
+        )
+    )
     configuration: dict[str, ty.Any] = attrs.field(
         factory=dict, converter=default_if_none(dict)  # type: ignore[misc]
     )
@@ -213,19 +218,6 @@ class ContainerCommand:
                 "check its package is installed properly"
             )
         return get_fields(self.task.Outputs)
-
-    def __attrs_post_init__(self) -> None:
-        if isinstance(self.operates_on, Axes):
-            pass
-        elif isinstance(self.operates_on, str):
-            self.operates_on = Axes.fromstr(self.operates_on, axes=self.AXES)
-        elif self.AXES:
-            self.operates_on = self.AXES.default()
-        else:
-            raise ValueError(
-                f"Value for row_frequency must be provided to {type(self).__name__}.__init__ "
-                "because it doesn't have a defined AXES class attribute"
-            )
 
     @property
     def source_names(self) -> list[str]:
@@ -528,13 +520,24 @@ class ContainerCommand:
                         name=default_column_name,
                         datatype=source.type,
                         path=path,
+                        row_frequency=source.row_frequency,
                         is_regex=True,
                         **source_kwargs,
                     )
                 else:
                     logger.info("Found existing source column %s", default_column_name)
 
-            pipeline_inputs.append((column.name, source.field, source.field_type))
+            # If the source field is typed as a list (because the source column's
+            # row_frequency is finer than the pipeline's, so every matching item is
+            # gathered into a list - see `frametree.core.pipeline.SourceItems`), the
+            # `PipelineField` itself is given the per-element type: the "list-ness"
+            # is tracked independently from the column's row_frequency, and
+            # `PipelineField.datatype` only needs to describe what an individual
+            # element should be converted to/from.
+            field_type = source.field_type
+            if ty.get_origin(field_type) is list:
+                (field_type,) = ty.get_args(field_type)
+            pipeline_inputs.append((column.name, source.field, field_type))
             converter_args[column.name] = qualifiers.pop("converter", {})
             if qualifiers:
                 raise Pydra2AppUsageError(
@@ -565,6 +568,7 @@ class ContainerCommand:
                     name=sink_name,
                     datatype=sink.type,
                     path=path,
+                    row_frequency=self.operates_on,
                 )
             pipeline_outputs.append((sink_name, sink.field, sink.field_type))
             converter_args[sink_name] = qualifiers.pop("converter", {})

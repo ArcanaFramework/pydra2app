@@ -105,6 +105,31 @@ def task_converter(
     return task_cls
 
 
+def operates_on_converter(
+    value: ty.Union[Axes, str, None],
+    self_: "ContainerCommand",
+) -> Axes:
+    """Normalises `operates_on` to an `Axes` member before it is used to construct
+    dependent fields (`sources`, `sinks`, `parameters`), whose converters run later
+    in the same `__init__` but read `self_.operates_on` via `takes_self=True`. This
+    has to happen here, in `operates_on`'s own converter, rather than in
+    `__attrs_post_init__` (which runs after every field's converter), otherwise
+    those dependent fields would see the raw, unparsed value (e.g. a namespaced
+    string like 'medimage/session') whenever `operates_on` isn't already passed in
+    as an `Axes` member.
+    """
+    if isinstance(value, Axes):
+        return value
+    if isinstance(value, str):
+        return Axes.fromstr(value, axes=self_.AXES)
+    if self_.AXES:
+        return self_.AXES.default()
+    raise ValueError(
+        f"Value for row_frequency must be provided to {type(self_).__name__}.__init__ "
+        "because it doesn't have a defined AXES class attribute"
+    )
+
+
 def task_equals(
     task_cls: type[pydra.compose.base.Task],
 ) -> tuple[str, pydra.utils.general._TaskFieldsList]:
