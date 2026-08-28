@@ -85,6 +85,34 @@ and attempt to build any YAML_ files it finds, e.g.
     ./config-root-dir/mri/neuro/freesurfer.yml: Freesurfer [recon-all]
     ...
 
+To inspect the tree without building and produce a JSON build matrix, use
+``plan-builds``:
+
+.. code-block:: console
+
+    $ pydra2app plan-builds xnat 'config-root-dir' --registry ghcr.io
+    {
+      "build": [
+        "mri/neuro/fsl"
+      ],
+      "unchanged": [
+        "mri/neuro/freesurfer"
+      ]
+    }
+
+The command fails if a published spec changed without a version increment or if
+the spec version is older than the latest published image.
+
+To inspect only specs selected by a workflow while preserving their paths relative
+to the specification root, repeat ``--spec``. Extensions may be omitted:
+
+.. code-block:: console
+
+    $ pydra2app plan-builds xnat 'config-root-dir' \
+        --registry ghcr.io \
+        --spec quality-control/phi-finder \
+        --spec mri/human/neuro/monai/example
+
 
 
 Autodocs

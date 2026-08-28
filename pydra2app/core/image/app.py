@@ -358,7 +358,8 @@ class App(P2AImage):
             return [cls.load(spec_path, root_dir=root_dir, **kwargs)]
         specs = []
         for path in chain(spec_path.rglob("*.yml"), spec_path.rglob("*.yaml")):
-            if not any(p.startswith(".") for p in path.parts):
+            relative_path = path.relative_to(spec_path)
+            if not any(p.startswith(".") for p in relative_path.parts):
                 logging.info("Found container image specification file '%s'", path)
                 specs.append(cls.load(path, root_dir=root_dir, **kwargs))
 
