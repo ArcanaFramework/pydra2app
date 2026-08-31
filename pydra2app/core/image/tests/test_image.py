@@ -1,11 +1,13 @@
 import typing as ty
 from pathlib import Path
 import random
+from unittest.mock import Mock
 import docker.errors
 import os
 import logging
 from copy import copy
 from traceback import format_exc
+from pydra2app.core.exceptions import Pydra2AppBuildError
 from pydra2app.core.image import App
 from pydra2app.core.image.components import Version
 from pydra2app.core.utils import DOCKER_HUB, GITHUB_CONTAINER_REGISTRY
@@ -139,3 +141,59 @@ def test_registry_tags(
 
     app = App(registry=docker_registry, **image_spec_cpy)
     assert sorted(app.registry_tags()) == sorted(image_tags)
+
+
+def test_ghcr_registry_tags_ignores_untagged_and_paginates(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first_response = Mock(
+        status_code=200,
+        links={"next": {"url": "https://api.github.com/next-page"}},
+    )
+    first_response.json.return_value = [
+        {"metadata": {"container": {"tags": []}}},
+        {"metadata": {"container": {"tags": ["1.0.0", "latest"]}}},
+    ]
+    second_response = Mock(status_code=200, links={})
+    second_response.json.return_value = [
+        {"metadata": {"container": {"tags": ["1.1.0"]}}},
+    ]
+    get = Mock(side_effect=[first_response, second_response])
+    monkeypatch.setattr("pydra2app.core.image.base.requests.get", get)
+    app = App(
+        registry=GITHUB_CONTAINER_REGISTRY,
+        access_token="token",
+        **image_spec,
+    )
+
+    assert app.registry_tags() == ["1.0.0", "latest", "1.1.0"]
+    assert get.call_args_list[0].kwargs["params"] == {"per_page": 100}
+    assert get.call_args_list[1].kwargs["params"] is None
+
+
+def test_ghcr_registry_tags_fails_safely_on_ambiguous_404(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.requests.get",
+        Mock(return_value=Mock(status_code=404)),
+    )
+    app = App(
+        registry=GITHUB_CONTAINER_REGISTRY,
+        access_token="token",
+        **image_spec,
+    )
+
+    with pytest.raises(Pydra2AppBuildError, match="does not exist or"):
+        app.registry_tags()
+
+
+def test_latest_published_ignores_non_version_tags(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = App(**image_spec)
+    monkeypatch.setattr(
+        App, "registry_tags", Mock(return_value=["1.0.0", "latest"])
+    )
+
+    assert app.latest_published == Version.parse("1.0.0")

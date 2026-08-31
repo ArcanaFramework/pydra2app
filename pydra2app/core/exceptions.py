@@ -24,6 +24,10 @@ class Pydra2AppVersionError(Pydra2AppError):
     pass
 
 
+class Pydra2AppReleaseError(Pydra2AppVersionError):
+    pass
+
+
 class Pydra2AppRequirementNotFoundError(Pydra2AppVersionError):
     pass
 

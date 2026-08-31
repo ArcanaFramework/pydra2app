@@ -28,6 +28,8 @@ from pydra2app.core.utils import (
 )
 from pydra2app.core.command import entrypoint_opts
 from pydra2app.core import PACKAGE_NAME
+from pydra2app.core.exceptions import Pydra2AppBuildError, Pydra2AppReleaseError
+from pydra2app.core.release import plan_release, ReleaseStatus
 
 logger = logging.getLogger("pydra2app")
 
@@ -38,6 +40,156 @@ logger = logging.getLogger("pydra2app")
 def cli() -> None:
     """Base command line group, installed as "pydra2app"."""
     return None
+
+
+@cli.command(
+    name="plan-builds",
+    help="""Inspect specs and report which container images require a new build.
+
+TARGET is the App type to inspect, such as 'xnat' or 'common:App'.
+
+SPEC_PATH is a specification file or a directory containing specifications.
+""",
+)
+@click.argument("target", type=str)
+@click.argument("spec_path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--spec",
+    "selected_specs",
+    multiple=True,
+    help=(
+        "Only inspect this spec, relative to a SPEC_PATH directory. The .yaml or .yml "
+        "suffix may be omitted. Repeat to inspect multiple selected specs."
+    ),
+)
+@click.option(
+    "--registry",
+    default=DOCKER_HUB,
+    help="The Docker registry containing published pipeline images",
+)
+@click.option(
+    "--spec-root",
+    type=click.Path(path_type=Path, exists=True),
+    default=None,
+    help="The root path specs are relative to; inferred from SPEC_PATH by default",
+)
+@click.option("--loglevel", default="warning", help="The level to display logs at")
+@click.option(
+    "--access-token",
+    type=str,
+    default=None,
+    help="An access token for the Docker registry",
+    envvar="P2A_ACCESS_TOKEN",
+)
+def plan_builds(
+    target: str,
+    spec_path: Path,
+    selected_specs: ty.Sequence[str],
+    registry: str,
+    spec_root: ty.Optional[Path],
+    loglevel: str,
+    access_token: ty.Optional[str],
+) -> None:
+    logging.basicConfig(level=getattr(logging, loglevel.upper()))
+
+    spec_path = spec_path.resolve()
+    if spec_root is None:
+        spec_root = spec_path.parent if spec_path.is_dir() else spec_path.parent.parent
+    else:
+        spec_root = spec_root.resolve()
+
+    paths_to_load = [spec_path]
+    if selected_specs:
+        if not spec_path.is_dir():
+            raise click.UsageError(
+                "--spec can only be used when SPEC_PATH is a directory"
+            )
+        paths_to_load = []
+        selection_root = spec_path.resolve()
+        for selected_spec in selected_specs:
+            relative_path = Path(selected_spec)
+            if relative_path.is_absolute() or ".." in relative_path.parts:
+                raise click.BadParameter(
+                    f"{selected_spec!r} must be relative to SPEC_PATH",
+                    param_hint="--spec",
+                )
+            candidates = (
+                [relative_path]
+                if relative_path.suffix in (".yaml", ".yml")
+                else [
+                    relative_path.with_suffix(".yaml"),
+                    relative_path.with_suffix(".yml"),
+                ]
+            )
+            matches = [
+                spec_path / candidate
+                for candidate in candidates
+                if (spec_path / candidate).is_file()
+            ]
+            if not matches:
+                raise click.BadParameter(
+                    f"Could not find selected spec {selected_spec!r} under SPEC_PATH",
+                    param_hint="--spec",
+                )
+            if len(matches) > 1:
+                raise click.BadParameter(
+                    f"Selected spec {selected_spec!r} matches both .yaml and .yml files",
+                    param_hint="--spec",
+                )
+            selected_path = matches[0].resolve()
+            try:
+                selected_path.relative_to(selection_root)
+            except ValueError:
+                raise click.BadParameter(
+                    f"{selected_spec!r} resolves outside SPEC_PATH",
+                    param_hint="--spec",
+                ) from None
+            paths_to_load.append(selected_path)
+        paths_to_load = sorted(set(paths_to_load))
+
+    target_cls: ty.Type[App] = ClassResolver(App, package=PACKAGE_NAME)(target)
+    with ClassResolver.FALLBACK_TO_STR:
+        image_specs = [
+            image_spec
+            for path_to_load in paths_to_load
+            for image_spec in target_cls.load_tree(
+                path_to_load,
+                root_dir=spec_root,
+                registry=registry,
+                access_token=access_token,
+            )
+        ]
+
+    planned: ty.Dict[str, ty.List[str]] = {
+        ReleaseStatus.BUILD.value: [],
+        ReleaseStatus.UNCHANGED.value: [],
+    }
+    invalid: ty.List[str] = []
+    for image_spec in image_specs:
+        try:
+            decision = plan_release(image_spec)
+        except Pydra2AppBuildError as e:
+            raise click.ClickException(str(e)) from e
+        if spec_path.is_file():
+            spec_name = spec_path.stem
+        else:
+            spec_name = (
+                image_spec.loaded_from.relative_to(spec_path.absolute())
+                .with_suffix("")
+                .as_posix()
+            )
+        if decision.status is ReleaseStatus.INVALID:
+            assert decision.reason is not None
+            invalid.append(decision.reason)
+        else:
+            planned[decision.status.value].append(spec_name)
+
+    if invalid:
+        raise click.ClickException("\n".join(sorted(invalid)))
+
+    for specs in planned.values():
+        specs.sort()
+    click.echo(json.dumps(planned, indent=2))
 
 
 @cli.command(
@@ -411,22 +563,18 @@ def make(
 
     for image_spec in image_specs:
         image_reference = image_spec.reference
-        if (
-            check_registry
-            and image_spec.latest_published
-            and image_spec.latest_published >= image_spec.version
-        ):
-            latest_reference = f"{image_spec.path}:{image_spec.latest_published}"
-            if image_spec.matches_image(latest_reference):
+        if check_registry:
+            decision = plan_release(image_spec)
+            if decision.status is ReleaseStatus.UNCHANGED:
                 logger.info(
                     "Skipping '%s' build as identical image already exists in registry '%s'",
                     image_reference,
-                    latest_reference,
+                    f"{image_spec.path}:{decision.published_version}",
                 )
                 continue
-            image_reference = (
-                f"{image_spec.path}:{image_spec.latest_published.bump_postfix()}"
-            )
+            if decision.status is ReleaseStatus.INVALID:
+                assert decision.reason is not None
+                raise Pydra2AppReleaseError(decision.reason)
 
         spec_build_dir = (
             build_dir / image_spec.loaded_from.relative_to(spec_path.absolute())

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import typing as ty
 from pathlib import PurePath, Path, PosixPath
+from urllib.parse import quote
 import json
 import re
 import tempfile
@@ -192,15 +193,34 @@ class P2AImage:
                 "Fetching tags for '%s' from GitHub Container Registry with access token",
                 self.path,
             )
-            url = f"https://api.github.com/orgs/{self.org}/packages/container/{self.name}/versions"
+            url = (
+                f"https://api.github.com/orgs/{quote(self.org or '', safe='')}"
+                f"/packages/container/{quote(self.name, safe='')}/versions"
+            )
             headers = {
                 "Accept": "application/vnd.github.v3+json",
                 "Authorization": f"Bearer {self.access_token}",
             }
-            response = requests.get(url, headers=headers)
-            if response.status_code != 200:
-                response.raise_for_status()
-            tags = [p["metadata"]["container"]["tags"][0] for p in response.json()]
+            tags = []
+            params: ty.Optional[ty.Dict[str, int]] = {"per_page": 100}
+            while url:
+                response = requests.get(url, headers=headers, params=params)
+                if response.status_code == 404:
+                    raise Pydra2AppBuildError(
+                        f"Could not confirm whether GHCR package '{self.path}' exists: "
+                        "GitHub returned 404, which can mean either that the package "
+                        "does not exist or that the access token cannot read it"
+                    )
+                if response.status_code != 200:
+                    response.raise_for_status()
+                for package_version in response.json():
+                    tags.extend(
+                        package_version.get("metadata", {})
+                        .get("container", {})
+                        .get("tags", [])
+                    )
+                url = response.links.get("next", {}).get("url")
+                params = None
         else:
             logger.info("Fetching tags for '%s' from %s", self.path, self.registry)
             protocol = "http" if self.registry.startswith("localhost") else "https"
@@ -222,7 +242,18 @@ class P2AImage:
             self.path,
             published_tags,
         )
-        versions = sorted(Version.parse(t) for t in published_tags)
+        versions = []
+        for tag in published_tags:
+            version = Version.parse(tag)
+            try:
+                version.compare(self.version)
+            except ValueError:
+                logger.debug(
+                    "Ignoring non-version tag '%s' for '%s'", tag, self.path
+                )
+            else:
+                versions.append(version)
+        versions.sort()
         return versions[-1] if versions else None
 
     def matches_image(self, image_reference: str) -> bool:

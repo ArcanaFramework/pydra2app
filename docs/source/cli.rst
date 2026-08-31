@@ -11,6 +11,9 @@ Pydra2Apps's command line interface consists of a number of sub-commands under t
 .. click:: pydra2app.core.cli:make
    :prog: pydra2app make
 
+.. click:: pydra2app.core.cli:plan_builds
+   :prog: pydra2app plan-builds
+
 .. click:: pydra2app.core.cli:make_docs
    :prog: pydra2app make-docs
 

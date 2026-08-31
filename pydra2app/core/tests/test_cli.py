@@ -148,13 +148,10 @@ def test_deploy_remake_cli(command_spec, local_docker_registry, cli_runner, run_
         # is a clash)
         concatenate_spec["packages"] = {"system": ["vim", "git"]}
 
-        result = build_spec(concatenate_spec, catch_exceptions=False)
+        result = build_spec(concatenate_spec)
 
-        # Check that the image was rebuilt with an incremented tag
-        assert result.exit_code == 0, show_cli_trace(result)
-        rebuilt_tag = result.output.strip().splitlines()[-1]
-        assert rebuilt_tag.split(":")[-1] == "1.0-post1"
-        dc.images.remove(rebuilt_tag)
+        assert result.exit_code == 1
+        assert "without a version increment" in str(result.exception)
     finally:
         # Clean up the built images
         dc.images.remove(tag)
