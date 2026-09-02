@@ -146,7 +146,7 @@ def test_deploy_remake_cli(command_spec, local_docker_registry, cli_runner, run_
         # Modify the spec so it doesn't match the original that has just been
         # built (but don't increment the version number -> image tag so there
         # is a clash)
-        concatenate_spec["packages"] = {"system": ["vim", "git"]}
+        concatenate_spec["packages"] = {"system": ["vim"]}
 
         result = build_spec(concatenate_spec)
 
