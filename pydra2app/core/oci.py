@@ -292,6 +292,7 @@ class OCIRegistryClient:
             )
             if response.status_code == 401:
                 challenge = response.headers.get("WWW-Authenticate")
+                response.close()
                 if not challenge:
                     raise OCIRegistryError(
                         f"Registry '{self.registry}' rejected access without an "

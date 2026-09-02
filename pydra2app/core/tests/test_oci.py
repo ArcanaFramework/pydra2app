@@ -336,6 +336,34 @@ def test_anonymous_bearer_authentication() -> None:
     assert session.get.call_args.kwargs["auth"] is None
 
 
+def test_streamed_unauthorized_response_is_closed_before_authentication() -> None:
+    unauthorized = response(
+        401,
+        headers={
+            "WWW-Authenticate": (
+                'Bearer realm="https://auth.example/token",'
+                'service="registry.example",scope="repository:org/image:pull"'
+            )
+        },
+    )
+    authenticated = response(200)
+    session = Mock()
+    session.get.side_effect = [
+        unauthorized,
+        json_response({"token": "registry-token"}),
+        authenticated,
+    ]
+    client = OCIRegistryClient("registry.example/org/image:1.0", session=session)
+
+    result = client._request("/v2/org/image/manifests/1.0", stream=True)
+
+    assert unauthorized.raw.closed
+    assert result is authenticated
+    assert session.get.call_args.kwargs["headers"]["Authorization"] == (
+        "Bearer registry-token"
+    )
+
+
 def test_non_loopback_localhost_prefix_uses_https() -> None:
     client = OCIRegistryClient("localhost.attacker.example/org/image:1.0")
 
