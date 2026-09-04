@@ -117,7 +117,9 @@ def _canonicalize(
                 for item in items
             }
             return [items_by_json[key] for key in sorted(items_by_json)]
-        if not isinstance(value, bool):
+        if path not in (("version",), ("pydra2app_version",)) and not isinstance(
+            value, bool
+        ):
             if isinstance(value, Integral):
                 return int(value)
             if isinstance(value, Real):

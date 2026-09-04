@@ -106,6 +106,16 @@ def test_release_checksum_normalizes_equivalent_numeric_values() -> None:
     assert spec_sha256({"value": True}) != spec_sha256({"value": 1})
 
 
+def test_version_comparison_preserves_numeric_version_values() -> None:
+    integer = {"name": "example", "version": 1}
+    floating_point = {"name": "example", "version": 1.0}
+
+    assert canonical_spec_json(integer, check_versions=True) != canonical_spec_json(
+        floating_point, check_versions=True
+    )
+    assert spec_sha256(integer) == spec_sha256(floating_point)
+
+
 def test_release_checksum_rejects_cyclic_yaml_alias() -> None:
     spec = yaml.safe_load("""
 name: example
