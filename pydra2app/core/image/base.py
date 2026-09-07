@@ -337,6 +337,15 @@ class P2AImage:
                 f"Build dir '{str(build_dir)}' is not a valid directory"
             )
 
+        if (
+            self.packages.sciget
+            and self.base_image.name != "ghcr.io/neurodesk/neurocommand:py-stack"
+        ):
+            raise Pydra2AppBuildError(
+                "Sciget packages can currently only be installed on the "
+                "'ghcr.io/neurodesk/neurocommand:py-stack' base image"
+            )
+
         build_dir = build_dir.absolute()
 
         dockerfile = self.init_dockerfile()
@@ -348,6 +357,8 @@ class P2AImage:
         self.install_system_packages(dockerfile)
 
         self.install_package_templates(dockerfile)
+
+        self.install_sciget_packages(dockerfile)
 
         self.install_python(
             dockerfile,
@@ -756,6 +767,21 @@ class P2AImage:
             kwds = copy(kwds)
             kwds.update(kwds.pop("args", {}))
             dockerfile.add_registered_template(kwds.pop("name"), **kwds)
+
+    def install_sciget_packages(self, dockerfile: DockerRenderer) -> None:
+        """Install packages from SciGet
+
+        Parameters
+        ----------
+        dockerfile : DockerRenderer
+            the neurodocker renderer to append the install instructions to
+        """
+        for ns, pkgs in self.packages.sciget.items():
+            for pkg in pkgs:
+                raise NotImplementedError(
+                    "SciGet package installation is not yet implemented. Please install "
+                    "SciGet packages manually in a custom Dockerfile template for now."
+                )
 
     @classmethod
     def pip_spec2str(
