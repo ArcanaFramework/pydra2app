@@ -4,6 +4,7 @@ import re
 from copy import copy
 import tempfile
 import json
+import importlib
 import logging
 from pathlib import Path
 import typing as ty
@@ -203,21 +204,27 @@ class ContainerCommand:
 
     @cached_property
     def _input_fields(self) -> pydra.utils.general._TaskFieldsList:
-        if isinstance(self.task, str):
-            raise ValueError(
-                f"Task {self.task} needs to be resolved for its input fields to be listed, "
-                "check its package is installed properly"
-            )
-        return get_fields(self.task)
+        return get_fields(self._task_instance)
 
     @cached_property
     def _output_fields(self) -> pydra.utils.general._TaskFieldsList:
+        return get_fields(self._task_instance.Outputs)
+
+    @cached_property
+    def _task_instance(self) -> pydra.compose.base.Task:
         if isinstance(self.task, str):
-            raise ValueError(
-                f"Task {self.task} needs to be resolved for its output fields to be listed, "
-                "check its package is installed properly"
-            )
-        return get_fields(self.task.Outputs)
+            task_module_name = self.task.split(":")[0]
+            try:
+                task_module = importlib.import_module(task_module_name)
+            except Exception as e:
+                raise ValueError(
+                    f"Task {self.task} needs to be resolved for an instance to be created, "
+                    "check its package is installed properly and the are no import errors "
+                    f"when importing '{task_module_name}'"
+                ) from e
+            else:
+                self.task = getattr(task_module, self.task.split(":")[1])
+        return self.task
 
     @property
     def source_names(self) -> list[str]:
