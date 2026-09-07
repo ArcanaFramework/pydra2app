@@ -569,8 +569,8 @@ class ContainerCommand:
                 frameset.add_sink(
                     name=sink_name,
                     datatype=sink.type,
-                    row_frequency=self.operates_on,
                     path=path,
+                    row_frequency=self.operates_on,
                 )
             pipeline_outputs.append((sink_name, sink.field, sink.field_type))
             converter_args[sink_name] = qualifiers.pop("converter", {})

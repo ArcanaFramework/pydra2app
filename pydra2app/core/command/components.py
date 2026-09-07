@@ -274,10 +274,6 @@ class ContainerCommandSink:
     def field_type(self) -> type[DataType]:
         return self._field_object.type
 
-    @property
-    def row_frequency(self) -> Axes:
-        return self._command.operates_on
-
     def asdict(self, **kwargs: ty.Any) -> dict[str, ty.Any]:
         delta: dict[str, ty.Any] = {}
         if self.field != self.name:
