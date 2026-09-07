@@ -151,7 +151,9 @@ class ContainerCommand:
     @parameters.default  # pyright: ignore[reportAttributeAccessIssue]
     def _default_parameters(self) -> list[str]:
         non_parameters = (
-            [s.field for s in self.sources] + list(self.configuration) + [self.task._executor_name]
+            [s.field for s in self.sources]
+            + list(self.configuration)
+            + [self.task._executor_name]
         )
         return [  # pyright: ignore[reportReturnType]
             i.name
@@ -567,6 +569,7 @@ class ContainerCommand:
                 frameset.add_sink(
                     name=sink_name,
                     datatype=sink.type,
+                    row_frequency=self.operates_on,
                     path=path,
                     row_frequency=self.operates_on,
                 )

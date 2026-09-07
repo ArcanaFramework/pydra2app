@@ -24,7 +24,6 @@ from frametree.core.utils import convertible_from
 from pydra2app.core.exceptions import Pydra2AppUsageError
 from pydra2app.core import PACKAGE_NAME
 
-
 if ty.TYPE_CHECKING:
     from ..image import App
     from .base import ContainerCommand
@@ -274,6 +273,10 @@ class ContainerCommandSink:
     @property
     def field_type(self) -> type[DataType]:
         return self._field_object.type
+
+    @property
+    def row_frequency(self) -> Axes:
+        return self._command.operates_on
 
     def asdict(self, **kwargs: ty.Any) -> dict[str, ty.Any]:
         delta: dict[str, ty.Any] = {}
