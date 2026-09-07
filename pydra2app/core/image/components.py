@@ -368,6 +368,13 @@ class NeurodockerTemplate:
     args: ty.Dict[str, ty.Any] = attrs.field(factory=dict)
 
 
+@attrs.define
+class ScigetPackage(BasePackage):
+
+    name: str
+    version: str
+
+
 def python_package_converter(
     packages: ty.List[ty.Union[str, ty.Dict[str, ty.Any]]],
 ) -> ty.List[PipPackage]:
@@ -405,6 +412,17 @@ class Packages:
         factory=list,
         converter=ObjectListConverter(NeurodockerTemplate),  # type: ignore[misc]
         metadata={"serializer": ObjectListConverter.asdict},
+    )
+    sciget: dict[str, list[ScigetPackage]] = attrs.field(
+        factory=dict,
+        converter=lambda d: {
+            k: ObjectListConverter(ScigetPackage)(v) for k, v in d.items()
+        },
+        metadata={
+            "serializer": lambda d: {
+                k: ObjectListConverter.aslist(v) for k, v in d.items()
+            }
+        },
     )
 
 
