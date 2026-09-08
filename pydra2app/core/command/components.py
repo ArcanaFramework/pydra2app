@@ -24,7 +24,6 @@ from frametree.core.utils import convertible_from
 from pydra2app.core.exceptions import Pydra2AppUsageError
 from pydra2app.core import PACKAGE_NAME
 
-
 if ty.TYPE_CHECKING:
     from ..image import App
     from .base import ContainerCommand
