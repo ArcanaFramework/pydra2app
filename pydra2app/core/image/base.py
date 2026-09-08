@@ -1,7 +1,8 @@
 from __future__ import annotations
 import typing as ty
 from pathlib import PurePath, Path, PosixPath
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
+import hmac
 import json
 import re
 import tempfile
@@ -36,6 +37,14 @@ from pydra2app.core.utils import (
     extract_file_from_docker_image,
 )
 from pydra2app.core.exceptions import Pydra2AppBuildError
+from pydra2app.core.oci import (
+    OCIIntegrityError,
+    OCIRegistryClient,
+    OCIRegistryError,
+    SpecLayerStatus,
+    is_loopback_host,
+)
+from pydra2app.core.spec import canonical_spec, spec_sha256
 from .components import Packages, BaseImage, PipPackage, CondaPackage, Resource, Version
 import platform
 
@@ -76,6 +85,7 @@ class P2AImage:
     SCHEMA_VERSION = "2.0"
     PIP_DEPENDENCIES: ty.Tuple[str, ...] = ()
     DEFAULT_PYTHON_VERSION = "3.11"
+    SPEC_CHECKSUM_LABEL = "org.pydra2app.spec-sha256"
 
     name: str = attrs.field()
     version: Version = attrs.field(
@@ -97,7 +107,9 @@ class P2AImage:
     readme: ty.Optional[str] = attrs.field(default=None)
     labels: ty.Optional[ty.Dict[str, str]] = attrs.field(default=None)
     schema_version: str = attrs.field(default=SCHEMA_VERSION)
-    access_token: ty.Optional[str] = attrs.field(default=None, repr=False)
+    access_token: ty.Optional[str] = attrs.field(
+        default=None, repr=False, metadata={"asdict": False}
+    )
 
     @property
     def reference(self) -> str:
@@ -185,13 +197,10 @@ class P2AImage:
                 tags.extend(tag["name"] for tag in data["results"])
                 url = data["next"]  # Get the URL for the next page of results
         elif self.registry == GITHUB_CONTAINER_REGISTRY:
-            if not self.access_token:
-                raise Pydra2AppBuildError(
-                    "Access token is required to fetch tags from GitHub Container Registry"
-                )
             logger.info(
-                "Fetching tags for '%s' from GitHub Container Registry with access token",
+                "Fetching tags for '%s' from GitHub Container Registry%s",
                 self.path,
+                " with access token" if self.access_token else " anonymously",
             )
             url = (
                 f"https://api.github.com/orgs/{quote(self.org or '', safe='')}"
@@ -201,6 +210,8 @@ class P2AImage:
                 "Accept": "application/vnd.github.v3+json",
                 "Authorization": f"Bearer {self.access_token}",
             }
+            if not self.access_token:
+                headers.pop("Authorization")
             tags = []
             params: ty.Optional[ty.Dict[str, int]] = {"per_page": 100}
             while url:
@@ -223,7 +234,8 @@ class P2AImage:
                 params = None
         else:
             logger.info("Fetching tags for '%s' from %s", self.path, self.registry)
-            protocol = "http" if self.registry.startswith("localhost") else "https"
+            registry_host = urlsplit(f"//{self.registry}").hostname
+            protocol = "http" if is_loopback_host(registry_host) else "https"
             url = f"{protocol}://{self.registry}/v2/{self.org}/{self.name}/tags/list"
             response = requests.get(url)
             if response.status_code == 404:
@@ -248,9 +260,7 @@ class P2AImage:
             try:
                 version.compare(self.version)
             except ValueError:
-                logger.debug(
-                    "Ignoring non-version tag '%s' for '%s'", tag, self.path
-                )
+                logger.debug("Ignoring non-version tag '%s' for '%s'", tag, self.path)
             else:
                 versions.append(version)
         versions.sort()
@@ -258,6 +268,72 @@ class P2AImage:
 
     def matches_image(self, image_reference: str) -> bool:
         """Check if the specifications of two images match"""
+        expected_checksum = spec_sha256(self)
+        oci_client = OCIRegistryClient(image_reference, access_token=self.access_token)
+        try:
+            metadata = oci_client.image_metadata()
+            config = metadata.config.get("config") or {}
+            if not isinstance(config, dict):
+                raise OCIRegistryError(
+                    f"Image config for '{image_reference}' has an invalid config section"
+                )
+            labels = config.get("Labels") or {}
+            if not isinstance(labels, dict):
+                raise OCIRegistryError(
+                    f"Image config for '{image_reference}' has invalid labels"
+                )
+            published_checksum = labels.get(self.SPEC_CHECKSUM_LABEL)
+            if published_checksum is not None:
+                if not isinstance(published_checksum, str) or not re.fullmatch(
+                    r"[0-9a-f]{64}", published_checksum
+                ):
+                    raise OCIRegistryError(
+                        f"Image checksum label on '{image_reference}' is invalid"
+                    )
+                matches = hmac.compare_digest(published_checksum, expected_checksum)
+                logger.info(
+                    "Compared '%s' specification using image checksum label: %s",
+                    image_reference,
+                    "match" if matches else "different",
+                )
+                return matches
+
+            layer_result = oci_client.spec_from_small_layers(
+                metadata.layers, PosixPath(self.IN_DOCKER_SPEC_PATH)
+            )
+            if layer_result.status is SpecLayerStatus.FOUND:
+                assert layer_result.spec is not None
+                matches = hmac.compare_digest(
+                    spec_sha256(layer_result.spec), expected_checksum
+                )
+                logger.info(
+                    "Compared '%s' specification using targeted OCI layer "
+                    "inspection: %s",
+                    image_reference,
+                    "match" if matches else "different",
+                )
+                return matches
+            if layer_result.status is SpecLayerStatus.ABSENT:
+                logger.info(
+                    "Targeted OCI layer inspection confirmed that '%s' contains no "
+                    "embedded specification",
+                    image_reference,
+                )
+                return False
+        except OCIIntegrityError:
+            raise
+        except OCIRegistryError as e:
+            logger.warning(
+                "Lightweight OCI inspection failed for '%s': %s",
+                image_reference,
+                e,
+            )
+
+        logger.warning(
+            "LIGHTWEIGHT SPEC COMPARISON COULD NOT DETERMINE WHETHER '%s' MATCHES; "
+            "falling back to a full image pull, which may download many gigabytes",
+            image_reference,
+        )
         try:
             extracted_specs_file = extract_file_from_docker_image(
                 image_reference, PosixPath(self.IN_DOCKER_SPEC_PATH)
@@ -272,22 +348,18 @@ class P2AImage:
             )
             return False
         logger.info(
-            "Comparing build spec with that of existing image %s",
+            "Comparing '%s' specification using full-image extraction",
             image_reference,
         )
-        built_spec = self.load(extracted_specs_file)
-
-        changelog = self.compare_specs(built_spec, check_versions=False)
-
-        if changelog:
+        built_spec = self._load_yaml(extracted_specs_file)
+        matches = hmac.compare_digest(spec_sha256(built_spec), expected_checksum)
+        if not matches:
             logger.debug(
-                "'%s' differs from existing image '%s':\n%s",
+                "'%s' differs from existing image '%s'",
                 self.reference,
                 image_reference,
-                changelog,
             )
-            return False
-        return True
+        return matches
 
     def construct_dockerfile(
         self,
@@ -602,8 +674,11 @@ class P2AImage:
     ) -> None:
         if labels is None:
             labels = self.labels
-        if labels:
-            dockerfile.labels({k: json.dumps(v).strip('"') for k, v in labels.items()})
+        image_labels = dict(labels or {})
+        image_labels[self.SPEC_CHECKSUM_LABEL] = spec_sha256(self)
+        dockerfile.labels(
+            {k: json.dumps(v).strip('"') for k, v in image_labels.items()}
+        )
 
     def install_python(
         self,
@@ -939,24 +1014,10 @@ class P2AImage:
             the difference between the specs
         """
 
-        sdict = self.asdict()
-        odict = other.asdict()
-
-        def prep(s: ty.Dict[str, ty.Any]) -> ty.Dict[str, ty.Any]:
-            dct = {
-                k: v
-                for k, v in s.items()
-                if (not k.startswith("_") and (v or isinstance(v, bool)))
-            }
-            if check_versions:
-                if "pydra2app_version" not in dct:
-                    dct["pydra2app_version"] = __version__
-            else:
-                dct.pop("pydra2app_version", None)
-                dct.pop("version", None)
-            return dct
-
-        diff = DeepDiff(prep(sdict), prep(odict), ignore_order=True)
+        diff = DeepDiff(
+            canonical_spec(self, check_versions=check_versions),
+            canonical_spec(other, check_versions=check_versions),
+        )
         return diff
 
     @classmethod

@@ -11,7 +11,7 @@ logger = logging.getLogger("pydra2app")
 
 def extract_file_from_docker_image(
     image_tag: str, file_path: PosixPath, out_path: ty.Optional[Path] = None
-) -> Path:
+) -> ty.Optional[Path]:
     """Extracts a file from a Docker image onto the local host
 
     Parameters
@@ -64,7 +64,7 @@ def extract_file_from_docker_image(
             try:
                 stream, _ = dc.api.get_archive(container.id, str(file_path))
             except docker.errors.NotFound:
-                pass
+                return None
             else:
                 for chunk in stream:
                     f.write(chunk)

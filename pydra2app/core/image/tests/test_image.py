@@ -10,6 +10,14 @@ from traceback import format_exc
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from pydra2app.core.image import App
 from pydra2app.core.image.components import Version
+from pydra2app.core.oci import (
+    OCIIntegrityError,
+    OCIImageMetadata,
+    OCIRegistryError,
+    SpecLayerResult,
+    SpecLayerStatus,
+)
+from pydra2app.core.spec import spec_sha256
 from pydra2app.core.utils import DOCKER_HUB, GITHUB_CONTAINER_REGISTRY
 import pytest
 
@@ -171,6 +179,21 @@ def test_ghcr_registry_tags_ignores_untagged_and_paginates(
     assert get.call_args_list[1].kwargs["params"] is None
 
 
+def test_ghcr_registry_tags_supports_anonymous_public_access(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry_response = Mock(status_code=200, links={})
+    registry_response.json.return_value = [
+        {"metadata": {"container": {"tags": ["1.0.0"]}}},
+    ]
+    get = Mock(return_value=registry_response)
+    monkeypatch.setattr("pydra2app.core.image.base.requests.get", get)
+    app = App(registry=GITHUB_CONTAINER_REGISTRY, **image_spec)
+
+    assert app.registry_tags() == ["1.0.0"]
+    assert "Authorization" not in get.call_args.kwargs["headers"]
+
+
 def test_ghcr_registry_tags_fails_safely_on_ambiguous_404(
     image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -188,12 +211,253 @@ def test_ghcr_registry_tags_fails_safely_on_ambiguous_404(
         app.registry_tags()
 
 
+@pytest.mark.parametrize(
+    ("registry", "scheme"),
+    [
+        ("localhost:5000", "http"),
+        ("127.0.0.1:5000", "http"),
+        ("[::1]:5000", "http"),
+        ("localhost.attacker.example", "https"),
+    ],
+)
+def test_registry_tags_only_uses_http_for_exact_loopback_hosts(
+    image_spec: ty.Dict[str, ty.Any],
+    monkeypatch: pytest.MonkeyPatch,
+    registry: str,
+    scheme: str,
+) -> None:
+    response = Mock(status_code=200)
+    response.json.return_value = {"tags": []}
+    get = Mock(return_value=response)
+    monkeypatch.setattr("pydra2app.core.image.base.requests.get", get)
+    app = App(registry=registry, **image_spec)
+
+    assert app.registry_tags() == []
+    assert get.call_args.args[0].startswith(f"{scheme}://{registry}/")
+
+
 def test_latest_published_ignores_non_version_tags(
     image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     app = App(**image_spec)
-    monkeypatch.setattr(
-        App, "registry_tags", Mock(return_value=["1.0.0", "latest"])
-    )
+    monkeypatch.setattr(App, "registry_tags", Mock(return_value=["1.0.0", "latest"]))
 
     assert app.latest_published == Version.parse("1.0.0")
+
+
+def test_generated_dockerfile_has_spec_checksum_and_custom_labels(
+    image_spec: ty.Dict[str, ty.Any], tmp_path: Path
+) -> None:
+    app = App(labels={"org.example.custom": "custom-value"}, **image_spec)
+
+    dockerfile = app.construct_dockerfile(tmp_path)
+
+    rendered = dockerfile.render()
+    assert f'{app.SPEC_CHECKSUM_LABEL}="{spec_sha256(app)}"' in rendered
+    assert 'org.example.custom="custom-value"' in rendered
+
+
+def test_access_token_is_not_serialized_or_hashed(
+    image_spec: ty.Dict[str, ty.Any],
+) -> None:
+    without_token = App(**image_spec)
+    with_token = App(access_token="secret-token", **image_spec)
+
+    assert "access_token" not in with_token.asdict()
+    assert spec_sha256(with_token) == spec_sha256(without_token)
+
+
+@pytest.mark.parametrize("matches", [True, False])
+def test_matches_image_uses_checksum_without_full_pull(
+    image_spec: ty.Dict[str, ty.Any],
+    monkeypatch: pytest.MonkeyPatch,
+    matches: bool,
+) -> None:
+    app = App(**image_spec)
+    checksum = spec_sha256(app) if matches else "0" * 64
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {"Labels": {app.SPEC_CHECKSUM_LABEL: checksum}}},
+        layers=[],
+    )
+    client_cls = Mock(return_value=client)
+    full_pull = Mock()
+    monkeypatch.setattr("pydra2app.core.image.base.OCIRegistryClient", client_cls)
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+
+    assert app.matches_image("registry.example/org/image:1.0") is matches
+    client.spec_from_small_layers.assert_not_called()
+    full_pull.assert_not_called()
+
+
+def test_matches_image_uses_targeted_layer_for_legacy_image(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = App(**image_spec)
+    published_spec = app.asdict()
+    published_spec["version"] = "0.9"
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {"Labels": {}}},
+        layers=[{"digest": "sha256:spec", "size": 1000}],
+    )
+    client.spec_from_small_layers.return_value = SpecLayerResult(
+        SpecLayerStatus.FOUND, published_spec
+    )
+    full_pull = Mock()
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+
+    assert app.matches_image("registry.example/org/image:1.0")
+    client.spec_from_small_layers.assert_called_once()
+    full_pull.assert_not_called()
+
+
+def test_matches_image_targeted_layer_accepts_saved_legacy_spec(
+    image_spec: ty.Dict[str, ty.Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = App(**image_spec)
+    saved_spec = tmp_path / "saved.yaml"
+    app.save(saved_spec)
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {"Labels": {}}},
+        layers=[{"digest": "sha256:spec", "size": 1000}],
+    )
+    client.spec_from_small_layers.return_value = SpecLayerResult(
+        SpecLayerStatus.FOUND, App._load_yaml(saved_spec)
+    )
+    full_pull = Mock()
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+
+    assert app.matches_image("registry.example/org/image:1.0")
+    full_pull.assert_not_called()
+
+
+def test_matches_image_full_pull_only_when_lightweight_comparison_is_inconclusive(
+    image_spec: ty.Dict[str, ty.Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = App(**image_spec)
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {}},
+        layers=[{"digest": "sha256:large", "size": 10_000_000}],
+    )
+    client.spec_from_small_layers.return_value = SpecLayerResult(
+        SpecLayerStatus.INCONCLUSIVE
+    )
+    extracted_spec = tmp_path / "pydra2app-spec.yaml"
+    extracted_spec.touch()
+    full_pull = Mock(return_value=extracted_spec)
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+    monkeypatch.setattr(App, "_load_yaml", Mock(return_value=app.asdict()))
+
+    assert app.matches_image("registry.example/org/image:1.0")
+    full_pull.assert_called_once()
+
+
+def test_matches_image_returns_different_when_fallback_spec_is_missing(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = App(**image_spec)
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {}},
+        layers=[],
+    )
+    client.spec_from_small_layers.return_value = SpecLayerResult(
+        SpecLayerStatus.INCONCLUSIVE
+    )
+    full_pull = Mock(return_value=None)
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+
+    assert not app.matches_image("registry.example/org/image:1.0")
+
+
+def test_matches_image_does_not_pull_when_targeted_spec_is_absent(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = App(**image_spec)
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {}},
+        layers=[],
+    )
+    client.spec_from_small_layers.return_value = SpecLayerResult(SpecLayerStatus.ABSENT)
+    full_pull = Mock()
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+
+    assert not app.matches_image("registry.example/org/image:1.0")
+    full_pull.assert_not_called()
+
+
+def test_matches_image_falls_back_when_oci_inspection_is_unsupported(
+    image_spec: ty.Dict[str, ty.Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = App(**image_spec)
+    client = Mock()
+    client.image_metadata.side_effect = OCIRegistryError("unsupported authentication")
+    extracted_spec = tmp_path / "pydra2app-spec.yaml"
+    extracted_spec.touch()
+    full_pull = Mock(return_value=extracted_spec)
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+    monkeypatch.setattr(App, "_load_yaml", Mock(return_value=app.asdict()))
+
+    assert app.matches_image("registry.example/org/image:1.0")
+    full_pull.assert_called_once()
+
+
+def test_matches_image_surfaces_oci_integrity_failure_without_pull(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = App(**image_spec)
+    client = Mock()
+    client.image_metadata.side_effect = OCIIntegrityError("digest mismatch")
+    full_pull = Mock()
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+
+    with pytest.raises(OCIIntegrityError, match="digest mismatch"):
+        app.matches_image("registry.example/org/image:1.0")
+    full_pull.assert_not_called()

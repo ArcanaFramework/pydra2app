@@ -103,6 +103,28 @@ To inspect the tree without building and produce a JSON build matrix, use
 The command fails if a published spec changed without a version increment or if
 the spec version is older than the latest published image.
 
+Pydra2App labels newly built images with
+``org.pydra2app.spec-sha256``, a SHA-256 checksum of the canonical release
+content. The ``version`` and ``pydra2app_version`` fields are excluded from this
+checksum. As with existing spec comparison, mapping keys and collection values
+are order independent, and repeated identical collection values are ignored.
+Canonicalization rejects cyclic YAML aliases and bounds the traversal depth and
+node count. To compare a same-version published image, ``plan-builds`` uses the
+following order:
+
+#. Read the checksum label from the image's OCI config blob.
+#. For older unlabeled images, inspect all OCI layers no larger than 1 MiB for
+   ``/pydra2app-spec.yaml``.
+#. If lightweight inspection cannot decide, warn and fall back to pulling the
+   complete image.
+
+Manifest, config, and candidate layer blobs are verified against their declared
+SHA-256 digests. Both candidate compressed layers and the uncompressed spec member
+are limited to 1 MiB, and gzip expansion is limited to 8 MiB. Larger, unsupported,
+or obscured candidates trigger the full-pull fallback rather than risking a stale
+comparison. GHCR uses the configured access token when authentication is required,
+while public images can be inspected anonymously.
+
 To inspect only specs selected by a workflow while preserving their paths relative
 to the specification root, repeat ``--spec``. Extensions may be omitted:
 
