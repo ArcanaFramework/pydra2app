@@ -349,6 +349,32 @@ def test_registry_tags_returns_valid_tags() -> None:
     assert client.registry_tags() == ["1.0.0", "latest"]
 
 
+def test_registry_tags_treats_null_tags_as_empty() -> None:
+    session = Mock()
+    session.get.return_value = json_response({"name": "org/image", "tags": None})
+    client = OCIRegistryClient("registry.example/org/image:latest", session=session)
+
+    assert client.registry_tags() == []
+
+
+@pytest.mark.parametrize(
+    "tag_response",
+    [
+        b"not json",
+        json.dumps(["1.0.0"]).encode(),
+        json.dumps({"tags": "1.0.0"}).encode(),
+        json.dumps({"tags": ["1.0.0", 2]}).encode(),
+    ],
+)
+def test_registry_tags_rejects_invalid_responses(tag_response: bytes) -> None:
+    session = Mock()
+    session.get.return_value = response(200, tag_response)
+    client = OCIRegistryClient("registry.example/org/image:latest", session=session)
+
+    with pytest.raises(OCIRegistryError, match="invalid tag-list JSON|invalid tag list"):
+        client.registry_tags()
+
+
 def test_registry_tags_rejects_unauthenticated_404() -> None:
     session = Mock()
     session.get.return_value = response(404)
