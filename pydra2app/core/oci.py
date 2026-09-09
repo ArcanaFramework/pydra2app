@@ -44,6 +44,10 @@ class OCIRegistryError(Pydra2AppBuildError):
     """An OCI registry response could not be safely processed."""
 
 
+class OCIRepositoryNotFound(OCIRegistryError):
+    """An authenticated OCI request confirmed that a repository is absent."""
+
+
 class OCIBlobTooLarge(OCIRegistryError):
     """An OCI blob exceeded the permitted lightweight-inspection size."""
 
@@ -142,6 +146,38 @@ class OCIRegistryClient:
                 f"Image config for '{self.repository}:{self.reference}' is not a mapping"
             )
         return OCIImageMetadata(config=config, layers=layers)
+
+    def registry_tags(self) -> ty.List[str]:
+        """List repository tags, returning an empty list for confirmed absence."""
+        try:
+            response = self._request(
+                f"/v2/{_quote_repository(self.repository)}/tags/list",
+                stream=True,
+                authenticated_not_found=True,
+            )
+        except OCIRepositoryNotFound:
+            return []
+        content = self._read_bounded_response(response, MAX_MANIFEST_SIZE)
+        try:
+            data = json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise OCIRegistryError(
+                f"Registry returned invalid tag-list JSON for '{self.repository}'"
+            ) from e
+        if not isinstance(data, dict):
+            raise OCIRegistryError(
+                f"Registry returned an invalid tag list for '{self.repository}'"
+            )
+        tags = data.get("tags")
+        if tags is None:
+            return []
+        if not isinstance(tags, list) or not all(
+            isinstance(tag, str) for tag in tags
+        ):
+            raise OCIRegistryError(
+                f"Registry returned an invalid tag list for '{self.repository}'"
+            )
+        return tags
 
     def spec_from_small_layers(
         self,
@@ -278,6 +314,7 @@ class OCIRegistryClient:
         *,
         headers: ty.Optional[ty.Dict[str, str]] = None,
         stream: bool = False,
+        authenticated_not_found: bool = False,
     ) -> requests.Response:
         url = f"{self.scheme}://{self.api_registry}{path}"
         request_headers = {"Accept-Encoding": "identity", **(headers or {})}
@@ -312,6 +349,17 @@ class OCIRegistryClient:
                 f"'{self.registry}': {e}"
             ) from e
         if response.status_code == 404:
+            if authenticated_not_found and self._authorization:
+                raise OCIRepositoryNotFound(
+                    f"OCI repository '{self.repository}' was not found in registry "
+                    f"'{self.registry}' after successful authentication"
+                )
+            if authenticated_not_found:
+                raise OCIRegistryError(
+                    f"Could not confirm whether OCI repository '{self.repository}' "
+                    f"exists in registry '{self.registry}': the registry returned 404 "
+                    "before authentication"
+                )
             raise OCIRegistryError(
                 f"OCI manifest or blob for '{self.repository}:{self.reference}' "
                 f"was not found in registry '{self.registry}'"

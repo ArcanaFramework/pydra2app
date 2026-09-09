@@ -194,12 +194,40 @@ def test_ghcr_registry_tags_supports_anonymous_public_access(
     assert "Authorization" not in get.call_args.kwargs["headers"]
 
 
-def test_ghcr_registry_tags_fails_safely_on_ambiguous_404(
+def test_ghcr_registry_tags_returns_empty_when_oci_confirms_package_absent(
     image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         "pydra2app.core.image.base.requests.get",
         Mock(return_value=Mock(status_code=404)),
+    )
+    client = Mock()
+    client.registry_tags.return_value = []
+    client_cls = Mock(return_value=client)
+    monkeypatch.setattr("pydra2app.core.image.base.OCIRegistryClient", client_cls)
+    app = App(
+        registry=GITHUB_CONTAINER_REGISTRY,
+        access_token="token",
+        **image_spec,
+    )
+
+    assert app.registry_tags() == []
+    client_cls.assert_called_once_with(app.reference, access_token="token")
+
+
+def test_ghcr_registry_tags_surfaces_oci_access_denial(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.requests.get",
+        Mock(return_value=Mock(status_code=404)),
+    )
+    client = Mock()
+    client.registry_tags.side_effect = OCIRegistryError(
+        "OCI registry 'ghcr.io' denied access"
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
     )
     app = App(
         registry=GITHUB_CONTAINER_REGISTRY,
@@ -207,7 +235,7 @@ def test_ghcr_registry_tags_fails_safely_on_ambiguous_404(
         **image_spec,
     )
 
-    with pytest.raises(Pydra2AppBuildError, match="does not exist or"):
+    with pytest.raises(Pydra2AppBuildError, match="denied access"):
         app.registry_tags()
 
 

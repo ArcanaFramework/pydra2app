@@ -217,11 +217,10 @@ class P2AImage:
             while url:
                 response = requests.get(url, headers=headers, params=params)
                 if response.status_code == 404:
-                    raise Pydra2AppBuildError(
-                        f"Could not confirm whether GHCR package '{self.path}' exists: "
-                        "GitHub returned 404, which can mean either that the package "
-                        "does not exist or that the access token cannot read it"
-                    )
+                    return OCIRegistryClient(
+                        self.reference,
+                        access_token=self.access_token,
+                    ).registry_tags()
                 if response.status_code != 200:
                     response.raise_for_status()
                 for package_version in response.json():
