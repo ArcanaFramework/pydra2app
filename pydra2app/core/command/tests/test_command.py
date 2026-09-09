@@ -20,8 +20,61 @@ from frametree.core.frameset import FrameSet
 from frametree.file_system import FileSystem
 from frametree.testing import TestAxes
 from pydra2app.core.command.base import ContainerCommand
+from pydra2app.core.command.components import task_serializer
 from pydra2app.core import App
 from frametree.core.exceptions import FrameTreeDataMatchError
+from frametree.core.serialize import ClassResolver
+from pydra.utils import get_fields
+
+
+def test_unresolved_python_task_roundtrip() -> None:
+    task_definition = {
+        "type": "python",
+        "function": "missing_package.module:task_function",
+        "inputs": {
+            "in_file": {"type": TextFile},
+            "threshold": {"type": int},
+            "mode": {"type": str},
+        },
+        "outputs": {"out_file": {"type": TextFile}},
+    }
+
+    with ClassResolver.FALLBACK_TO_STR:
+        commands = [
+            ContainerCommand(
+                name="deferred",
+                task=task_definition,
+                operates_on=TestAxes.__,
+                configuration={"mode": "fast"},
+                sources={"source": {"field": "in_file"}},
+                sinks={"sink": {"field": "out_file"}},
+                parameters={"threshold": {}},
+            )
+            for _ in range(2)
+        ]
+        unnamed_command = ContainerCommand(
+            task={
+                "type": "python",
+                "function": "missing_package.module:meaningful_name",
+            },
+            operates_on=TestAxes.__,
+        )
+
+    for command in commands:
+        assert [field.name for field in get_fields(command.task)] == [
+            "in_file",
+            "threshold",
+            "mode",
+            "function",
+        ]
+        assert [field.name for field in get_fields(command.task.Outputs)] == ["out_file"]
+        assert command.source_names == ["source"]
+        assert command.sink_names == ["sink"]
+        assert command.parameter_names == ["threshold"]
+        assert task_serializer(command.task) == task_definition
+    assert task_definition["function"] == "missing_package.module:task_function"
+    assert task_definition["inputs"]["in_file"] == {"type": TextFile}
+    assert unnamed_command.name == "meaningful_name"
 
 
 def test_command_execute(

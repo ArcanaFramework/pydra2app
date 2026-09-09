@@ -70,6 +70,29 @@ def is_subclass_or_union(
 logger = logging.getLogger("pydra2app")
 
 DEFAULT_TASK_NAME = "ContainerCommandTask"
+DEFERRED_TASK_DEFINITION = "__pydra2app_deferred_definition__"
+
+
+def _make_deferred_python_task(address: str) -> ty.Callable[..., ty.NoReturn]:
+    def deferred_task(**kwargs: ty.Any):
+        raise RuntimeError("Deferred Python tasks cannot be executed on the build host")
+
+    deferred_task.__name__ = address.rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+    return deferred_task
+
+
+def _copy_task_definition(
+    task_definition: dict[str, ty.Any],
+) -> dict[str, ty.Any]:
+    copied = task_definition.copy()
+    for fields_name in ("inputs", "outputs"):
+        fields = copied.get(fields_name)
+        if isinstance(fields, dict):
+            copied[fields_name] = {
+                name: field.copy() if isinstance(field, dict) else field
+                for name, field in fields.items()
+            }
+    return copied
 
 
 def task_converter(
@@ -84,9 +107,16 @@ def task_converter(
             package=PACKAGE_NAME,
         )(task_class)
     elif isinstance(task_class, dict):
+        deferred_definition = None
 
         if task_class["type"] == "python":
-            task_class["function"] = ClassResolver.fromstr(task_class["function"])
+            function = ClassResolver.fromstr(task_class["function"])
+            if isinstance(function, str):
+                deferred_definition = _copy_task_definition(task_class)
+                task_class = _copy_task_definition(task_class)
+                task_class["function"] = _make_deferred_python_task(function)
+            else:
+                task_class["function"] = function
 
         for field_dct in list(task_class.get("inputs", {}).values()) + list(
             task_class.get("outputs", {}).values()
@@ -97,6 +127,8 @@ def task_converter(
                     field_dct["type"] = ClassResolver.fromstr(type_)
 
         task_cls = structure(task_class)
+        if deferred_definition is not None:
+            setattr(task_cls, DEFERRED_TASK_DEFINITION, deferred_definition)
     elif issubclass(task_class, pydra.compose.base.Task):
         task_cls = task_class
     else:
@@ -131,8 +163,11 @@ def operates_on_converter(
 
 def task_equals(
     task_cls: type[pydra.compose.base.Task],
-) -> tuple[str, pydra.utils.general._TaskFieldsList]:
+) -> ty.Any:
     """Used to compare task classes to see if they are equivalent."""
+    deferred_definition = task_cls.__dict__.get(DEFERRED_TASK_DEFINITION)
+    if deferred_definition is not None:
+        return deferred_definition
     return task_cls._task_type(), get_fields(task_cls)
 
 
@@ -156,6 +191,9 @@ def task_serializer(
         of the task definition if the import location is not available (i.e. the task was
         dynamically created)
     """
+    deferred_definition = task_cls.__dict__.get(DEFERRED_TASK_DEFINITION)
+    if deferred_definition is not None:
+        return _copy_task_definition(deferred_definition)
     try:
         address: str = ClassResolver.tostr(task_cls, strip_prefix=False)
     except FrametreeCannotSerializeDynamicDefinitionError:
