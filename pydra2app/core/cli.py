@@ -34,6 +34,29 @@ from pydra2app.core.release import plan_release, ReleaseStatus
 logger = logging.getLogger("pydra2app")
 
 
+# Matches PEP 440 comparison operators that can appear in a
+# "<package-name><op><version>" CLI argument, e.g. "pydra>=1.0a9"
+PIP_VER_SPLIT_RE = re.compile(r"(>=|<=|==|~=|!=|===|>|<)")
+
+
+def split_pip_versions(packages: ty.List[str]) -> ty.Dict[str, ty.Optional[str]]:
+    """Split a list of "<package-name>[<op><version>]" strings (as accepted by
+    the `--packages-pip`/`--packages-system`/`--packages-conda` CLI options)
+    into a dict mapping package name to version specifier, preserving the
+    comparison operator (e.g. "pydra>=1.0a9" -> {"pydra": ">=1.0a9"}) rather
+    than just the version number, which would always be interpreted as an
+    exact pin downstream"""
+    dct: ty.Dict[str, ty.Optional[str]] = {}
+    for p in packages:
+        name, operator, version = (
+            PIP_VER_SPLIT_RE.split(p, maxsplit=1)
+            if PIP_VER_SPLIT_RE.search(p)
+            else (p, "", None)
+        )
+        dct[name] = operator + version if version is not None else None
+    return dct
+
+
 # Define the base CLI entrypoint
 @click.group()
 @click.version_option(version=__version__)
@@ -1117,14 +1140,6 @@ def bootstrap(
             fields_dict[field_name] = dict(unwrap_attrs)
         return fields_dict
 
-    ver_split_re = re.compile(r">=|<=|==|>|<")
-
-    def split_versions(packages: ty.List[str]) -> ty.Dict[str, ty.Optional[str]]:
-        return dict(
-            tuple(ver_split_re.split(p, maxsplit=1)) if "=" in p else (p, None)  # type: ignore[misc]
-            for p in packages
-        )
-
     task: ty.Union[str, ty.Dict[str, ty.Any]] = command_task
 
     if match := re.match(r"(\w+)::(.*)", command_task):
@@ -1148,10 +1163,10 @@ def bootstrap(
         "authors": [{"name": a[0], "email": a[1]} for a in authors],
         "base_image": dict(base_image),
         "packages": {
-            "pip": split_versions(packages_pip),
-            "system": split_versions(packages_system),
-            "neurodocker": split_versions(packages_neurodocker),
-            "conda": split_versions(packages_conda),
+            "pip": split_pip_versions(packages_pip),
+            "system": split_pip_versions(packages_system),
+            "neurodocker": split_pip_versions(packages_neurodocker),
+            "conda": split_pip_versions(packages_conda),
         },
         "commands": {
             name: {

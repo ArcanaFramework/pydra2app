@@ -888,7 +888,9 @@ class P2AImage:
         if pip_spec.extras:
             pip_str += "[" + ",".join(pip_spec.extras) + "]"
         if pip_spec.version:
-            pip_str += "==" + pip_spec.version
+            # `pip_spec.version` is already a full version specifier (e.g.
+            # "==1.0.1" or ">=1.0.1"), see `pip_package_version_converter`
+            pip_str += pip_spec.version
         return pip_str
 
     # @classmethod
