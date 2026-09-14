@@ -738,7 +738,9 @@ class P2AImage:
                 conda_strs.append(pkg_name)
 
         conda_strs.extend(
-            f"{p.name}={p.version}" if p.version is not None else p.name
+            # `p.version` is already a full match-spec constraint (e.g.
+            # "=1.21" or ">=1.21"), see `conda_package_version_converter`
+            f"{p.name}{p.version}" if p.version is not None else p.name
             for p in self.packages.conda
         )
 

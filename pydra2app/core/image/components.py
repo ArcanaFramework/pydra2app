@@ -386,10 +386,32 @@ class SystemPackage(BasePackage):
     pass
 
 
+# Recognised conda match-spec comparison operators. Longer operators must be
+# listed before any operator they are a prefix of, so the regex alternation
+# picks the longest match (e.g. "==" before "=", "<=" before "<")
+CONDA_VERSION_OPERATOR_RE = re.compile(r"^\s*(==|!=|<=|>=|<|>|=)")
+
+
+def conda_package_version_converter(v: ty.Optional[str]) -> ty.Optional[str]:
+    """Normalise a conda package version into a full match-spec version
+    constraint, treating a bare version number (no comparison operator) as
+    conda's "starts with" pin for backwards compatibility, e.g.
+    "1.21" -> "=1.21", while leaving an explicit constraint such as
+    ">=1.21" or "==1.21.0" untouched"""
+    if v is None:
+        return None
+    v = str(v)
+    if not CONDA_VERSION_OPERATOR_RE.match(v):
+        v = "=" + v
+    return v
+
+
 @attrs.define
 class CondaPackage(BasePackage):
 
     REQUIRED = ["pip"]
+
+    version: str = attrs.field(default=None, converter=conda_package_version_converter)
 
 
 @attrs.define
