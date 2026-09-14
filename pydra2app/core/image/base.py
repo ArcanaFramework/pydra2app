@@ -164,7 +164,6 @@ class P2AImage:
         if build_dir.exists():
             shutil.rmtree(build_dir)
         build_dir.mkdir()
-
         dockerfile = self.construct_dockerfile(build_dir, **kwargs)
 
         image_reference = reference if reference is not None else self.reference
