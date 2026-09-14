@@ -2,6 +2,7 @@ from __future__ import annotations
 import typing as ty
 from pathlib import Path, PurePath
 import packaging.utils
+import packaging.specifiers
 import json
 import importlib_metadata
 import logging
@@ -209,15 +210,46 @@ def pip_package_extras_converter(
     return list(extras)
 
 
+# Recognised PEP 440 comparison operators that can prefix a version specifier
+PIP_VERSION_OPERATOR_RE = re.compile(r"^\s*(==|!=|<=|>=|~=|===|<|>)")
+
+
+def pip_package_version_converter(v: ty.Optional[str]) -> ty.Optional[str]:
+    """Normalise a pip package version into a full version specifier, treating
+    a bare version number (no comparison operator) as an exact pin for
+    backwards compatibility, e.g. "1.0.1" -> "==1.0.1", while leaving an
+    explicit specifier such as ">=1.0.1" untouched"""
+    if v is None:
+        return None
+    v = str(v)
+    if not PIP_VERSION_OPERATOR_RE.match(v):
+        v = "==" + v
+    return v
+
+
 @attrs.define
 class PipPackage(BasePackage):
     """Specification of a Python package"""
 
+    version: str = attrs.field(default=None, converter=pip_package_version_converter)
     url: ty.Optional[str] = None
     file_path: ty.Optional[str] = None
     extras: ty.List[str] = attrs.field(
         factory=list, converter=pip_package_extras_converter
     )
+
+    @version.validator
+    def version_validator(
+        self, _: attrs.Attribute[ty.Optional[str]], version: ty.Optional[str]
+    ) -> None:
+        if version is not None:
+            try:
+                packaging.specifiers.SpecifierSet(version)
+            except packaging.specifiers.InvalidSpecifier as e:
+                raise ValueError(
+                    f"Invalid version specifier '{version}' for pip package "
+                    f"'{self.name}': {e}"
+                ) from e
 
     @classmethod
     def unique(
@@ -354,10 +386,32 @@ class SystemPackage(BasePackage):
     pass
 
 
+# Recognised conda match-spec comparison operators. Longer operators must be
+# listed before any operator they are a prefix of, so the regex alternation
+# picks the longest match (e.g. "==" before "=", "<=" before "<")
+CONDA_VERSION_OPERATOR_RE = re.compile(r"^\s*(==|!=|<=|>=|<|>|=)")
+
+
+def conda_package_version_converter(v: ty.Optional[str]) -> ty.Optional[str]:
+    """Normalise a conda package version into a full match-spec version
+    constraint, treating a bare version number (no comparison operator) as
+    conda's "starts with" pin for backwards compatibility, e.g.
+    "1.21" -> "=1.21", while leaving an explicit constraint such as
+    ">=1.21" or "==1.21.0" untouched"""
+    if v is None:
+        return None
+    v = str(v)
+    if not CONDA_VERSION_OPERATOR_RE.match(v):
+        v = "=" + v
+    return v
+
+
 @attrs.define
 class CondaPackage(BasePackage):
 
     REQUIRED = ["pip"]
+
+    version: str = attrs.field(default=None, converter=conda_package_version_converter)
 
 
 @attrs.define

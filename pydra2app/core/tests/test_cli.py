@@ -15,9 +15,36 @@ from pydra2app.core.cli import (
     make,
     make_docs,
     bootstrap,
+    split_pip_versions,
 )
 import fileformats.extras.testing  # noqa: F401
 from frametree.core.utils import show_cli_trace
+
+
+@pytest.mark.parametrize(
+    "packages,expected",
+    [
+        (["pydra"], {"pydra": None}),
+        (["pydra==1.0a9"], {"pydra": "==1.0a9"}),
+        (["pydra>=1.0a9"], {"pydra": ">=1.0a9"}),
+        (["pydra<=1.0a9"], {"pydra": "<=1.0a9"}),
+        (["pydra~=1.0"], {"pydra": "~=1.0"}),
+        (["pydra!=1.0a9"], {"pydra": "!=1.0a9"}),
+        (["pydra>1.0a9"], {"pydra": ">1.0a9"}),
+        (["pydra<1.0a9"], {"pydra": "<1.0a9"}),
+        (
+            ["pydra>=1.0a9", "pydra2app"],
+            {"pydra": ">=1.0a9", "pydra2app": None},
+        ),
+    ],
+)
+def test_split_pip_versions(
+    packages: list[str], expected: dict[str, str | None]
+) -> None:
+    """The comparison operator of a "<package-name><op><version>" CLI argument
+    should be preserved in the resulting version specifier, not just the
+    version number, which would always be interpreted as an exact pin"""
+    assert split_pip_versions(packages) == expected
 
 
 # @pytest.mark.xfail(reason="Need to fix a couple of things after syntax changes")

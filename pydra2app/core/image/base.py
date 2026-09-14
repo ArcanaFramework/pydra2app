@@ -164,7 +164,6 @@ class P2AImage:
         if build_dir.exists():
             shutil.rmtree(build_dir)
         build_dir.mkdir()
-
         dockerfile = self.construct_dockerfile(build_dir, **kwargs)
 
         image_reference = reference if reference is not None else self.reference
@@ -739,7 +738,9 @@ class P2AImage:
                 conda_strs.append(pkg_name)
 
         conda_strs.extend(
-            f"{p.name}={p.version}" if p.version is not None else p.name
+            # `p.version` is already a full match-spec constraint (e.g.
+            # "=1.21" or ">=1.21"), see `conda_package_version_converter`
+            f"{p.name}{p.version}" if p.version is not None else p.name
             for p in self.packages.conda
         )
 
@@ -888,7 +889,9 @@ class P2AImage:
         if pip_spec.extras:
             pip_str += "[" + ",".join(pip_spec.extras) + "]"
         if pip_spec.version:
-            pip_str += "==" + pip_spec.version
+            # `pip_spec.version` is already a full version specifier (e.g.
+            # "==1.0.1" or ">=1.0.1"), see `pip_package_version_converter`
+            pip_str += pip_spec.version
         return pip_str
 
     # @classmethod
