@@ -261,6 +261,8 @@ class P2AImage:
                 logger.debug("Ignoring non-version tag '%s' for '%s'", tag, self.path)
             else:
                 versions.append(version)
+        if self.registry == GITHUB_CONTAINER_REGISTRY:
+            return versions[0] if versions else None
         versions.sort()
         return versions[-1] if versions else None
 

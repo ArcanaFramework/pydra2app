@@ -273,6 +273,27 @@ def test_latest_published_ignores_non_version_tags(
     assert app.latest_published == Version.parse("1.0.0")
 
 
+def test_ghcr_latest_published_uses_newest_release_line(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = App(registry=GITHUB_CONTAINER_REGISTRY, **image_spec)
+    monkeypatch.setattr(
+        App,
+        "registry_tags",
+        Mock(
+            return_value=[
+                "latest",
+                "0.1.16",
+                "0.1.15",
+                "2025.7.2.post3",
+                "2025.7.2",
+            ]
+        ),
+    )
+
+    assert app.latest_published == Version.parse("0.1.16")
+
+
 def test_generated_dockerfile_has_spec_checksum_and_custom_labels(
     image_spec: ty.Dict[str, ty.Any], tmp_path: Path
 ) -> None:
