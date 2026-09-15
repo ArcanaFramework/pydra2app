@@ -19,6 +19,23 @@ from frametree.core.serialize import ObjectListConverter
 logger = logging.getLogger("pydra2app")
 
 
+def url_validator(_: ty.Any, attribute: attrs.Attribute[ty.Any], value: ty.Any) -> None:
+    """Checks that the value is a http(s) URL with a host"""
+    if not isinstance(value, str):
+        raise TypeError(
+            f"Invalid URL for '{attribute.name}': expected a str, not {type(value)}"
+        )
+    parsed = urlparse(value)
+    if (
+        parsed.scheme not in ("http", "https")
+        or not parsed.netloc
+        or any(c.isspace() for c in value)
+    ):
+        raise ValueError(
+            f"Invalid URL for '{attribute.name}': {value!r} (expected http(s)://host/...)"
+        )
+
+
 @attrs.define(kw_only=True)
 class BaseImage:
 
@@ -105,27 +122,21 @@ class ContainerAuthor:
 class KnownIssue:
 
     description: str
-    url: ty.Optional[str] = None
+    url: ty.Optional[str] = attrs.field(
+        default=None, validator=attrs.validators.optional(url_validator)
+    )
 
 
 @attrs.define
 class Docs:
 
-    info_url: str = attrs.field()
+    info_url: str = attrs.field(validator=url_validator)
     description: ty.Optional[str] = None
     known_issues: ty.List[KnownIssue] = attrs.field(
         factory=list,
         converter=ObjectListConverter(KnownIssue),  # type: ignore[misc]
         metadata={"serializer": ObjectListConverter.aslist},
     )
-
-    @info_url.validator
-    def info_url_validator(self, _: attrs.Attribute[str], info_url: str) -> None:
-        parsed = urlparse(info_url)
-        if not parsed.scheme or not parsed.netloc:
-            raise ValueError(
-                f"Could not parse info url '{info_url}', please include URL scheme"
-            )
 
 
 def optional_path_converter(value: ty.Optional[str]) -> ty.Optional[Path]:
@@ -160,19 +171,11 @@ class License:
     name: str = attrs.field()
     destination: PurePath = attrs.field(converter=PurePath)
     description: str = attrs.field()
-    info_url: str = attrs.field()
+    info_url: str = attrs.field(validator=url_validator)
     source: ty.Optional[Path] = attrs.field(
         default=None, converter=optional_path_converter
     )
     store_in_image: bool = False
-
-    @info_url.validator
-    def info_url_validator(self, _: attrs.Attribute[str], info_url: str) -> None:
-        parsed = urlparse(info_url)
-        if not parsed.scheme or not parsed.netloc:
-            raise ValueError(
-                f"Could not parse info url '{info_url}', please include URL scheme"
-            )
 
     # FIXME: this doesn't work inside images
     # @source.validator
@@ -471,6 +474,9 @@ class Resource:
     name: str
     path: Path  # the path to the resource within the container
     description: str = ""
+    url: ty.Optional[str] = attrs.field(
+        default=None, validator=attrs.validators.optional(url_validator)
+    )
 
 
 @attrs.define
@@ -484,7 +490,7 @@ class Version:
     def parse(cls, version: ty.Union[str, Self]) -> Self:
         if not isinstance(version, str):
             if not isinstance(version, cls):
-                raise ValueError(
+                raise TypeError(
                     f"Cannot parse version from object of type {type(version)}"
                 )
             return version
