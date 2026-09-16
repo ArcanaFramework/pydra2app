@@ -100,6 +100,9 @@ line-length = 88
 target-version = ["py37"]
 exclude = "_version.py"
 
+[tool.isort]
+profile = "black"
+
 [tool.flake8]
 doctests = true
 per-file-ignores = ["__init__.py:F401"]
