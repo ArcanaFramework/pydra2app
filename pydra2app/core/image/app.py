@@ -1,30 +1,29 @@
 from __future__ import annotations
-import typing as ty
-from pathlib import Path
-from itertools import chain
-import re
+
 import logging
+import re
 import shutil
+import typing as ty
+from itertools import chain
+from pathlib import Path
+from typing import Self
+
 import attrs
-import yaml
 import toml
-from neurodocker.reproenv import DockerRenderer
-from pydra2app.core import __version__
-from frametree.core.serialize import (
-    ObjectConverter,
-    ObjectListConverter,
-    ClassResolver,
-)
-from typing_extensions import Self
+import yaml
 from fileformats.core import DataType, to_mime
 from frametree.core.axes import Axes
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
+from frametree.core.serialize import ClassResolver, ObjectConverter, ObjectListConverter
+from neurodocker.reproenv import DockerRenderer
 from pydra.utils.typing import is_optional, optional_type
+
+from pydra2app.core import __version__
 from pydra2app.core.utils import is_relative_to
+
 from ..command.base import ContainerCommand
 from .base import P2AImage
-from .components import ContainerAuthor, License, Docs, PipPackage
-
+from .components import ContainerAuthor, Docs, License, PipPackage
 
 logger = logging.getLogger("pydra2app")
 

@@ -1,35 +1,32 @@
 from __future__ import annotations
-import os
+
 import inspect
 import logging
+import os
 import typing as ty
+
 import attrs
-import pydra.compose.base
-from fileformats.core import DataType, Field
 import fileformats.field as ffield
-from pydra.utils import get_fields, structure, unstructure
-from pydra.utils.typing import is_fileset_or_union
+import pydra.compose.base
 import pydra.utils.general
-from pydra.compose.base import Arg, Out
-from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
-from pydra.utils.typing import (
-    is_union,
-    is_optional,
-    is_container,
-)  # , is_subclass_or_union
-from frametree.core.serialize import ClassResolver
-from frametree.core.row import DataRow
+from fileformats.core import DataType, Field
 from frametree.core.axes import Axes
+from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
+from frametree.core.row import DataRow
+from frametree.core.serialize import ClassResolver
 from frametree.core.utils import convertible_from
-from pydra2app.core.exceptions import Pydra2AppUsageError
+from pydra.compose.base import Arg, Out
+from pydra.utils import get_fields, structure, unstructure
+from pydra.utils.typing import is_container, is_optional, is_union
+
 from pydra2app.core import PACKAGE_NAME
+from pydra2app.core.exceptions import Pydra2AppUsageError
 
 if ty.TYPE_CHECKING:
-    from ..image import App
     from .base import ContainerCommand
 
 
-# Just until this gets added to Pydra
+# Just until this gets added to Pydra, as pydra.utils.typing.is_subclass_or_union
 
 
 def is_subclass_or_union(
@@ -68,6 +65,8 @@ def is_subclass_or_union(
 
 
 logger = logging.getLogger("pydra2app")
+
+D = ty.TypeVar("D")
 
 DEFAULT_TASK_NAME = "ContainerCommandTask"
 DEFERRED_TASK_DEFINITION = "__pydra2app_deferred_definition__"
@@ -165,6 +164,8 @@ def task_equals(
     task_cls: type[pydra.compose.base.Task],
 ) -> ty.Any:
     """Used to compare task classes to see if they are equivalent."""
+    if isinstance(task_cls, str):
+        return task_cls  # task couldn't be resolved in the current environment
     deferred_definition = task_cls.__dict__.get(DEFERRED_TASK_DEFINITION)
     if deferred_definition is not None:
         return deferred_definition
@@ -191,6 +192,8 @@ def task_serializer(
         of the task definition if the import location is not available (i.e. the task was
         dynamically created)
     """
+    if isinstance(task_cls, str):
+        return task_cls  # task couldn't be resolved in the current environment
     deferred_definition = task_cls.__dict__.get(DEFERRED_TASK_DEFINITION)
     if deferred_definition is not None:
         return _copy_task_definition(deferred_definition)
@@ -254,10 +257,41 @@ class ContainerCommandSource:
         )
 
 
+def deferred_definitions(value: ty.Any, klass: ty.Type[D]) -> list[D]:
+    """Source/sink/parameter definitions that couldn't be matched against the fields of
+    the task they belong to, because the task couldn't be imported in the current
+    environment (see `ContainerCommand.deferred`). They are held, and serialised back,
+    exactly as they were specified, so that they can be resolved against the task inside
+    the image being built without any of the details they were specified with being lost
+
+    Parameters
+    ----------
+    value : Any
+        the definitions as they were provided to the command
+    klass : type
+        the class the definitions would have been resolved into. The raw definitions
+        are cast to it, as they are held in the field that would have held them
+
+    Returns
+    -------
+    list[D]
+        the definitions unaltered, or an empty list if none were provided
+    """
+    return ty.cast("list[D]", [] if value is None else value)
+
+
+def is_deferred_definitions(value: ty.Any, klass: ty.Type[D]) -> bool:
+    """Whether the definitions held by a command are unresolved ones that have been
+    passed through by `deferred_definitions`, instead of objects of the given class"""
+    return not all(isinstance(v, klass) for v in value)
+
+
 def sources_converter(
     value: dict[str, ty.Any] | ty.Collection[str],
     self_: "ContainerCommand",
 ) -> list[ContainerCommandSource]:
+    if self_.deferred:
+        return deferred_definitions(value, ContainerCommandSource)
     if value is None:
         value = self_._default_sources()
     if isinstance(value, ty.Sequence):
@@ -288,6 +322,8 @@ def sources_serialiser(
 ) -> list[str] | dict[str, ContainerCommandSource] | None:
     if not sources:
         return None
+    if is_deferred_definitions(sources, ContainerCommandSource):
+        return sources
     serialized = {s.name: s.asdict(**kwargs) for s in sources}
     if all(not v for v in serialized.values()):
         serialized = list(serialized)
@@ -342,6 +378,8 @@ def sinks_converter(
     value: dict[str, Axes] | ty.Collection[str],
     self_: "ContainerCommand",
 ) -> list[ContainerCommandSink]:
+    if self_.deferred:
+        return deferred_definitions(value, ContainerCommandSink)
     if value is None:
         value = self_._default_sinks()
     if not isinstance(value, dict):
@@ -368,6 +406,8 @@ def sinks_serialiser(
 ) -> list[str] | dict[str, ContainerCommandSink] | None:
     if not sinks:
         return None
+    if is_deferred_definitions(sinks, ContainerCommandSink):
+        return sinks
     dct = {s.name: s.asdict(**kwargs) for s in sinks}
     if all(not v for v in dct.values()):
         dct = list(dct)
@@ -427,6 +467,8 @@ def parameters_converter(
     value: dict[str, Axes] | ty.Collection[str],
     self_: "ContainerCommand",
 ) -> list[ContainerCommandParameter]:
+    if self_.deferred:
+        return deferred_definitions(value, ContainerCommandParameter)
     if value is None:
         value = self_._default_parameters()
     if not isinstance(value, dict):
@@ -455,6 +497,8 @@ def parameters_serialiser(
 ) -> list[str] | dict[str, ContainerCommandParameter] | None:
     if not parameters:
         return None
+    if is_deferred_definitions(parameters, ContainerCommandParameter):
+        return parameters
     serialized = {p.name: p.asdict(**kwargs) for p in parameters}
     command = next(iter(parameters))._command
     if all(not v for v in serialized.values()):

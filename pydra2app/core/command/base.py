@@ -1,46 +1,47 @@
 from __future__ import annotations
-import shutil
-import re
-from copy import copy
-import tempfile
+
 import json
 import logging
-from pathlib import Path
-import typing as ty
-from functools import cached_property
+import re
+import shutil
 import sys
+import tempfile
+import typing as ty
 from collections import defaultdict
+from copy import copy
+from functools import cached_property
+from pathlib import Path
+
 import attrs
-from attrs.converters import default_if_none
 import pydra.compose.base
-from fileformats.core import Field
-from pydra.utils import get_fields
 import pydra.utils.general
-from pydra.compose.base import Out
-from pydra.utils.typing import (
-    optional_type,
-    is_fileset_or_union,
-)
-from frametree.core.utils import show_workflow_errors, path2label
-from frametree.core.row import DataRow
-from frametree.core.frameset.base import FrameSet
-from frametree.core.store import Store
+from attrs.converters import default_if_none
+from fileformats.core import Field
 from frametree.core.axes import Axes
-from pydra2app.core.exceptions import Pydra2AppUsageError
+from frametree.core.frameset.base import FrameSet
+from frametree.core.row import DataRow
+from frametree.core.store import Store
+from frametree.core.utils import path2label, show_workflow_errors
+from pydra.compose.base import Out
+from pydra.utils import get_fields
+from pydra.utils.typing import is_fileset_or_union, optional_type
+
+from pydra2app.core.exceptions import Pydra2AppUnresolvedTaskError, Pydra2AppUsageError
+
 from .components import (
-    ContainerCommandSource,
-    ContainerCommandSink,
     ContainerCommandParameter,
+    ContainerCommandSink,
+    ContainerCommandSource,
     operates_on_converter,
-    sources_converter,
-    sinks_converter,
     parameters_converter,
-    sources_serialiser,
-    sinks_serialiser,
     parameters_serialiser,
+    sinks_converter,
+    sinks_serialiser,
+    sources_converter,
+    sources_serialiser,
     task_converter,
-    task_serializer,
     task_equals,
+    task_serializer,
 )
 
 if ty.TYPE_CHECKING:
@@ -120,6 +121,8 @@ class ContainerCommand:
 
     @name.default  # pyright: ignore[reportAttributeAccessIssue]
     def _default_name(self) -> str:
+        if isinstance(self.task, str):  # task couldn't be resolved, see `deferred`
+            return self.task.rsplit(":", 1)[-1]
         return self.task.__name__
 
     @operates_on.default  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
@@ -132,6 +135,8 @@ class ContainerCommand:
 
     @sources.default  # pyright: ignore[reportAttributeAccessIssue]
     def _default_sources(self) -> list[str]:
+        if self.deferred:
+            return []
         return [  # pyright: ignore[reportReturnType]
             i.name
             for i in self._input_fields
@@ -144,12 +149,16 @@ class ContainerCommand:
 
     @sinks.default  # pyright: ignore[reportAttributeAccessIssue]
     def _default_sinks(self) -> list[str]:
+        if self.deferred:
+            return []
         return [  # pyright: ignore[reportReturnType]
             o.name for o in self._output_fields if is_fileset_or_union(o.type)
         ]
 
     @parameters.default  # pyright: ignore[reportAttributeAccessIssue]
     def _default_parameters(self) -> list[str]:
+        if self.deferred:
+            return []
         non_parameters = (
             [s.field for s in self.sources]
             + list(self.configuration)
@@ -166,6 +175,8 @@ class ContainerCommand:
         self, _: attrs.Attribute[ty.Any], sources: ty.List[ContainerCommandSource]
     ) -> None:
         """Validates that the sources are valid task inputs"""
+        if self.deferred:
+            return  # can only be validated against the task inside the image
         for source in sources:
             if source.name in self.configuration:
                 raise ValueError(
@@ -178,6 +189,8 @@ class ContainerCommand:
         self, _: attrs.Attribute[ty.Any], parameters: ty.List[ContainerCommandParameter]
     ) -> None:
         """Validates that the parameters are valid task inputs"""
+        if self.deferred:
+            return  # can only be validated against the task inside the image
         for param in parameters:
             if param.name in self.configuration:
                 raise ValueError(
@@ -195,6 +208,8 @@ class ContainerCommand:
         self, attribute: attrs.Attribute[ty.Any], configuration: ty.Dict[str, ty.Any]
     ) -> None:
         """Validates that the configuration arguments are valid task inputs"""
+        if self.deferred:
+            return  # can only be validated against the task inside the image
         task_inputs = [i.name for i in self._input_fields]
         for param in configuration:
             if param not in task_inputs:
@@ -203,10 +218,19 @@ class ContainerCommand:
                     f"{self.task}"
                 )
 
+    @property
+    def deferred(self) -> bool:
+        """Whether the command's task couldn't be resolved in the current environment,
+        and therefore the fields of the command can only be introspected within the
+        image being built, where the task's package is installed. The sources, sinks and
+        parameters of a deferred command are held exactly as they were specified,
+        instead of as objects matched against the fields of the task"""
+        return isinstance(self.task, str)
+
     @cached_property
     def _input_fields(self) -> pydra.utils.general._TaskFieldsList:
         if isinstance(self.task, str):
-            raise ValueError(
+            raise Pydra2AppUnresolvedTaskError(
                 f"Task {self.task} needs to be resolved for its input fields to be listed, "
                 "check its package is installed properly"
             )
@@ -215,7 +239,7 @@ class ContainerCommand:
     @cached_property
     def _output_fields(self) -> pydra.utils.general._TaskFieldsList:
         if isinstance(self.task, str):
-            raise ValueError(
+            raise Pydra2AppUnresolvedTaskError(
                 f"Task {self.task} needs to be resolved for its output fields to be listed, "
                 "check its package is installed properly"
             )
