@@ -60,6 +60,25 @@ class Pydra2AppUsageError(Pydra2AppError):
     pass
 
 
+class Pydra2AppDeferredToImageError(Pydra2AppUsageError):
+    """Raised when something needed to generate part of an image's specification isn't
+    available on the build host, and can therefore only be resolved inside the image
+    being built, where the packages and resources it requires are installed. Caught
+    when constructing the Dockerfile in order to defer the work to a step of the image
+    build instead"""
+
+
+class Pydra2AppUnresolvedTaskError(Pydra2AppDeferredToImageError):
+    """Raised when the task of a command couldn't be imported in the current
+    environment, and therefore its fields can't be introspected"""
+
+
+class Pydra2AppMissingResourceError(Pydra2AppDeferredToImageError):
+    """Raised when a resource required to generate part of an image's specification
+    (e.g. a model bundle that is downloaded into the image) isn't present on the build
+    host"""
+
+
 class Pydra2AppCacheError(Pydra2AppError):
     pass
 
