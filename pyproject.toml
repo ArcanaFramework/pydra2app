@@ -102,6 +102,13 @@ exclude = "_version.py"
 
 [tool.isort]
 profile = "black"
+known_first_party = ["pydra2app"]
+honor_noqa = true  # so that '# noqa' imports are skipped, as Ruff skips them
+
+# Kept in step with the isort config above so that both tools agree on how imports
+# should be sorted, in particular on which packages are first-party
+[tool.ruff.lint.isort]
+known-first-party = ["pydra2app"]
 
 [tool.flake8]
 doctests = true

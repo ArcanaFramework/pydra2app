@@ -17,8 +17,7 @@ from frametree.core.serialize import ClassResolver
 from frametree.core.utils import convertible_from
 from pydra.compose.base import Arg, Out
 from pydra.utils import get_fields, structure, unstructure
-from pydra.utils.typing import is_container  # , is_subclass_or_union
-from pydra.utils.typing import is_optional, is_union
+from pydra.utils.typing import is_container, is_optional, is_union
 
 from pydra2app.core import PACKAGE_NAME
 from pydra2app.core.exceptions import Pydra2AppUsageError
@@ -27,7 +26,7 @@ if ty.TYPE_CHECKING:
     from .base import ContainerCommand
 
 
-# Just until this gets added to Pydra
+# Just until this gets added to Pydra, as pydra.utils.typing.is_subclass_or_union
 
 
 def is_subclass_or_union(
