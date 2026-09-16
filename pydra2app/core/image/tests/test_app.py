@@ -189,6 +189,51 @@ def test_add_resources(tmp_path: Path) -> None:
     assert result == b"bar"
 
 
+def test_add_resources_from_url(tmp_path: Path) -> None:
+    """Checks that resources that aren't provided locally are downloaded into the
+    image from their URL at build time"""
+    url = "https://raw.githubusercontent.com/ArcanaFramework/pydra2app/main/LICENSE"
+    img = P2AImage(
+        name="test-resource-url-image",
+        version="1.0",
+        packages={
+            "pip": {
+                "pydra2app": None,
+            },
+        },
+        base_image={
+            "name": "python",
+            "tag": "3.12.5-slim-bookworm",
+            "python": "python3",
+            "package_manager": "apt",
+            "conda_env": None,
+        },
+        resources={
+            "a-resource": {"path": "/internal/path/to/LICENSE", "url": url},
+        },
+    )
+
+    img.make(
+        build_dir=tmp_path / "build-dir",
+        use_local_packages=True,
+    )
+
+    dc = docker.from_env()
+    args = ["cat", "/internal/path/to/LICENSE"]
+    try:
+        result = dc.containers.run(
+            img.reference,
+            command=args,
+            stderr=True,
+        )
+    except docker.errors.ContainerError as e:
+        raise RuntimeError(
+            f"'docker run {img.reference} {' '.join(args)}' errored:\n"
+            + e.stderr.decode("utf-8")
+        )
+    assert result.decode("utf-8").startswith("Creative Commons")
+
+
 def test_multi_command(
     simple_dataset_blueprint: TestDatasetBlueprint, tmp_path: Path
 ) -> None:

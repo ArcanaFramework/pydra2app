@@ -1,41 +1,35 @@
 from __future__ import annotations
-import typing as ty
-from pathlib import PurePath, Path, PosixPath
-from urllib.parse import quote, urlsplit
+
 import hmac
-import json
-import re
-import tempfile
-import requests
 import itertools
+import json
+import logging
+import platform
+import re
+import shutil
+import tempfile
+import typing as ty
+from copy import copy
 from enum import Enum
 from functools import cached_property
-import logging
-from copy import copy
-import shutil
 from inspect import isclass, isfunction
-from build import ProjectBuilder
+from pathlib import Path, PosixPath, PurePath
+from urllib.parse import quote, urlsplit
+
 import attrs
-import yaml
 import docker.errors
-from looseversion import LooseVersion
-from deepdiff import DeepDiff
-from typing_extensions import Self
 import neurodocker
-from neurodocker.reproenv import DockerRenderer
-from pydra2app.core import __version__
-from pydra2app.core import PACKAGE_NAME
-from frametree.core.serialize import (
-    ClassResolver,
-    ObjectConverter,
-    ObjectListConverter,
-)
+import requests
+import yaml
+from build import ProjectBuilder
+from deepdiff import DeepDiff
 from frametree.core.axes import Axes
-from pydra2app.core.utils import (
-    DOCKER_HUB,
-    GITHUB_CONTAINER_REGISTRY,
-    extract_file_from_docker_image,
-)
+from frametree.core.serialize import ClassResolver, ObjectConverter, ObjectListConverter
+from looseversion import LooseVersion
+from neurodocker.reproenv import DockerRenderer
+from typing_extensions import Self
+
+from pydra2app.core import PACKAGE_NAME, __version__
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from pydra2app.core.oci import (
     OCIIntegrityError,
@@ -45,8 +39,13 @@ from pydra2app.core.oci import (
     is_loopback_host,
 )
 from pydra2app.core.spec import canonical_spec, spec_sha256
-from .components import Packages, BaseImage, PipPackage, CondaPackage, Resource, Version
-import platform
+from pydra2app.core.utils import (
+    DOCKER_HUB,
+    GITHUB_CONTAINER_REGISTRY,
+    extract_file_from_docker_image,
+)
+
+from .components import BaseImage, CondaPackage, Packages, PipPackage, Resource, Version
 
 logger = logging.getLogger("pydra2app")
 
@@ -649,25 +648,32 @@ class P2AImage:
             try:
                 local_path = all_resources[resource.name]
             except KeyError:
-                resource_dir_str = (
-                    str(resources_dir) if resources_dir is not None else None
+                if not resource.url:
+                    resource_dir_str = (
+                        str(resources_dir) if resources_dir is not None else None
+                    )
+                    raise RuntimeError(
+                        f"Resource '{resource.name}' specified in the pipeline specification "
+                        "but not provided in the 'resources' argument or a sub-directory "
+                        f"of 'resources_dir' ({resource_dir_str!r})\n"
+                        + "\n".join(all_resources.keys())
+                    )
+                dockerfile.add(
+                    source=resource.url,
+                    destination=resource.path,
                 )
-                raise RuntimeError(
-                    f"Resource '{resource.name}' specified in the pipeline specification "
-                    "but not provided in the 'resources' argument or a sub-directory "
-                    f"of 'resources_dir' ({resource_dir_str!r})\n"
-                    + "\n".join(all_resources)
-                )
-            # copy local path into Docker build dir so it is included in context
-            build_context_path = resources_dir_context / resource.name
-            if local_path.is_dir():
-                shutil.copytree(local_path, build_context_path)
             else:
-                shutil.copy(local_path, build_context_path)
-            dockerfile.copy(
-                source=[str(build_context_path.relative_to(build_dir))],
-                destination=resource.path,
-            )
+                # copy local path into Docker build dir so it is included in context
+                build_context_path = resources_dir_context / resource.name
+                if local_path.is_dir():
+                    shutil.copytree(local_path, build_context_path)
+                else:
+                    shutil.copy(local_path, build_context_path)
+                src = str(build_context_path.relative_to(build_dir))
+                dockerfile.copy(
+                    source=[src],
+                    destination=resource.path,
+                )
 
     def add_labels(
         self, dockerfile: DockerRenderer, labels: ty.Optional[ty.Dict[str, str]] = None
