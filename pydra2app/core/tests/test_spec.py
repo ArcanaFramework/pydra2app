@@ -64,6 +64,46 @@ def test_release_checksum_ignores_build_host_paths() -> None:
     assert spec_sha256(first) == spec_sha256(second)
 
 
+def test_legacy_checksum_accepts_normalized_dependency_pins() -> None:
+    legacy = {
+        "packages": {
+            "pip": {
+                "phi-finder": {"version": "0.1.16"},
+                "pydra": {"version": "1.0a9"},
+            },
+            "conda": {"tesseract": {"version": "5.5.0"}},
+        }
+    }
+    normalized = {
+        "packages": {
+            "pip": {
+                "phi-finder": {"version": "==0.1.16"},
+                "pydra": {"version": "==1.0a9"},
+            },
+            "conda": {"tesseract": {"version": "=5.5.0"}},
+        }
+    }
+
+    assert spec_sha256(legacy) != spec_sha256(normalized)
+    assert spec_sha256(legacy) == spec_sha256(
+        normalized, legacy_dependency_pins=True
+    )
+
+
+def test_legacy_checksum_preserves_explicit_dependency_constraints() -> None:
+    spec = {
+        "packages": {
+            "pip": {
+                "range": {"version": ">=1.0a9"},
+                "arbitrary-exact": {"version": "===1.0a9"},
+            },
+            "conda": {"exact": {"version": "==5.5.0"}},
+        }
+    }
+
+    assert spec_sha256(spec) == spec_sha256(spec, legacy_dependency_pins=True)
+
+
 def test_release_checksum_changes_with_meaningful_content() -> None:
     first = {"name": "example", "packages": {"system": ["git"]}}
     second = deepcopy(first)

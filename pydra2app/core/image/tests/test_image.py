@@ -341,6 +341,32 @@ def test_matches_image_uses_checksum_without_full_pull(
     full_pull.assert_not_called()
 
 
+def test_matches_image_accepts_legacy_dependency_checksum(
+    image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    image_spec["packages"]["pip"] = {"example-package": "1.2.3"}
+    app = App(**image_spec)
+    current_checksum = spec_sha256(app)
+    legacy_checksum = spec_sha256(app, legacy_dependency_pins=True)
+    assert current_checksum != legacy_checksum
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {"Labels": {app.SPEC_CHECKSUM_LABEL: legacy_checksum}}},
+        layers=[],
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    full_pull = Mock()
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.extract_file_from_docker_image", full_pull
+    )
+
+    assert app.matches_image("registry.example/org/image:1.0")
+    client.spec_from_small_layers.assert_not_called()
+    full_pull.assert_not_called()
+
+
 def test_matches_image_uses_targeted_layer_for_legacy_image(
     image_spec: ty.Dict[str, ty.Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

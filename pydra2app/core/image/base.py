@@ -267,7 +267,10 @@ class P2AImage:
 
     def matches_image(self, image_reference: str) -> bool:
         """Check if the specifications of two images match"""
-        expected_checksum = spec_sha256(self)
+        expected_checksums = (
+            spec_sha256(self),
+            spec_sha256(self, legacy_dependency_pins=True),
+        )
         oci_client = OCIRegistryClient(image_reference, access_token=self.access_token)
         try:
             metadata = oci_client.image_metadata()
@@ -289,7 +292,10 @@ class P2AImage:
                     raise OCIRegistryError(
                         f"Image checksum label on '{image_reference}' is invalid"
                     )
-                matches = hmac.compare_digest(published_checksum, expected_checksum)
+                matches = any(
+                    hmac.compare_digest(published_checksum, expected_checksum)
+                    for expected_checksum in expected_checksums
+                )
                 logger.info(
                     "Compared '%s' specification using image checksum label: %s",
                     image_reference,
@@ -302,8 +308,10 @@ class P2AImage:
             )
             if layer_result.status is SpecLayerStatus.FOUND:
                 assert layer_result.spec is not None
-                matches = hmac.compare_digest(
-                    spec_sha256(layer_result.spec), expected_checksum
+                published_checksum = spec_sha256(layer_result.spec)
+                matches = any(
+                    hmac.compare_digest(published_checksum, expected_checksum)
+                    for expected_checksum in expected_checksums
                 )
                 logger.info(
                     "Compared '%s' specification using targeted OCI layer "
@@ -351,7 +359,11 @@ class P2AImage:
             image_reference,
         )
         built_spec = self._load_yaml(extracted_specs_file)
-        matches = hmac.compare_digest(spec_sha256(built_spec), expected_checksum)
+        published_checksum = spec_sha256(built_spec)
+        matches = any(
+            hmac.compare_digest(published_checksum, expected_checksum)
+            for expected_checksum in expected_checksums
+        )
         if not matches:
             logger.debug(
                 "'%s' differs from existing image '%s'",
