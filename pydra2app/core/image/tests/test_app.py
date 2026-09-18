@@ -1,4 +1,5 @@
 import os
+import tarfile
 import docker
 from pathlib import Path
 from copy import deepcopy
@@ -381,3 +382,60 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
     reloaded_app = App.load(save_path)
     assert app.commands[0] == reloaded_app.commands[0]
     assert app == reloaded_app
+
+
+def test_add_resources_extracted(tmp_path: Path) -> None:
+    """Checks that archive resources are unpacked as they are added to the image, both
+    when the archive is provided locally and when it is downloaded from a URL"""
+    local_archive = tmp_path / "local.tar.gz"
+    contents = tmp_path / "contents" / "payload"
+    contents.mkdir(parents=True)
+    (contents / "hello.txt").write_text("hello from the archive")
+    with tarfile.open(local_archive, "w:gz") as tfile:
+        tfile.add(contents, arcname="payload")
+
+    # a small archive that is downloaded rather than provided locally
+    url = "https://github.com/ArcanaFramework/pydra2app/archive/refs/tags/v0.20.0.tar.gz"
+
+    img = P2AImage(
+        name="test-resource-extract-image",
+        version="1.0",
+        packages={"pip": {"pydra2app": None}},
+        base_image={
+            "name": "python",
+            "tag": "3.12.5-slim-bookworm",
+            "python": "python3",
+            "package_manager": "apt",
+            "conda_env": None,
+        },
+        resources={
+            "local-archive": {"path": "/opt/local", "extract": True},
+            "remote-archive": {"path": "/opt/remote", "url": url, "extract": True},
+        },
+    )
+
+    img.make(
+        build_dir=tmp_path / "build-dir",
+        use_local_packages=True,
+        resources={"local-archive": local_archive},
+    )
+
+    dc = docker.from_env()
+
+    def run(*args: str) -> str:
+        try:
+            return dc.containers.run(  # type: ignore[no-any-return]
+                img.reference, command=list(args), stderr=True
+            ).decode("utf-8")
+        except docker.errors.ContainerError as e:
+            raise RuntimeError(
+                f"'docker run {img.reference} {' '.join(args)}' errored:\n"
+                + e.stderr.decode("utf-8")
+            )
+
+    # the local archive was unpacked, not added as the archive it was provided as
+    assert run("cat", "/opt/local/payload/hello.txt") == "hello from the archive"
+    # as was the downloaded one
+    assert "pydra2app" in run("ls", "/opt/remote")
+    # and neither archive was left behind in the image
+    assert run("sh", "-c", "ls /tmp/*.tar.gz 2>/dev/null; true").strip() == ""
