@@ -470,6 +470,24 @@ site_pkg_locs = [Path(p).resolve() for p in site.getsitepackages()]
 
 @attrs.define
 class Resource:
+    """A file or directory that is added to the image.
+
+    Attributes
+    ----------
+    name : str
+        what the resource is referred to by
+    path : Path
+        where the resource is placed within the image
+    description : str
+        what the resource is for
+    url : str, optional
+        where to download the resource from, when it isn't provided locally
+    extract : bool
+        whether the resource is an archive that should be unpacked as it is added, in
+        which case `path` is the directory it is unpacked into. The tool needed is
+        determined by the archive's file extension, and installed into the image if it
+        isn't there already
+    """
 
     name: str
     path: Path  # the path to the resource within the container
@@ -477,6 +495,7 @@ class Resource:
     url: ty.Optional[str] = attrs.field(
         default=None, validator=attrs.validators.optional(url_validator)
     )
+    extract: bool = False
 
 
 @attrs.define

@@ -45,9 +45,39 @@ from pydra2app.core.utils import (
     extract_file_from_docker_image,
 )
 
-from .components import BaseImage, CondaPackage, Packages, PipPackage, Resource, Version
+from . import extraction
+from .components import (
+    BaseImage,
+    CondaPackage,
+    Packages,
+    PipPackage,
+    Resource,
+    Version,
+)
 
 logger = logging.getLogger("pydra2app")
+
+
+@attrs.define
+class ResourcePlanItem:
+    """How one resource is to be added to the image.
+
+    Attributes
+    ----------
+    resource : Resource
+        the resource being added
+    source : Path, optional
+        where it has been staged within the build context, or None when it is
+        downloaded from its URL as the image is built
+    method : ExtractionMethod, optional
+        how it is unpacked within the image, or None when it is added as-is, either
+        because it isn't an archive or because it was unpacked outside the image
+    """
+
+    resource: Resource
+    source: ty.Optional[Path] = None
+    method: ty.Optional[extraction.ExtractionMethod] = None
+
 
 HAS_MINICONDA_ARCH = LooseVersion(neurodocker.__version__) > LooseVersion("2.0.2")
 
@@ -416,7 +446,13 @@ class P2AImage:
 
         dockerfile.user("root")
 
-        self.install_system_packages(dockerfile)
+        # planned before the system packages are installed, as extracting an
+        # archive resource may call for a tool that isn't installed otherwise
+        resource_plan = self.plan_resources(build_dir, resources, resources_dir)
+
+        self.install_system_packages(
+            dockerfile, additional=self.extraction_packages(resource_plan)
+        )
 
         self.install_package_templates(dockerfile)
 
@@ -428,7 +464,7 @@ class P2AImage:
             pydra2app_install_extras=pydra2app_install_extras,
         )
 
-        self.add_resources(dockerfile, build_dir, resources, resources_dir)
+        self.apply_resource_plan(dockerfile, resource_plan)
 
         self.write_readme(dockerfile, build_dir)
 
@@ -624,14 +660,32 @@ class P2AImage:
 
         return cls(**yml_dict)
 
-    def add_resources(
+    def plan_resources(
         self,
-        dockerfile: DockerRenderer,
         build_dir: Path,
         resources: ty.Optional[ty.Dict[str, Path]],
         resources_dir: ty.Optional[Path],
-    ) -> None:
-        """Add static resources to the docker image"""
+    ) -> ty.List["ResourcePlanItem"]:
+        """Work out how each resource is added to the image, and stage the local ones.
+
+        Resources that are to be extracted are unpacked here where that is possible, so
+        that the archive doesn't need to enter the image at all. Where it isn't, the
+        archive is staged as-is and unpacked within the image instead.
+
+        Parameters
+        ----------
+        build_dir : Path
+            the directory the image is built in, which is the Docker build context
+        resources : dict[str, Path], optional
+            local paths to resources, keyed by resource name
+        resources_dir : Path, optional
+            a directory holding the resources as sub-directories named after them
+
+        Returns
+        -------
+        list[ResourcePlanItem]
+            how each of the image's resources is to be added
+        """
         if resources_dir is not None:
             all_resources = {
                 p.name: p
@@ -644,6 +698,7 @@ class P2AImage:
             all_resources.update(resources)
         resources_dir_context = build_dir / "resources"
         resources_dir_context.mkdir(exist_ok=True)
+        plan: ty.List[ResourcePlanItem] = []
         for resource in self.resources:
             try:
                 local_path = all_resources[resource.name]
@@ -658,22 +713,128 @@ class P2AImage:
                         f"of 'resources_dir' ({resource_dir_str!r})\n"
                         + "\n".join(all_resources.keys())
                     )
-                dockerfile.add(
-                    source=resource.url,
-                    destination=resource.path,
+                method = (
+                    extraction.method_for(resource.url) if resource.extract else None
                 )
+                plan.append(ResourcePlanItem(resource=resource, method=method))
+                continue
+            # copy local path into Docker build dir so it is included in context
+            build_context_path = resources_dir_context / resource.name
+            if resource.extract:
+                # unpacking here keeps the archive out of the image entirely; it is
+                # only possible for the archive types fileformats can convert
+                method = extraction.method_for(local_path.name)
+                if extraction.extract_locally(local_path, build_context_path):
+                    logger.info(
+                        "Extracted '%s' resource outside of the image, so only its "
+                        "contents are added to it",
+                        resource.name,
+                    )
+                    plan.append(
+                        ResourcePlanItem(
+                            resource=resource,
+                            source=build_context_path.relative_to(build_dir),
+                        )
+                    )
+                    continue
+                # staged under the archive's own name, within a directory named
+                # after the resource so that archives can't collide, as the extension
+                # is what the extraction command is chosen by
+                staged_dir = resources_dir_context / resource.name
+                staged_dir.mkdir(parents=True, exist_ok=True)
+                staged = staged_dir / local_path.name
+                shutil.copy(local_path, staged)
+                plan.append(
+                    ResourcePlanItem(
+                        resource=resource,
+                        source=staged.relative_to(build_dir),
+                        method=method,
+                    )
+                )
+                continue
+            if local_path.is_dir():
+                shutil.copytree(local_path, build_context_path)
             else:
-                # copy local path into Docker build dir so it is included in context
-                build_context_path = resources_dir_context / resource.name
-                if local_path.is_dir():
-                    shutil.copytree(local_path, build_context_path)
-                else:
-                    shutil.copy(local_path, build_context_path)
-                src = str(build_context_path.relative_to(build_dir))
-                dockerfile.copy(
-                    source=[src],
-                    destination=resource.path,
+                shutil.copy(local_path, build_context_path)
+            plan.append(
+                ResourcePlanItem(
+                    resource=resource,
+                    source=build_context_path.relative_to(build_dir),
                 )
+            )
+        return plan
+
+    def extraction_packages(self, plan: ty.List["ResourcePlanItem"]) -> ty.List[str]:
+        """The system packages needed to extract the resources that are unpacked in the
+        image, that aren't already going to be installed"""
+        already = {p.name for p in self.packages.system}
+        required: ty.List[str] = []
+        for item in plan:
+            if item.method is None:
+                continue
+            for package in item.method.system_packages(self.base_image.package_manager):
+                if package not in already and package not in required:
+                    required.append(package)
+            if item.resource.url and "curl" not in already and "curl" not in required:
+                required.append("curl")  # the archive is downloaded before unpacking
+        return required
+
+    def add_resources(
+        self,
+        dockerfile: DockerRenderer,
+        build_dir: Path,
+        resources: ty.Optional[ty.Dict[str, Path]],
+        resources_dir: ty.Optional[Path],
+    ) -> None:
+        """Add static resources to the docker image"""
+        self.apply_resource_plan(
+            dockerfile, self.plan_resources(build_dir, resources, resources_dir)
+        )
+
+    def apply_resource_plan(
+        self, dockerfile: DockerRenderer, plan: ty.List["ResourcePlanItem"]
+    ) -> None:
+        """Add the resources to the image as planned by `plan_resources`"""
+        for item in plan:
+            resource = item.resource
+            dest = str(resource.path)
+            if item.source is None:
+                assert resource.url
+                if item.method is None:
+                    dockerfile.add(source=resource.url, destination=dest)
+                    continue
+                # downloaded, unpacked and deleted in the one layer, so that the
+                # archive doesn't take up space in the image
+                archive = (
+                    f"/tmp/{Path(str(resource.path)).name}-{Path(resource.url).name}"
+                )
+                dockerfile.run(
+                    " \\\n && ".join(
+                        [
+                            f'mkdir -p "{dest}"',
+                            f'curl -fsSL "{resource.url}" -o "{archive}"',
+                            extraction.extract_command(item.method, archive, dest),
+                            f'rm -f "{archive}"',
+                        ]
+                    )
+                )
+                continue
+            if item.method is None:
+                dockerfile.copy(source=[str(item.source)], destination=dest)
+                continue
+            # the archive couldn't be unpacked outside the image, so it is copied in
+            # and unpacked here instead
+            archive = f"/tmp/{item.source.name}"
+            dockerfile.copy(source=[str(item.source)], destination=archive)
+            dockerfile.run(
+                " \\\n && ".join(
+                    [
+                        f'mkdir -p "{dest}"',
+                        extraction.extract_command(item.method, archive, dest),
+                        f'rm -f "{archive}"',
+                    ]
+                )
+            )
 
     def add_labels(
         self, dockerfile: DockerRenderer, labels: ty.Optional[ty.Dict[str, str]] = None
@@ -801,20 +962,26 @@ class P2AImage:
                 )
             )
 
-    def install_system_packages(self, dockerfile: DockerRenderer) -> None:
+    def install_system_packages(
+        self,
+        dockerfile: DockerRenderer,
+        additional: ty.Sequence[str] = (),
+    ) -> None:
         """Generate Neurodocker instructions to install systems packages in dockerfile
 
         Parameters
         ----------
         dockerfile : DockerRenderer
             the neurodocker renderer to append the install instructions to
-        system_packages : Iterable[str]
-            the packages to install on the operating system
+        additional : Sequence[str]
+            packages required beyond those in the spec, e.g. the tools needed to
+            extract archive resources
         """
         pkg_strs = [
             f"{p.name}={p.version}" if p.version else p.name
             for p in self.packages.system
         ]
+        pkg_strs.extend(additional)
         if pkg_strs:
             dockerfile.install(pkg_strs)
 
