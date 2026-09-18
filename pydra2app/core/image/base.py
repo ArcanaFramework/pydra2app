@@ -9,7 +9,7 @@ import re
 import shutil
 import tempfile
 import typing as ty
-from copy import copy
+from copy import copy, deepcopy
 from enum import Enum
 from functools import cached_property
 from inspect import isclass, isfunction
@@ -108,6 +108,9 @@ class P2AImage:
     schema_version: str = attrs.field(default=SCHEMA_VERSION)
     access_token: ty.Optional[str] = attrs.field(
         default=None, repr=False, metadata={"asdict": False}
+    )
+    source_spec: ty.Optional[ty.Dict[str, ty.Any]] = attrs.field(
+        default=None, repr=False, eq=False, hash=False, metadata={"asdict": False}
     )
 
     @property
@@ -268,6 +271,7 @@ class P2AImage:
     def matches_image(self, image_reference: str) -> bool:
         """Check if the specifications of two images match"""
         expected_checksums = (
+            self.spec_checksum(),
             spec_sha256(self),
             spec_sha256(self, legacy_dependency_pins=True),
         )
@@ -570,7 +574,7 @@ class P2AImage:
         sort_keys : bool, optional
             whether to sort the keys in the output YAML file, by default False
         """
-        yml_dct = self.asdict()
+        yml_dct = deepcopy(self.release_spec())
         yml_dct["type"] = ClassResolver.tostr(self, strip_prefix=False)
         with open(yml_path, "w") as f:
             yaml.dump(yml_dct, f, sort_keys=sort_keys)
@@ -693,10 +697,17 @@ class P2AImage:
         if labels is None:
             labels = self.labels
         image_labels = dict(labels or {})
-        image_labels[self.SPEC_CHECKSUM_LABEL] = spec_sha256(self)
+        image_labels[self.SPEC_CHECKSUM_LABEL] = self.spec_checksum()
         dockerfile.labels(
             {k: json.dumps(v).strip('"') for k, v in image_labels.items()}
         )
+
+    def release_spec(self) -> ty.Dict[str, ty.Any]:
+        """Use the original YAML for releases, without task introspection."""
+        return self.source_spec if self.source_spec is not None else self.asdict()
+
+    def spec_checksum(self) -> str:
+        return spec_sha256(self.release_spec())
 
     def install_python(
         self,

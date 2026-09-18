@@ -76,9 +76,9 @@ def canonical_spec_json(
 def spec_sha256(spec: ty.Any, *, legacy_dependency_pins: bool = False) -> str:
     """Calculate the release-content checksum for an image specification."""
     return hashlib.sha256(
-        canonical_spec_json(
-            spec, legacy_dependency_pins=legacy_dependency_pins
-        ).encode("utf-8")
+        canonical_spec_json(spec, legacy_dependency_pins=legacy_dependency_pins).encode(
+            "utf-8"
+        )
     ).hexdigest()
 
 

@@ -1,25 +1,29 @@
-import typing as ty
-from pathlib import Path
-import random
-from unittest.mock import Mock
-import docker.errors
-import os
 import logging
-from copy import copy
+import os
+import random
+import typing as ty
+from copy import copy, deepcopy
+from pathlib import Path
 from traceback import format_exc
+from unittest.mock import Mock
+
+import docker.errors
+import pytest
+import yaml
+from frametree.core.serialize import ClassResolver
+
 from pydra2app.core.exceptions import Pydra2AppBuildError
 from pydra2app.core.image import App
 from pydra2app.core.image.components import Version
 from pydra2app.core.oci import (
-    OCIIntegrityError,
     OCIImageMetadata,
+    OCIIntegrityError,
     OCIRegistryError,
     SpecLayerResult,
     SpecLayerStatus,
 )
 from pydra2app.core.spec import spec_sha256
 from pydra2app.core.utils import DOCKER_HUB, GITHUB_CONTAINER_REGISTRY
-import pytest
 
 logger = logging.getLogger("pydra2app")
 
@@ -304,6 +308,97 @@ def test_generated_dockerfile_has_spec_checksum_and_custom_labels(
     rendered = dockerfile.render()
     assert f'{app.SPEC_CHECKSUM_LABEL}="{spec_sha256(app)}"' in rendered
     assert 'org.example.custom="custom-value"' in rendered
+
+
+def checksum_test_task(value: str = "default") -> str:
+    return value
+
+
+@pytest.mark.parametrize("use_label", [True, False])
+def test_yaml_checksum_matches_without_task_package(
+    image_spec: ty.Dict[str, ty.Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    use_label: bool,
+) -> None:
+    source = deepcopy(image_spec)
+    address = f"{__name__}:checksum_test_task"
+    source["commands"]["concatenate-test"]["task"] = {
+        "type": "python",
+        "function": address,
+    }
+    path = tmp_path / "pipeline.yaml"
+    path.write_text(yaml.safe_dump(source))
+    built = App.load(path, access_token="test-token")
+    checksum = built.spec_checksum()
+    dockerfile = built.init_dockerfile()
+    built.add_labels(dockerfile)
+    assert f'{built.SPEC_CHECKSUM_LABEL}="{checksum}"' in dockerfile.render()
+    saved = tmp_path / "embedded.yaml"
+    built.save(saved)
+    embedded = App._load_yaml(saved)
+    assert embedded["commands"]["concatenate-test"]["task"] == (
+        source["commands"]["concatenate-test"]["task"]
+    )
+    assert "access_token" not in embedded
+    assert "loaded_from" not in embedded
+    assert spec_sha256(embedded) == checksum
+
+    original_fromstr = ClassResolver.fromstr
+    monkeypatch.setattr(
+        ClassResolver,
+        "fromstr",
+        lambda value, *args, **kwargs: (
+            value if value == address else original_fromstr(value, *args, **kwargs)
+        ),
+    )
+    planned = App.load(path)
+    assert spec_sha256(planned) != spec_sha256(built)
+    assert planned.spec_checksum() == checksum
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={
+            "config": {
+                "Labels": {built.SPEC_CHECKSUM_LABEL: checksum} if use_label else {}
+            }
+        },
+        layers=[],
+    )
+    client.spec_from_small_layers.return_value = SpecLayerResult(
+        SpecLayerStatus.FOUND, embedded
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    assert planned.matches_image(built.reference)
+    source["readme"] = "Changed build content"
+    path.write_text(yaml.safe_dump(source))
+    assert not App.load(path).matches_image(built.reference)
+
+
+@pytest.mark.parametrize("legacy_pins", [False, True])
+def test_yaml_matches_historical_object_checksum(
+    image_spec: ty.Dict[str, ty.Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    legacy_pins: bool,
+) -> None:
+    source = deepcopy(image_spec)
+    source["packages"].update(pip={"example": "1.2.3"}, conda={"example": "1.2.3"})
+    path = tmp_path / "pipeline.yaml"
+    path.write_text(yaml.safe_dump(source))
+    app = App.load(path)
+    checksum = spec_sha256(app, legacy_dependency_pins=legacy_pins)
+    assert checksum != app.spec_checksum()
+    client = Mock()
+    client.image_metadata.return_value = OCIImageMetadata(
+        config={"config": {"Labels": {app.SPEC_CHECKSUM_LABEL: checksum}}},
+        layers=[],
+    )
+    monkeypatch.setattr(
+        "pydra2app.core.image.base.OCIRegistryClient", Mock(return_value=client)
+    )
+    assert app.matches_image(app.reference)
 
 
 def test_access_token_is_not_serialized_or_hashed(

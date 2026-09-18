@@ -106,7 +106,19 @@ the spec version is older than the latest published image.
 Pydra2App labels newly built images with
 ``org.pydra2app.spec-sha256``, a SHA-256 checksum of the canonical release
 content. The ``version`` and ``pydra2app_version`` fields are excluded from this
-checksum. As with existing spec comparison, mapping keys and collection values
+checksum. For apps loaded from YAML files, both planning and building hash the
+original declaration before resolving tasks, and embed that declaration in the
+image. Planning therefore does not need pipeline-specific Python packages.
+Programmatically constructed apps retain the existing serialized-object checksum.
+Treat YAML-loaded release specs as immutable: edit the YAML and reload it rather
+than changing the loaded object.
+
+Existing serialized-object checksums, including the legacy bare dependency-pin
+format, are still accepted when reproducible. Images whose old checksum depends on
+an unavailable task package need a one-time version increment and rebuild with
+this checksum implementation.
+
+As with existing spec comparison, mapping keys and collection values
 are order independent, and repeated identical collection values are ignored.
 Canonicalization rejects cyclic YAML aliases and bounds the traversal depth and
 node count. To compare a same-version published image, ``plan-builds`` uses the

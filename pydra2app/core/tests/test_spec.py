@@ -85,9 +85,7 @@ def test_legacy_checksum_accepts_normalized_dependency_pins() -> None:
     }
 
     assert spec_sha256(legacy) != spec_sha256(normalized)
-    assert spec_sha256(legacy) == spec_sha256(
-        normalized, legacy_dependency_pins=True
-    )
+    assert spec_sha256(legacy) == spec_sha256(normalized, legacy_dependency_pins=True)
 
 
 def test_legacy_checksum_preserves_explicit_dependency_constraints() -> None:

@@ -4,6 +4,7 @@ import logging
 import re
 import shutil
 import typing as ty
+from copy import deepcopy
 from itertools import chain
 from pathlib import Path
 from typing import Self
@@ -272,6 +273,12 @@ class App(P2AImage):
         # Override/augment loaded values from spec
         yml_dict.update(kwargs)
 
+        source_spec = None
+        if isinstance(yml, Path):
+            source_spec = deepcopy(yml_dict)
+            source_spec.pop("loaded_from", None)
+            source_spec.pop("access_token", None)
+
         # If data-space is not defined, default to `default_axes`
         commands = yml_dict["commands"]
         if isinstance(commands, dict):
@@ -285,7 +292,7 @@ class App(P2AImage):
                 cmd["operates_on"] = default_axes[cmd["operates_on"]]
             if isinstance(cmd["task"], dict) and cmd["task"].get("type") == "python":
                 cmd["task"]["function"] = ClassResolver.fromstr(cmd["task"]["function"])
-        image = cls(**yml_dict)
+        image = cls(source_spec=source_spec, **yml_dict)
 
         # Replace any pip packages with local source packages
         for source_package in source_packages:
