@@ -9,7 +9,7 @@ import re
 import shutil
 import tempfile
 import typing as ty
-from copy import copy
+from copy import copy, deepcopy
 from enum import Enum
 from functools import cached_property
 from inspect import isclass, isfunction
@@ -138,6 +138,9 @@ class P2AImage:
     schema_version: str = attrs.field(default=SCHEMA_VERSION)
     access_token: ty.Optional[str] = attrs.field(
         default=None, repr=False, metadata={"asdict": False}
+    )
+    source_spec: ty.Optional[ty.Dict[str, ty.Any]] = attrs.field(
+        default=None, repr=False, eq=False, hash=False, metadata={"asdict": False}
     )
 
     @property
@@ -297,7 +300,11 @@ class P2AImage:
 
     def matches_image(self, image_reference: str) -> bool:
         """Check if the specifications of two images match"""
-        expected_checksum = spec_sha256(self)
+        expected_checksums = (
+            self.spec_checksum(),
+            spec_sha256(self),
+            spec_sha256(self, legacy_dependency_pins=True),
+        )
         oci_client = OCIRegistryClient(image_reference, access_token=self.access_token)
         try:
             metadata = oci_client.image_metadata()
@@ -319,7 +326,10 @@ class P2AImage:
                     raise OCIRegistryError(
                         f"Image checksum label on '{image_reference}' is invalid"
                     )
-                matches = hmac.compare_digest(published_checksum, expected_checksum)
+                matches = any(
+                    hmac.compare_digest(published_checksum, expected_checksum)
+                    for expected_checksum in expected_checksums
+                )
                 logger.info(
                     "Compared '%s' specification using image checksum label: %s",
                     image_reference,
@@ -332,8 +342,10 @@ class P2AImage:
             )
             if layer_result.status is SpecLayerStatus.FOUND:
                 assert layer_result.spec is not None
-                matches = hmac.compare_digest(
-                    spec_sha256(layer_result.spec), expected_checksum
+                published_checksum = spec_sha256(layer_result.spec)
+                matches = any(
+                    hmac.compare_digest(published_checksum, expected_checksum)
+                    for expected_checksum in expected_checksums
                 )
                 logger.info(
                     "Compared '%s' specification using targeted OCI layer "
@@ -381,7 +393,11 @@ class P2AImage:
             image_reference,
         )
         built_spec = self._load_yaml(extracted_specs_file)
-        matches = hmac.compare_digest(spec_sha256(built_spec), expected_checksum)
+        published_checksum = spec_sha256(built_spec)
+        matches = any(
+            hmac.compare_digest(published_checksum, expected_checksum)
+            for expected_checksum in expected_checksums
+        )
         if not matches:
             logger.debug(
                 "'%s' differs from existing image '%s'",
@@ -594,7 +610,7 @@ class P2AImage:
         sort_keys : bool, optional
             whether to sort the keys in the output YAML file, by default False
         """
-        yml_dct = self.asdict()
+        yml_dct = deepcopy(self.release_spec())
         yml_dct["type"] = ClassResolver.tostr(self, strip_prefix=False)
         with open(yml_path, "w") as f:
             yaml.dump(yml_dct, f, sort_keys=sort_keys)
@@ -842,10 +858,17 @@ class P2AImage:
         if labels is None:
             labels = self.labels
         image_labels = dict(labels or {})
-        image_labels[self.SPEC_CHECKSUM_LABEL] = spec_sha256(self)
+        image_labels[self.SPEC_CHECKSUM_LABEL] = self.spec_checksum()
         dockerfile.labels(
             {k: json.dumps(v).strip('"') for k, v in image_labels.items()}
         )
+
+    def release_spec(self) -> ty.Dict[str, ty.Any]:
+        """Use the original YAML for releases, without task introspection."""
+        return self.source_spec if self.source_spec is not None else self.asdict()
+
+    def spec_checksum(self) -> str:
+        return spec_sha256(self.release_spec())
 
     def install_python(
         self,

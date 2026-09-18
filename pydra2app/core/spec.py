@@ -25,7 +25,10 @@ class _TraversalState:
 
 
 def canonical_spec(
-    spec: ty.Any, *, check_versions: bool = False
+    spec: ty.Any,
+    *,
+    check_versions: bool = False,
+    legacy_dependency_pins: bool = False,
 ) -> ty.Dict[str, ty.Any]:
     """Return a deterministic representation of an image specification."""
     source = spec if isinstance(spec, Mapping) else spec.asdict()
@@ -43,23 +46,40 @@ def canonical_spec(
     normalized.pop("access_token", None)
     return ty.cast(
         ty.Dict[str, ty.Any],
-        _canonicalize(normalized, state=_TraversalState()),
+        _canonicalize(
+            normalized,
+            state=_TraversalState(),
+            legacy_dependency_pins=legacy_dependency_pins,
+        ),
     )
 
 
-def canonical_spec_json(spec: ty.Any, *, check_versions: bool = False) -> str:
+def canonical_spec_json(
+    spec: ty.Any,
+    *,
+    check_versions: bool = False,
+    legacy_dependency_pins: bool = False,
+) -> str:
     """Serialize an image specification in canonical JSON form."""
     return json.dumps(
-        canonical_spec(spec, check_versions=check_versions),
+        canonical_spec(
+            spec,
+            check_versions=check_versions,
+            legacy_dependency_pins=legacy_dependency_pins,
+        ),
         ensure_ascii=True,
         separators=(",", ":"),
         sort_keys=True,
     )
 
 
-def spec_sha256(spec: ty.Any) -> str:
+def spec_sha256(spec: ty.Any, *, legacy_dependency_pins: bool = False) -> str:
     """Calculate the release-content checksum for an image specification."""
-    return hashlib.sha256(canonical_spec_json(spec).encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        canonical_spec_json(spec, legacy_dependency_pins=legacy_dependency_pins).encode(
+            "utf-8"
+        )
+    ).hexdigest()
 
 
 def _canonicalize(
@@ -68,6 +88,7 @@ def _canonicalize(
     *,
     state: _TraversalState,
     depth: int = 0,
+    legacy_dependency_pins: bool = False,
 ) -> ty.Any:
     state.nodes += 1
     if state.nodes > MAX_CANONICAL_SPEC_NODES:
@@ -98,6 +119,7 @@ def _canonicalize(
                     path + (key,),
                     state=state,
                     depth=depth + 1,
+                    legacy_dependency_pins=legacy_dependency_pins,
                 )
                 for key, item in sorted(value.items(), key=lambda pair: pair[0])
                 if not (
@@ -107,7 +129,13 @@ def _canonicalize(
             }
         if isinstance(value, (list, tuple, set, frozenset)):
             items = [
-                _canonicalize(item, path, state=state, depth=depth + 1)
+                _canonicalize(
+                    item,
+                    path,
+                    state=state,
+                    depth=depth + 1,
+                    legacy_dependency_pins=legacy_dependency_pins,
+                )
                 for item in value
             ]
             items_by_json = {
@@ -117,6 +145,21 @@ def _canonicalize(
                 for item in items
             }
             return [items_by_json[key] for key in sorted(items_by_json)]
+        if legacy_dependency_pins and isinstance(value, str):
+            if (
+                path[:2] == ("packages", "pip")
+                and path[-1:] == ("version",)
+                and value.startswith("==")
+                and not value.startswith("===")
+            ):
+                return value[2:]
+            if (
+                path[:2] == ("packages", "conda")
+                and path[-1:] == ("version",)
+                and value.startswith("=")
+                and not value.startswith("==")
+            ):
+                return value[1:]
         if path not in (("version",), ("pydra2app_version",)) and not isinstance(
             value, bool
         ):
