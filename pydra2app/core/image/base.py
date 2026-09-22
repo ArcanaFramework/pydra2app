@@ -6,6 +6,7 @@ import json
 import logging
 import platform
 import re
+import shlex
 import shutil
 import tempfile
 import typing as ty
@@ -921,7 +922,13 @@ class P2AImage:
             if pip_spec.file_path:
                 local_pip_specs.append(pip_spec)
             else:
-                pip_strs.append(self.pip_spec2str(pip_spec, dockerfile, build_dir))
+                # Quoted because a version specifier like '>=1.0.1' would otherwise
+                # be exposed unquoted on the shell command line built below (see
+                # 'conda_pip_strs'/'pip_strs' usage), where '>' is parsed as output
+                # redirection rather than a literal character
+                pip_strs.append(
+                    shlex.quote(self.pip_spec2str(pip_spec, dockerfile, build_dir))
+                )
 
         conda_pkg_names = set(p.name for p in self.packages.conda)
         conda_strs = []
@@ -957,11 +964,25 @@ class P2AImage:
             env_name=self.base_image.conda_env,
             env_exists=False,
             conda_install=" ".join(conda_strs),
-            pip_install=" ".join(conda_pip_strs),
+            # NB: deliberately not passing 'pip_install' here. Neurodocker's
+            # miniconda template wraps it in a `bash -c "..."` string that also
+            # double-quotes each package individually - since bash quotes of the
+            # same kind don't nest, the first package's opening '"' actually closes
+            # the outer one early, leaving the rest of the command (including any
+            # '>' in a version specifier like 'pydra>=1.0a11') exposed unquoted to
+            # the shell, where '>' is parsed as output redirection instead of a
+            # literal character. Installed via a separate `dockerfile.run()` call
+            # below instead, which isn't affected.
             **miniconda_kwargs,
         )
 
         activate_conda = self.activate_conda() if self.base_image.conda_env else []
+        if conda_pip_strs:
+            dockerfile.run(
+                " ".join(
+                    activate_conda + ["python", "-m", "pip", "install"] + conda_pip_strs
+                )
+            )
         if pip_strs and self.base_image.python:
             dockerfile.run(
                 " ".join(
@@ -979,7 +1000,7 @@ class P2AImage:
                     activate_conda
                     + [python_cmd, "-m", "pip", "install"]
                     + [
-                        self.pip_spec2str(s, dockerfile, build_dir)
+                        shlex.quote(self.pip_spec2str(s, dockerfile, build_dir))
                         for s in local_pip_specs
                     ]
                 )
