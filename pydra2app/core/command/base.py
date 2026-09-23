@@ -29,6 +29,7 @@ from pydra.utils.typing import is_fileset_or_union, optional_type
 from pydra2app.core.exceptions import Pydra2AppUnresolvedTaskError, Pydra2AppUsageError
 
 from .components import (
+    DEFERRED_TASK_DEFINITION,
     ContainerCommandParameter,
     ContainerCommandSink,
     ContainerCommandSource,
@@ -224,12 +225,18 @@ class ContainerCommand:
         and therefore the fields of the command can only be introspected within the
         image being built, where the task's package is installed. The sources, sinks and
         parameters of a deferred command are held exactly as they were specified,
-        instead of as objects matched against the fields of the task"""
-        return isinstance(self.task, str)
+        instead of as objects matched against the fields of the task.
+
+        A task can be deferred in two ways: as a bare string (the whole task
+        reference couldn't be resolved, e.g. 'my_pkg.tasks:MyTask'), or as a class
+        carrying a `DEFERRED_TASK_DEFINITION` marker (a dict-form task definition
+        whose own type couldn't be resolved, e.g. its 'pydra.compose.<type>'
+        provider module isn't installed -- see `task_converter`)."""
+        return isinstance(self.task, str) or hasattr(self.task, DEFERRED_TASK_DEFINITION)
 
     @cached_property
     def _input_fields(self) -> pydra.utils.general._TaskFieldsList:
-        if isinstance(self.task, str):
+        if self.deferred:
             raise Pydra2AppUnresolvedTaskError(
                 f"Task {self.task} needs to be resolved for its input fields to be listed, "
                 "check its package is installed properly"
@@ -238,7 +245,7 @@ class ContainerCommand:
 
     @cached_property
     def _output_fields(self) -> pydra.utils.general._TaskFieldsList:
-        if isinstance(self.task, str):
+        if self.deferred:
             raise Pydra2AppUnresolvedTaskError(
                 f"Task {self.task} needs to be resolved for its output fields to be listed, "
                 "check its package is installed properly"

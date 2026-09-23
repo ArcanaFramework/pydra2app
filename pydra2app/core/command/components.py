@@ -94,6 +94,17 @@ def _copy_task_definition(
     return copied
 
 
+def _make_deferred_task_class(task_type: ty.Any) -> type:
+    """Builds a placeholder class to stand in for a task whose own type couldn't be
+    resolved at all in the current environment, e.g. 'type: bidsapp' but
+    'pydra-compose-bidsapp' isn't installed. Unlike an unresolvable 'python' task
+    function (where 'pydra.compose.python' itself is always available), there is no
+    provider module to structure any part of such a task against, so this carries
+    only a name -- the caller attaches the DEFERRED_TASK_DEFINITION marker holding
+    the original definition, exactly as for a deferred 'python' task."""
+    return type(f"Deferred{str(task_type).capitalize()}Task", (), {})
+
+
 def task_converter(
     task_class: str | dict[str, ty.Any],
 ) -> type[pydra.compose.base.Task]:
@@ -125,7 +136,24 @@ def task_converter(
                 if isinstance(type_, str):
                     field_dct["type"] = ClassResolver.fromstr(type_)
 
-        task_cls = structure(task_class)
+        try:
+            task_cls = structure(task_class)
+        except (ModuleNotFoundError, ImportError) as e:
+            # The task's own type couldn't be resolved at all (e.g. 'type: bidsapp'
+            # but 'pydra-compose-bidsapp' isn't installed) -- unlike an unresolvable
+            # 'python' function, there's no provider module to structure any part of
+            # the task against, so defer the whole thing rather than crashing.
+            # Sources/sinks/parameters explicitly declared in the command's own YAML
+            # (as opposed to inferred from the task) still work; further
+            # introspection happens inside the image being built.
+            logger.warning(
+                "Could not resolve task type %r (%s); its fields will only be "
+                "introspectable within the image being built",
+                task_class.get("type"),
+                e,
+            )
+            deferred_definition = _copy_task_definition(task_class)
+            task_cls = _make_deferred_task_class(task_class.get("type"))
         if deferred_definition is not None:
             setattr(task_cls, DEFERRED_TASK_DEFINITION, deferred_definition)
     elif issubclass(task_class, pydra.compose.base.Task):
