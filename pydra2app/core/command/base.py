@@ -232,7 +232,9 @@ class ContainerCommand:
         carrying a `DEFERRED_TASK_DEFINITION` marker (a dict-form task definition
         whose own type couldn't be resolved, e.g. its 'pydra.compose.<type>'
         provider module isn't installed -- see `task_converter`)."""
-        return isinstance(self.task, str) or hasattr(self.task, DEFERRED_TASK_DEFINITION)
+        return isinstance(self.task, str) or hasattr(
+            self.task, DEFERRED_TASK_DEFINITION
+        )
 
     @cached_property
     def _input_fields(self) -> pydra.utils.general._TaskFieldsList:
@@ -254,15 +256,27 @@ class ContainerCommand:
 
     @property
     def source_names(self) -> list[str]:
-        return [s.name for s in self.sources]
+        return (
+            list(self.sources)
+            if isinstance(self.sources, dict)
+            else [s.name for s in self.sources]
+        )
 
     @property
     def sink_names(self) -> list[str]:
-        return [s.name for s in self.sinks]
+        return (
+            list(self.sinks)
+            if isinstance(self.sinks, dict)
+            else [s.name for s in self.sinks]
+        )
 
     @property
     def parameter_names(self) -> list[str]:
-        return [p.name for p in self.parameters]
+        return (
+            list(self.parameters)
+            if isinstance(self.parameters, dict)
+            else [p.name for p in self.parameters]
+        )
 
     def source(self, name: str) -> ContainerCommandSource:
         try:
