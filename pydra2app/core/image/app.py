@@ -447,10 +447,21 @@ class App(P2AImage):
                 # if command.configuration is not None:
                 #     config = command.configuration
                 #     # configuration keys are variable depending on the workflow class
-                try:
-                    class_address = ClassResolver.tostr(command.task)
-                except FrametreeCannotSerializeDynamicDefinitionError:
-                    class_address = command.task.__name__
+                if command.deferred:
+                    # command.task is either the original unresolved reference
+                    # string, or a placeholder class standing in for a task whose
+                    # own type couldn't be resolved -- neither is a real,
+                    # importable address ClassResolver.tostr can serialise.
+                    class_address = (
+                        command.task
+                        if isinstance(command.task, str)
+                        else command.task.__name__
+                    )
+                else:
+                    try:
+                        class_address = ClassResolver.tostr(command.task)
+                    except FrametreeCannotSerializeDynamicDefinitionError:
+                        class_address = command.task.__name__
                 tbl_cmd.write_row("Task", class_address)
                 freq_name = (
                     command.operates_on.name
@@ -459,53 +470,68 @@ class App(P2AImage):
                 )
                 tbl_cmd.write_row("Operates on", freq_name)
 
-                f.write("#### Inputs\n")
-                tbl_inputs = MarkdownTable(
-                    f,
-                    "Name",
-                    "Data-type(s)",
-                    "Required",
-                    "Description",
-                )
-                for src in command.sources:
-                    tbl_inputs.write_row(
-                        escaped_md(src.name),
-                        self._data_format_html(src.type),
-                        "Y" if src.mandatory else "N",
-                        src.help,
+                if command.deferred:
+                    # command.sources/.sinks/.parameters hold whatever raw
+                    # definitions (if any) were given in the command's own YAML,
+                    # not objects matched against the task's fields (see
+                    # `deferred_definitions`) -- there isn't enough here to build
+                    # the tables below.
+                    f.write(
+                        "Inputs, outputs and parameters could not be introspected "
+                        "in this environment (the task's package isn't installed "
+                        "here); see the docs generated from within the built "
+                        "image.\n\n"
                     )
-                f.write("\n")
-
-                f.write("#### Outputs\n")
-                tbl_outputs = MarkdownTable(
-                    f,
-                    "Name",
-                    "Data-type(s)",
-                    "Always generated",
-                    "Description",
-                )
-                for sink in command.sinks:
-                    tbl_outputs.write_row(
-                        escaped_md(sink.name),
-                        self._data_format_html(optional_type(sink.type)),
-                        "Y" if not is_optional(sink.type) else "N",
-                        sink.help,
+                else:
+                    f.write("#### Inputs\n")
+                    tbl_inputs = MarkdownTable(
+                        f,
+                        "Name",
+                        "Data-type(s)",
+                        "Required",
+                        "Description",
                     )
-                f.write("\n")
-
-                if command.parameters is not None:
-                    f.write("#### Parameters\n")
-                    tbl_params = MarkdownTable(
-                        f, "Name", "Data-type(s)", "Default", "Description"
-                    )
-                    for param in command.parameters:
-                        tbl_params.write_row(
-                            escaped_md(param.name),
-                            self._data_format_html(param.type),
-                            escaped_md(param.default if not param.mandatory else "-"),
-                            param.help,
+                    for src in command.sources:
+                        tbl_inputs.write_row(
+                            escaped_md(src.name),
+                            self._data_format_html(src.type),
+                            "Y" if src.mandatory else "N",
+                            src.help,
                         )
                     f.write("\n")
+
+                    f.write("#### Outputs\n")
+                    tbl_outputs = MarkdownTable(
+                        f,
+                        "Name",
+                        "Data-type(s)",
+                        "Always generated",
+                        "Description",
+                    )
+                    for sink in command.sinks:
+                        tbl_outputs.write_row(
+                            escaped_md(sink.name),
+                            self._data_format_html(optional_type(sink.type)),
+                            "Y" if not is_optional(sink.type) else "N",
+                            sink.help,
+                        )
+                    f.write("\n")
+
+                    if command.parameters is not None:
+                        f.write("#### Parameters\n")
+                        tbl_params = MarkdownTable(
+                            f, "Name", "Data-type(s)", "Default", "Description"
+                        )
+                        for param in command.parameters:
+                            tbl_params.write_row(
+                                escaped_md(param.name),
+                                self._data_format_html(param.type),
+                                escaped_md(
+                                    param.default if not param.mandatory else "-"
+                                ),
+                                param.help,
+                            )
+                        f.write("\n")
 
     # @classmethod
     # def load_in_image(cls, spec_path: Path = IN_DOCKER_SPEC_PATH):
