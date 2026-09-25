@@ -314,12 +314,13 @@ class App(P2AImage):
                     image.packages.pip.remove(pip_pkg)
                     image.packages.pip.append(new_pip_pkg)
                     break
-            logger.info(
-                "Could not find package %s in the pip packages of the "
-                "image spec, omitting from build. Found packages: %s",
-                package_name,
-                '", "'.join(str(p) for p in image.packages.pip),
-            )
+            else:
+                logger.warning(
+                    "Could not find package %s in the pip packages of the "
+                    "image spec, omitting from build. Found packages: %s",
+                    package_name,
+                    ", ".join(str(p) for p in image.packages.pip),
+                )
 
         # Explicitly override directive in loaded spec to store license in the image
 
