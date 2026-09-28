@@ -743,28 +743,35 @@ class ContainerCommand:
         qualifiers : defaultdict[dict]
             the extracted qualifiers
         """
-        qualifiers: ty.Dict[str, ty.Any] = defaultdict(dict)
+        qualifiers: dict[str, ty.Any] = defaultdict(dict)
         if "=" in user_input:  # Treat user input as containing qualifiers
-            parts = re.findall(r'(?:[^\s"]|"(?:\\.|[^"])*")+', user_input)
-            path = parts[0].strip('"')
-            for part in parts[1:]:
-                try:
-                    full_name, val = part.split("=", maxsplit=1)
-                except ValueError as e:
-                    e.args = ((e.args[0] + f" attempting to split '{part}' by '='"),)
-                    raise e
+            parts = list(re.finditer(r'(?:[^\s"]|"(?:\\.|[^"])*")+', user_input))
+            # The path can contain unquoted spaces (e.g. XNAT scan types such as
+            # 'gre_field_mapping 3mm converter.file_postfix=_e1'), so it extends up
+            # to the first 'name=value' qualifier
+            path_end = parts[0].end()
+            for match in parts[1:]:
+                part = match.group()
+                full_name, is_qualifier, val = part.partition("=")
+                if not is_qualifier:
+                    if qualifiers:
+                        raise ValueError(
+                            f"Found '{part}' after qualifiers in '{user_input}', "
+                            "qualifiers must be in the form 'ns.name=value'"
+                        )
+                    path_end = match.end()
+                    continue
                 try:
                     ns, name = full_name.split(".", maxsplit=1)
                 except ValueError as e:
-                    e.args = (
-                        (e.args[0] + f" attempting to split '{full_name}' by '.'"),
-                    )
-                    raise e
+                    e.add_note(f" attempting to split '{full_name}' by '.'")
+                    raise
                 try:
                     val = json.loads(val)
                 except json.JSONDecodeError:
                     pass
                 qualifiers[ns][name] = val
+            path = user_input[:path_end].strip('"')
         else:
             path = user_input
         return path, qualifiers

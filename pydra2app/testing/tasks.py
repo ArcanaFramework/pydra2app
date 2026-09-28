@@ -1,16 +1,19 @@
 import shutil
-from pathlib import Path
 import typing as ty
 from copy import deepcopy
+from pathlib import Path
+
 import attrs
-from pydra.compose import python
 import fileformats.core
+import fileformats.text
+from fileformats.application import Zip
 from fileformats.generic import File
 from fileformats.image import Png
-from fileformats.text import TextFile
 from fileformats.testing import EncodedText
-import fileformats.text
+from fileformats.text import TextFile
 from frametree.core.row import DataRow
+from pydra.compose import python
+
 from pydra2app.testing.constants import LICENSE_OUTPUT_FIELD
 
 
@@ -118,6 +121,11 @@ def IdentityEncodedText(in_file: EncodedText) -> EncodedText:
 
 @python.define(outputs=["out_file"])
 def IdentityPng(in_file: Png) -> Png:
+    return in_file
+
+
+@python.define(outputs=["out_file"])
+def IdentityZip(in_file: Zip) -> Zip:
     return in_file
 
 
