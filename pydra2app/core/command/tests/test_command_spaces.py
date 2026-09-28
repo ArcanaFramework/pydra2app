@@ -126,6 +126,12 @@ def test_command_execute_spaces(spaced_dataset: FrameSet, work_dir: Path) -> Non
     _check_sink(spaced_dataset, "sink 1", bp, CONCATENATED)
 
 
+@pytest.mark.xfail(
+    reason=(
+        "Shell command execution with spaces is currently failing, "
+        "requires https://github.com/nipype/pydra/pull/882 to be merged"
+    )
+)
 def test_shell_command_execute_spaces(spaced_dataset: FrameSet, work_dir: Path) -> None:
     """Shell task, dataset + input paths + work dir all containing spaces"""
     bp = spaced_dataset.__annotations__["blueprint"]
@@ -150,6 +156,12 @@ def test_shell_command_execute_spaces(spaced_dataset: FrameSet, work_dir: Path) 
     _check_sink(spaced_dataset, "copied file", bp, "file 1.txt")
 
 
+@pytest.mark.xfail(
+    reason=(
+        "Shell command execution with spaces is currently failing, "
+        "requires https://github.com/nipype/pydra/pull/882 to be merged"
+    )
+)
 @pytest.mark.parametrize("task_type", ["python", "shell"])
 def test_pipeline_entrypoint_spaces(
     task_type: str,
