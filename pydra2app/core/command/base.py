@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shlex
 import shutil
 import sys
 import tempfile
@@ -725,14 +726,18 @@ class ContainerCommand:
     @classmethod
     def extract_qualifiers_from_path(
         cls, user_input: str
-    ) -> ty.Tuple[str, ty.Dict[str, ty.Any]]:
+    ) -> tuple[str, dict[str, ty.Any]]:
         """Extracts out "qualifiers" from the user-inputted paths. These are
-        in the form 'path ns1.arg1=val1 ns1.arg2=val2, ns2.arg1=val3...
+        separated from the path by a '|' and are in the form
+        'path | ns1.arg1=val1 ns1.arg2=val2 ns2.arg1="val 3"...'
+
+        The path is taken verbatim (apart from surrounding whitespace), so it can
+        contain spaces, quotes and '=' (e.g. XNAT scan types), but not '|'. The
+        qualifiers are split with shell-like quoting rules and their values are
+        decoded as JSON where possible
 
         Parameters
         ----------
-        col_name : str
-            name of the column the
         user_input : str
             The path expression + qualifying keyword args to extract
 
@@ -744,36 +749,30 @@ class ContainerCommand:
             the extracted qualifiers
         """
         qualifiers: dict[str, ty.Any] = defaultdict(dict)
-        if "=" in user_input:  # Treat user input as containing qualifiers
-            parts = list(re.finditer(r'(?:[^\s"]|"(?:\\.|[^"])*")+', user_input))
-            # The path can contain unquoted spaces (e.g. XNAT scan types such as
-            # 'gre_field_mapping 3mm converter.file_postfix=_e1'), so it extends up
-            # to the first 'name=value' qualifier
-            path_end = parts[0].end()
-            for match in parts[1:]:
-                part = match.group()
-                full_name, is_qualifier, val = part.partition("=")
-                if not is_qualifier:
-                    if qualifiers:
-                        raise ValueError(
-                            f"Found '{part}' after qualifiers in '{user_input}', "
-                            "qualifiers must be in the form 'ns.name=value'"
-                        )
-                    path_end = match.end()
-                    continue
-                try:
-                    ns, name = full_name.split(".", maxsplit=1)
-                except ValueError as e:
-                    e.add_note(f" attempting to split '{full_name}' by '.'")
-                    raise
-                try:
-                    val = json.loads(val)
-                except json.JSONDecodeError:
-                    pass
-                qualifiers[ns][name] = val
-            path = user_input[:path_end].strip('"')
-        else:
-            path = user_input
+        path, _, qualifiers_str = user_input.partition("|")
+        path = path.strip()
+        try:
+            parts = shlex.split(qualifiers_str)
+        except ValueError as e:
+            e.add_note(f" attempting to split qualifiers in '{user_input}'")
+            raise
+        for part in parts:
+            full_name, is_qualifier, val = part.partition("=")
+            if not is_qualifier:
+                raise ValueError(
+                    f"Found '{part}' in qualifiers of '{user_input}', "
+                    "qualifiers must be in the form 'ns.name=value'"
+                )
+            try:
+                ns, name = full_name.split(".", maxsplit=1)
+            except ValueError as e:
+                e.add_note(f" attempting to split '{full_name}' by '.'")
+                raise
+            try:
+                val = json.loads(val)
+            except json.JSONDecodeError:
+                pass
+            qualifiers[ns][name] = val
         return path, qualifiers
 
     def load_frameset(

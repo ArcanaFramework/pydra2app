@@ -83,27 +83,39 @@ SHELL_TASK = {
     "user_input,expected_path,expected_qualifiers",
     [
         ("file 1", "file 1", {}),
+        ("file 1 | ", "file 1", {}),
         (
-            '"file 1" criteria.datatype=text/plain',
+            "file 1|criteria.datatype=text/plain",
             "file 1",
             {"criteria": {"datatype": "text/plain"}},
         ),
         (
-            '"a dir/file 1" criteria.order=1 foo.bar="a value"',
+            'a dir/file 1 | criteria.order=1 foo.bar="a value"',
             "a dir/file 1",
             {"criteria": {"order": 1}, "foo": {"bar": "a value"}},
         ),
         (
-            "gre_field_mapping 3mm converter.file_postfix=_e1",
+            "gre_field_mapping 3mm | converter.file_postfix=_e1",
             "gre_field_mapping 3mm",
             {"converter": {"file_postfix": "_e1"}},
         ),
         (
-            "a scan  with spaces converter.file_postfix=_e2_ph criteria.order=2",
+            "a scan  with spaces | converter.file_postfix=_e2_ph criteria.order=2",
             "a scan  with spaces",
             {"converter": {"file_postfix": "_e2_ph"}, "criteria": {"order": 2}},
         ),
         ("a=b", "a=b", {}),
+        ("T1 run=2 | criteria.order=1", "T1 run=2", {"criteria": {"order": 1}}),
+        (
+            "O'Brien \"T1\" | criteria.order=1",
+            "O'Brien \"T1\"",
+            {"criteria": {"order": 1}},
+        ),
+        (
+            "file 1 | converter.x='{\"a\": [1, 2]}' converter.y='a | value'",
+            "file 1",
+            {"converter": {"x": {"a": [1, 2]}, "y": "a | value"}},
+        ),
     ],
 )
 def test_extract_qualifiers_from_path_with_spaces(
@@ -152,16 +164,14 @@ def test_command_execute_spaces(spaced_dataset: FrameSet, work_dir: Path) -> Non
         (str(zipfile.ZIP_LZMA), zipfile.ZIP_LZMA),  # JSON-decoded to an int
     ],
 )
-@pytest.mark.parametrize("input_path", ['"file 1"', "file 1"])
 def test_command_execute_spaces_with_converter_qualifiers(
-    input_path: str,
     compression: str,
     expected_compress_type: int,
     spaced_dataset: FrameSet,
     work_dir: Path,
 ) -> None:
-    """Input path containing spaces (quoted or unquoted) followed by a 'converter.*' qualifier,
-    which is passed through to the implicit text -> zip converter"""
+    """Input path containing spaces followed by a 'converter.*' qualifier, which is
+    passed through to the implicit text -> zip converter"""
     bp = spaced_dataset.__annotations__["blueprint"]
     command_spec = ContainerCommand(
         name="identity-zip",
@@ -173,7 +183,7 @@ def test_command_execute_spaces_with_converter_qualifiers(
     command_spec.execute(
         address=spaced_dataset.address,
         input_values=[
-            ("in_file", f"{input_path} converter.compression={compression}"),
+            ("in_file", f"file 1 | converter.compression={compression}"),
         ],
         output_values=[
             ("out_file", "zipped sink"),
