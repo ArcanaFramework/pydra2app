@@ -1,6 +1,7 @@
 """Tests that dataset directories, file names and CLI arguments containing spaces are
 handled correctly when executing commands (and via the pipeline-entrypoint CLI)"""
 
+import logging
 import typing as ty
 import zipfile
 from functools import reduce
@@ -107,14 +108,32 @@ SHELL_TASK = {
         ("a=b", "a=b", {}),
         ("T1 run=2 | criteria.order=1", "T1 run=2", {"criteria": {"order": 1}}),
         (
-            "O'Brien \"T1\" | criteria.order=1",
-            "O'Brien \"T1\"",
+            'O\'Brien "T1" | criteria.order=1',
+            'O\'Brien "T1"',
             {"criteria": {"order": 1}},
         ),
         (
             "file 1 | converter.x='{\"a\": [1, 2]}' converter.y='a | value'",
             "file 1",
             {"converter": {"x": {"a": [1, 2]}, "y": "a | value"}},
+        ),
+        (
+            (
+                'gre_field_mapping 3mm | converter.file_postfix="_e1" '
+                'criteria.required_metadata=\'{"ImageType":["ORIGINAL","PRIMARY"]}\''
+            ),
+            "gre_field_mapping 3mm",
+            {
+                "converter": {"file_postfix": "_e1"},
+                "criteria": {
+                    "required_metadata": {"ImageType": ["ORIGINAL", "PRIMARY"]}
+                },
+            },
+        ),
+        (
+            "file 1 | foo.a='\"1\"' foo.b=1 foo.c= foo.d='C:\\dir'",
+            "file 1",
+            {"foo": {"a": "1", "b": 1, "c": "", "d": "C:\\dir"}},
         ),
     ],
 )
@@ -124,6 +143,45 @@ def test_extract_qualifiers_from_path_with_spaces(
     path, qualifiers = ContainerCommand.extract_qualifiers_from_path(user_input)
     assert path == expected_path
     assert dict(qualifiers) == expected_qualifiers
+
+
+@pytest.mark.parametrize(
+    "qualifiers",
+    [
+        {},
+        {"converter": {"file_postfix": "_e1"}, "criteria": {"order": 2}},
+        {
+            "criteria": {
+                "required_metadata": {"ImageType": ["ORIGINAL", "PRIMARY", "M", "ND"]}
+            }
+        },
+        {"foo": {"a": "1", "b": "a 'quoted' | value", "c": "", "d": None}},
+    ],
+)
+def test_format_qualifiers_roundtrip(qualifiers: dict[str, ty.Any]) -> None:
+    path = "gre_field_mapping 3mm"
+    user_input = ContainerCommand.format_qualifiers(path, qualifiers)
+    assert ContainerCommand.extract_qualifiers_from_path(user_input) == (
+        path,
+        qualifiers,
+    )
+
+
+@pytest.mark.parametrize(
+    "user_input,warns",
+    [
+        ('scan | criteria.required_metadata={"ImageType":["ORIGINAL"]}', True),
+        ('scan | criteria.x=["a","b"]', True),
+        ('scan | criteria.required_metadata=\'{"ImageType":["ORIGINAL"]}\'', False),
+        ("scan | criteria.x=a_string", False),
+    ],
+)
+def test_extract_qualifiers_unquoted_json_warning(
+    user_input: str, warns: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="pydra2app"):
+        ContainerCommand.extract_qualifiers_from_path(user_input)
+    assert ("wrapped in single quotes" in caplog.text) is warns
 
 
 def test_command_execute_spaces(spaced_dataset: FrameSet, work_dir: Path) -> None:

@@ -733,8 +733,11 @@ class ContainerCommand:
 
         The path is taken verbatim (apart from surrounding whitespace), so it can
         contain spaces, quotes and '=' (e.g. XNAT scan types), but not '|'. The
-        qualifiers are split with shell-like quoting rules and their values are
-        decoded as JSON where possible
+        qualifiers are split with shell quoting rules (i.e. `shlex.split`), and their
+        values are then decoded as JSON where possible. Since the shell quoting is
+        removed before the JSON is decoded, JSON values need to be wrapped in single
+        quotes, e.g. criteria.required_metadata='{"ImageType": ["ORIGINAL"]}' (see
+        `format_qualifiers`)
 
         Parameters
         ----------
@@ -770,10 +773,62 @@ class ContainerCommand:
                 raise
             try:
                 val = json.loads(val)
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                if val.lstrip().startswith(("{", "[")):
+                    logger.warning(
+                        "Could not decode value of '%s' qualifier in '%s' as JSON "
+                        "(%s), so it will be passed as the string %r. JSON values "
+                        "need to be wrapped in single quotes to preserve their "
+                        'double quotes, e.g. %s.%s=\'{"key": ["value"]}\'',
+                        full_name,
+                        user_input,
+                        e,
+                        val,
+                        ns,
+                        name,
+                    )
             qualifiers[ns][name] = val
         return path, qualifiers
+
+    @classmethod
+    def format_qualifiers(
+        cls,
+        path: str,
+        qualifiers: ty.Mapping[str, ty.Mapping[str, ty.Any]] | None = None,
+    ) -> str:
+        """Formats a path and qualifiers into a string that can be parsed by
+        `extract_qualifiers_from_path`, JSON-encoding and shell-quoting the values
+        where required
+
+        Parameters
+        ----------
+        path : str
+            the path expression
+        qualifiers : Mapping[str, Mapping[str, Any]] | None
+            the qualifiers to append, keyed by namespace then name
+
+        Returns
+        -------
+        str
+            the path expression + qualifying keyword args
+        """
+        if not qualifiers:
+            return path
+
+        def encode(val: ty.Any) -> str:
+            if isinstance(val, str):
+                try:
+                    json.loads(val)
+                except json.JSONDecodeError:
+                    return val  # won't be mistaken for JSON when parsed
+            return json.dumps(val)
+
+        parts = [
+            f"{ns}.{name}=" + shlex.quote(encode(val))
+            for ns, ns_qualifiers in qualifiers.items()
+            for name, val in ns_qualifiers.items()
+        ]
+        return f"{path} | " + " ".join(parts)
 
     def load_frameset(
         self,
@@ -793,15 +848,15 @@ class ContainerCommand:
             the directory to use for the store cache
         dataset_hierarchy : str, optional
             the hierarchy of the dataset
-        dataset_name : str
-            overwrite dataset name loaded from ID str
+        dataset_name : str, optional
+            overwrite dataset name loaded from ID str, if provided
         **kwargs: Any
             passed through to Store.load
 
         Returns
         -------
-        _type_
-            _description_
+        FrameSet
+            the loaded or newly defined dataset
         """
         try:
             dataset = FrameSet.load(address, **kwargs)
