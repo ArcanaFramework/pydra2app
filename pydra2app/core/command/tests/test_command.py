@@ -419,8 +419,8 @@ def test_command_convertible_source_types() -> None:
 
 def test_command_execute_with_converter_args(saved_dataset: FrameSet, work_dir: Path):
     """Test passing arguments to file format converter tasks via input/output
-    "qualifiers", e.g. 'converter.shift=3' using the pydra2app-run-pipeline CLI
-    tool (as used in the XNAT CS commands)
+    "qualifiers", e.g. '<column> | converter.shift=3' using the pydra2app-run-pipeline
+    CLI tool (as used in the XNAT CS commands)
     """
     # Get CLI name for dataset (i.e. file system path prepended by 'file_system//')
     bp = saved_dataset.__annotations__["blueprint"]
@@ -443,7 +443,7 @@ def test_command_execute_with_converter_args(saved_dataset: FrameSet, work_dir: 
     command_spec.execute(
         address=saved_dataset.address,
         input_values=[
-            ("in_file", "<file1> converter.shift=4"),
+            ("in_file", "<file1> | converter.shift=4"),
         ],
         output_values=[
             ("out_file", "sink1"),
@@ -458,10 +458,10 @@ def test_command_execute_with_converter_args(saved_dataset: FrameSet, work_dir: 
     command_spec.execute(
         address=saved_dataset.address,
         input_values=[
-            ("in_file", "<file1> converter.shift=4"),
+            ("in_file", "<file1> | converter.shift=4"),
         ],
         output_values=[
-            ("out_file", "sink2 converter.shift=4"),
+            ("out_file", "sink2 | converter.shift=4"),
         ],
         raise_errors=True,
         worker="debug",

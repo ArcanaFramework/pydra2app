@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shlex
 import shutil
 import sys
 import tempfile
@@ -725,14 +726,21 @@ class ContainerCommand:
     @classmethod
     def extract_qualifiers_from_path(
         cls, user_input: str
-    ) -> ty.Tuple[str, ty.Dict[str, ty.Any]]:
+    ) -> tuple[str, dict[str, ty.Any]]:
         """Extracts out "qualifiers" from the user-inputted paths. These are
-        in the form 'path ns1.arg1=val1 ns1.arg2=val2, ns2.arg1=val3...
+        separated from the path by a '|' and are in the form
+        'path | ns1.arg1=val1 ns1.arg2=val2 ns2.arg1="val 3"...'
+
+        The path is taken verbatim (apart from surrounding whitespace), so it can
+        contain spaces, quotes and '=' (e.g. XNAT scan types), but not '|'. The
+        qualifiers are split with shell quoting rules (i.e. `shlex.split`), and their
+        values are then decoded as JSON where possible. Since the shell quoting is
+        removed before the JSON is decoded, JSON values need to be wrapped in single
+        quotes, e.g. criteria.required_metadata='{"ImageType": ["ORIGINAL"]}' (see
+        `format_qualifiers`)
 
         Parameters
         ----------
-        col_name : str
-            name of the column the
         user_input : str
             The path expression + qualifying keyword args to extract
 
@@ -743,31 +751,84 @@ class ContainerCommand:
         qualifiers : defaultdict[dict]
             the extracted qualifiers
         """
-        qualifiers: ty.Dict[str, ty.Any] = defaultdict(dict)
-        if "=" in user_input:  # Treat user input as containing qualifiers
-            parts = re.findall(r'(?:[^\s"]|"(?:\\.|[^"])*")+', user_input)
-            path = parts[0].strip('"')
-            for part in parts[1:]:
-                try:
-                    full_name, val = part.split("=", maxsplit=1)
-                except ValueError as e:
-                    e.args = ((e.args[0] + f" attempting to split '{part}' by '='"),)
-                    raise e
-                try:
-                    ns, name = full_name.split(".", maxsplit=1)
-                except ValueError as e:
-                    e.args = (
-                        (e.args[0] + f" attempting to split '{full_name}' by '.'"),
+        qualifiers: dict[str, ty.Any] = defaultdict(dict)
+        path, _, qualifiers_str = user_input.partition("|")
+        path = path.strip()
+        try:
+            parts = shlex.split(qualifiers_str)
+        except ValueError as e:
+            e.add_note(f" attempting to split qualifiers in '{user_input}'")
+            raise
+        for part in parts:
+            full_name, is_qualifier, val = part.partition("=")
+            if not is_qualifier:
+                raise ValueError(
+                    f"Found '{part}' in qualifiers of '{user_input}', "
+                    "qualifiers must be in the form 'ns.name=value'"
+                )
+            try:
+                ns, name = full_name.split(".", maxsplit=1)
+            except ValueError as e:
+                e.add_note(f" attempting to split '{full_name}' by '.'")
+                raise
+            try:
+                val = json.loads(val)
+            except json.JSONDecodeError as e:
+                if val.lstrip().startswith(("{", "[")):
+                    logger.warning(
+                        "Could not decode value of '%s' qualifier in '%s' as JSON "
+                        "(%s), so it will be passed as the string %r. JSON values "
+                        "need to be wrapped in single quotes to preserve their "
+                        'double quotes, e.g. %s.%s=\'{"key": ["value"]}\'',
+                        full_name,
+                        user_input,
+                        e,
+                        val,
+                        ns,
+                        name,
                     )
-                    raise e
-                try:
-                    val = json.loads(val)
-                except json.JSONDecodeError:
-                    pass
-                qualifiers[ns][name] = val
-        else:
-            path = user_input
+            qualifiers[ns][name] = val
         return path, qualifiers
+
+    @classmethod
+    def format_qualifiers(
+        cls,
+        path: str,
+        qualifiers: ty.Mapping[str, ty.Mapping[str, ty.Any]] | None = None,
+    ) -> str:
+        """Formats a path and qualifiers into a string that can be parsed by
+        `extract_qualifiers_from_path`, JSON-encoding and shell-quoting the values
+        where required
+
+        Parameters
+        ----------
+        path : str
+            the path expression
+        qualifiers : Mapping[str, Mapping[str, Any]] | None
+            the qualifiers to append, keyed by namespace then name
+
+        Returns
+        -------
+        str
+            the path expression + qualifying keyword args
+        """
+        if not qualifiers:
+            return path
+
+        def encode(val: ty.Any) -> str:
+            if isinstance(val, str):
+                try:
+                    json.loads(val)
+                except json.JSONDecodeError:
+                    return val  # won't be mistaken for JSON when parsed
+            return json.dumps(val)
+
+        parts = [
+            f"{ns}.{name}=" + shlex.quote(encode(val))
+            for ns, ns_qualifiers in qualifiers.items()
+            for name, val in ns_qualifiers.items()
+        ]
+        return f"{path} | " + " ".join(parts)
 
     def load_frameset(
         self,
@@ -787,15 +848,15 @@ class ContainerCommand:
             the directory to use for the store cache
         dataset_hierarchy : str, optional
             the hierarchy of the dataset
-        dataset_name : str
-            overwrite dataset name loaded from ID str
+        dataset_name : str, optional
+            overwrite dataset name loaded from ID str, if provided
         **kwargs: Any
             passed through to Store.load
 
         Returns
         -------
-        _type_
-            _description_
+        FrameSet
+            the loaded or newly defined dataset
         """
         try:
             dataset = FrameSet.load(address, **kwargs)

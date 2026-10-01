@@ -14,8 +14,8 @@ dependencies = [
     "click-option-group>=0.5.5",
     "deepdiff>=3.3",
     "docker>=5.0.2",
-    "fileformats >=0.8.5",
-    "fileformats-extras >=0.2.0",
+    "fileformats >=0.19.1",
+    "fileformats-extras >=0.19.1",
     "flit_scm >=1.7.0",
     "frametree >= 0.11.2",
     "hatchling >=1.12.2",
@@ -38,11 +38,10 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 dynamic = ["version"]
@@ -103,7 +102,7 @@ exclude = "_version.py"
 [tool.isort]
 profile = "black"
 known_first_party = ["pydra2app"]
-honor_noqa = true  # so that '# noqa' imports are skipped, as Ruff skips them
+honor_noqa = true                 # so that '# noqa' imports are skipped, as Ruff skips them
 
 # Kept in step with the isort config above so that both tools agree on how imports
 # should be sorted, in particular on which packages are first-party

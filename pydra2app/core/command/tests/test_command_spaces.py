@@ -1,24 +1,32 @@
 """Tests that dataset directories, file names and CLI arguments containing spaces are
 handled correctly when executing commands (and via the pipeline-entrypoint CLI)"""
 
+import logging
 import typing as ty
+import zipfile
 from functools import reduce
 from operator import mul
 from pathlib import Path
+
 import pytest
 import yaml
-from fileformats.text import Plain as PlainText, TextFile
+from fileformats.application import Zip
+from fileformats.text import Plain as PlainText
+from fileformats.text import TextFile
 from frametree.core.frameset import FrameSet
 from frametree.core.store import Store
+from frametree.file_system import FileSystem
 from frametree.testing import TestAxes
 from frametree.testing.blueprint import (
-    TestDatasetBlueprint,
     FileSetEntryBlueprint as FileBP,
 )
+from frametree.testing.blueprint import (
+    TestDatasetBlueprint,
+)
+
 from pydra2app.core.cli import pipeline_entrypoint
 from pydra2app.core.command.base import ContainerCommand
 from pydra2app.core.image import App
-from frametree.file_system import FileSystem
 
 
 @pytest.fixture
@@ -76,15 +84,56 @@ SHELL_TASK = {
     "user_input,expected_path,expected_qualifiers",
     [
         ("file 1", "file 1", {}),
+        ("file 1 | ", "file 1", {}),
         (
-            '"file 1" criteria.datatype=text/plain',
+            "file 1|criteria.datatype=text/plain",
             "file 1",
             {"criteria": {"datatype": "text/plain"}},
         ),
         (
-            '"a dir/file 1" criteria.order=1 foo.bar="a value"',
+            'a dir/file 1 | criteria.order=1 foo.bar="a value"',
             "a dir/file 1",
             {"criteria": {"order": 1}, "foo": {"bar": "a value"}},
+        ),
+        (
+            "gre_field_mapping 3mm | converter.file_postfix=_e1",
+            "gre_field_mapping 3mm",
+            {"converter": {"file_postfix": "_e1"}},
+        ),
+        (
+            "a scan  with spaces | converter.file_postfix=_e2_ph criteria.order=2",
+            "a scan  with spaces",
+            {"converter": {"file_postfix": "_e2_ph"}, "criteria": {"order": 2}},
+        ),
+        ("a=b", "a=b", {}),
+        ("T1 run=2 | criteria.order=1", "T1 run=2", {"criteria": {"order": 1}}),
+        (
+            'O\'Brien "T1" | criteria.order=1',
+            'O\'Brien "T1"',
+            {"criteria": {"order": 1}},
+        ),
+        (
+            "file 1 | converter.x='{\"a\": [1, 2]}' converter.y='a | value'",
+            "file 1",
+            {"converter": {"x": {"a": [1, 2]}, "y": "a | value"}},
+        ),
+        (
+            (
+                'gre_field_mapping 3mm | converter.file_postfix="_e1" '
+                'criteria.required_metadata=\'{"ImageType":["ORIGINAL","PRIMARY"]}\''
+            ),
+            "gre_field_mapping 3mm",
+            {
+                "converter": {"file_postfix": "_e1"},
+                "criteria": {
+                    "required_metadata": {"ImageType": ["ORIGINAL", "PRIMARY"]}
+                },
+            },
+        ),
+        (
+            "file 1 | foo.a='\"1\"' foo.b=1 foo.c= foo.d='C:\\dir'",
+            "file 1",
+            {"foo": {"a": "1", "b": 1, "c": "", "d": "C:\\dir"}},
         ),
     ],
 )
@@ -94,6 +143,45 @@ def test_extract_qualifiers_from_path_with_spaces(
     path, qualifiers = ContainerCommand.extract_qualifiers_from_path(user_input)
     assert path == expected_path
     assert dict(qualifiers) == expected_qualifiers
+
+
+@pytest.mark.parametrize(
+    "qualifiers",
+    [
+        {},
+        {"converter": {"file_postfix": "_e1"}, "criteria": {"order": 2}},
+        {
+            "criteria": {
+                "required_metadata": {"ImageType": ["ORIGINAL", "PRIMARY", "M", "ND"]}
+            }
+        },
+        {"foo": {"a": "1", "b": "a 'quoted' | value", "c": "", "d": None}},
+    ],
+)
+def test_format_qualifiers_roundtrip(qualifiers: dict[str, ty.Any]) -> None:
+    path = "gre_field_mapping 3mm"
+    user_input = ContainerCommand.format_qualifiers(path, qualifiers)
+    assert ContainerCommand.extract_qualifiers_from_path(user_input) == (
+        path,
+        qualifiers,
+    )
+
+
+@pytest.mark.parametrize(
+    "user_input,warns",
+    [
+        ('scan | criteria.required_metadata={"ImageType":["ORIGINAL"]}', True),
+        ('scan | criteria.x=["a","b"]', True),
+        ('scan | criteria.required_metadata=\'{"ImageType":["ORIGINAL"]}\'', False),
+        ("scan | criteria.x=a_string", False),
+    ],
+)
+def test_extract_qualifiers_unquoted_json_warning(
+    user_input: str, warns: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="pydra2app"):
+        ContainerCommand.extract_qualifiers_from_path(user_input)
+    assert ("wrapped in single quotes" in caplog.text) is warns
 
 
 def test_command_execute_spaces(spaced_dataset: FrameSet, work_dir: Path) -> None:
@@ -124,6 +212,55 @@ def test_command_execute_spaces(spaced_dataset: FrameSet, work_dir: Path) -> Non
         pipeline_name="test_pipeline",
     )
     _check_sink(spaced_dataset, "sink 1", bp, CONCATENATED)
+
+
+@pytest.mark.parametrize(
+    "compression,expected_compress_type",
+    [
+        ("zip_stored", zipfile.ZIP_STORED),
+        ("ZIP_BZIP2", zipfile.ZIP_BZIP2),
+        (str(zipfile.ZIP_LZMA), zipfile.ZIP_LZMA),  # JSON-decoded to an int
+    ],
+)
+def test_command_execute_spaces_with_converter_qualifiers(
+    compression: str,
+    expected_compress_type: int,
+    spaced_dataset: FrameSet,
+    work_dir: Path,
+) -> None:
+    """Input path containing spaces followed by a 'converter.*' qualifier, which is
+    passed through to the implicit text -> zip converter"""
+    bp = spaced_dataset.__annotations__["blueprint"]
+    command_spec = ContainerCommand(
+        name="identity-zip",
+        task="pydra2app.testing.tasks:IdentityZip",
+        operates_on=bp.axes.default(),
+        # stored as plain text so that an implicit text -> zip conversion is required
+        sources={"in_file": {"type": PlainText}},
+    )
+    command_spec.execute(
+        address=spaced_dataset.address,
+        input_values=[
+            ("in_file", f"file 1 | converter.compression={compression}"),
+        ],
+        output_values=[
+            ("out_file", "zipped sink"),
+        ],
+        raise_errors=True,
+        worker="debug",
+        work_dir=str(work_dir / "work dir"),
+        loglevel="debug",
+        dataset_hierarchy=",".join(bp.hierarchy),
+        pipeline_name="test_pipeline",
+    )
+    sink = spaced_dataset.add_sink("zipped sink", Zip)
+    assert len(sink) == reduce(mul, bp.dim_lengths)
+    for item in sink:
+        with zipfile.ZipFile(Path(item)) as zfile:
+            infos = zfile.infolist()
+            assert [i.filename for i in infos] == ["file 1.txt"]
+            assert infos[0].compress_type == expected_compress_type
+            assert zfile.read(infos[0]).decode() == "file 1.txt"
 
 
 @pytest.mark.xfail(
