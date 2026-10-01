@@ -38,11 +38,10 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 dynamic = ["version"]
@@ -103,7 +102,7 @@ exclude = "_version.py"
 [tool.isort]
 profile = "black"
 known_first_party = ["pydra2app"]
-honor_noqa = true  # so that '# noqa' imports are skipped, as Ruff skips them
+honor_noqa = true                 # so that '# noqa' imports are skipped, as Ruff skips them
 
 # Kept in step with the isort config above so that both tools agree on how imports
 # should be sorted, in particular on which packages are first-party
