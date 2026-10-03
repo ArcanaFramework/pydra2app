@@ -125,6 +125,7 @@ def test_add_resources(tmp_path: Path) -> None:
         packages={
             "system": ["vim", "git"],  # just to test it out
             "pip": {
+                "fileformats": ">= 0.19.0",
                 "pydra2app": None,
             },  # just to test out the
         },
@@ -395,7 +396,9 @@ def test_add_resources_extracted(tmp_path: Path) -> None:
         tfile.add(contents, arcname="payload")
 
     # a small archive that is downloaded rather than provided locally
-    url = "https://github.com/ArcanaFramework/pydra2app/archive/refs/tags/v0.20.0.tar.gz"
+    url = (
+        "https://github.com/ArcanaFramework/pydra2app/archive/refs/tags/v0.20.0.tar.gz"
+    )
 
     img = P2AImage(
         name="test-resource-extract-image",

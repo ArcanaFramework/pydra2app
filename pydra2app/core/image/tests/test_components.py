@@ -409,3 +409,78 @@ def test_extract_locally_declines_archives_that_dont_hold_a_directory(
     plan = img.plan_resources(build_dir, {"lone": archive}, resources_dir=None)
     assert plan[0].method is not None
     assert img.extraction_packages(plan) == ["unzip"]
+
+
+
+@pytest.mark.parametrize(
+    "spec,version,expected",
+    [
+        # single bounds
+        (">=0.19.0", "0.19.0", True),
+        (">=0.19.0", "0.20.0", True),
+        (">=0.19.0", "0.18.9", False),
+        (">0.19.0", "0.19.0", False),
+        (">0.19.0", "0.19.1", True),
+        ("<=1.0", "1.0", True),
+        ("<=1.0", "1.0.1", False),
+        ("<1.0", "0.9.9", True),
+        ("<1.0", "1.0", False),
+        ("==1.0.1", "1.0.1", True),
+        ("==1.0.1", "1.0.2", False),
+        ("!=1.0.1", "1.0.1", False),
+        ("!=1.0.1", "1.0.2", True),
+        # whitespace between operator and version
+        (">= 0.19.0", "0.20.0", True),
+        (">= 0.19.0", "0.18.0", False),
+        # trailing zeros are insignificant
+        ("==1.0", "1.0.0", True),
+        (">=1.0", "1", True),
+        # multiple, comma-separated constraints must all be satisfied
+        (">=1.0,<2.0", "1.5", True),
+        (">=1.0,<2.0", "0.9", False),
+        (">=1.0,<2.0", "2.0", False),
+        (">=1.0, <2.0, !=1.5", "1.5", False),
+        (">=1.0, <2.0, !=1.5", "1.6", True),
+        # a bare version is treated as an exact pin
+        ("1.2.3", "1.2.3", True),
+        ("1.2.3", "1.2.4", False),
+        # compatible release
+        ("~=1.4", "1.4", True),
+        ("~=1.4", "1.9.3", True),
+        ("~=1.4", "2.0", False),
+        ("~=1.4.2", "1.4.5", True),
+        ("~=1.4.2", "1.5", False),
+        ("~=1.4.2", "1.4.1", False),
+        # wildcards
+        ("==1.4.*", "1.4.7", True),
+        ("==1.4.*", "1.5.0", False),
+        # pre/post/dev-releases, which are matched as they are often installed
+        # locally during development
+        (">=1.0", "1.0rc1", False),
+        (">=1.0rc1", "1.0rc2", True),
+        (">=1.0", "1.0.post1", True),
+        (">=1.0", "1.1.dev3", True),
+        ("<1.0.post1", "1.0", True),
+        # numeric rather than lexical comparison of release components
+        (">=1.9", "1.10", True),
+        ("<1.10", "1.9", True),
+        # local version labels
+        (">=1.0", "1.1+g1234abc", True),
+        # versions that aren't PEP 440 compliant never match
+        (">=1.0", "not-a-version", False),
+    ],
+)
+def test_pip_package_version_matches(spec: str, version: str, expected: bool) -> None:
+    assert PipPackage(name="a-package", version=spec).version_matches(version) is expected
+
+
+def test_pip_package_version_matches_unversioned() -> None:
+    """A package without a version specifier is satisfied by any version"""
+    assert PipPackage(name="a-package").version_matches("0.0.1")
+
+
+@pytest.mark.parametrize("spec", ["=>1.0", "=1.0", "~=1", "1.0 || 2.0"])
+def test_pip_package_malformed_version_specifier(spec: str) -> None:
+    """Malformed specifiers are rejected rather than partially parsed"""
+    with pytest.raises(ValueError, match="Invalid version specifier"):
+        PipPackage(name="a-package", version=spec)

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-import ipaddress
 import io
+import ipaddress
 import json
 import logging
 import os
@@ -72,6 +72,11 @@ class SpecLayerResult:
 class OCIImageMetadata:
     config: ty.Dict[str, ty.Any]
     layers: ty.List[ty.Dict[str, ty.Any]]
+
+
+# A single "key=value" parameter of a WWW-Authenticate challenge, where the value
+# is either a quoted string or a bare token (RFC 7235)
+CHALLENGE_PARAMETER_RE = re.compile(r'\s*(\w+)=(?:"([^"]*)"|([^\s,"]+))\s*')
 
 
 class OCIRegistryClient:
@@ -171,9 +176,7 @@ class OCIRegistryClient:
         tags = data.get("tags")
         if tags is None:
             return []
-        if not isinstance(tags, list) or not all(
-            isinstance(tag, str) for tag in tags
-        ):
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
             raise OCIRegistryError(
                 f"Registry returned an invalid tag list for '{self.repository}'"
             )
@@ -383,7 +386,18 @@ class OCIRegistryClient:
                 f"OCI registry '{self.registry}' requested unsupported authentication "
                 f"scheme '{scheme}'"
             )
-        values = dict(re.findall(r'(\w+)="([^"]*)"', parameters))
+        values: ty.Dict[str, str] = {}
+        # Only split on commas that start a new parameter, as quoted values can
+        # contain commas themselves, e.g. scope="repository:org/image:pull,push"
+        for parameter in re.split(r",(?=\s*\w+=)", parameters):
+            match = CHALLENGE_PARAMETER_RE.fullmatch(parameter)
+            if match is None:
+                raise OCIRegistryError(
+                    f"OCI registry '{self.registry}' returned a malformed Bearer "
+                    f"challenge: {challenge!r}"
+                )
+            key, quoted, token = match.groups()
+            values[key] = quoted if quoted is not None else token
         realm = values.pop("realm", None)
         if not realm:
             raise OCIRegistryError(
