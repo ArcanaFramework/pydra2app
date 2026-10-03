@@ -2,6 +2,7 @@ import hashlib
 import io
 import json
 import tarfile
+import typing as ty
 from pathlib import PurePosixPath
 from unittest.mock import Mock
 
@@ -415,6 +416,58 @@ def test_anonymous_bearer_authentication() -> None:
     assert authorization == "Bearer registry-token"
     assert session.get.call_args.kwargs["auth"] is None
 
+
+
+@pytest.mark.parametrize(
+    "challenge,expected_params",
+    [
+        # quoted values can contain commas
+        (
+            'Bearer realm="https://auth.example/token",'
+            'service="registry.example",scope="repository:org/image:pull,push"',
+            {"service": "registry.example", "scope": "repository:org/image:pull,push"},
+        ),
+        # whitespace around parameters and unquoted token values
+        (
+            'Bearer realm="https://auth.example/token", service=registry.example ,'
+            ' scope="repository:org/image:pull"',
+            {"service": "registry.example", "scope": "repository:org/image:pull"},
+        ),
+        # unrecognised parameters aren't passed on to the token endpoint
+        (
+            'Bearer realm="https://auth.example/token",service="registry.example",'
+            'error="insufficient_scope"',
+            {"service": "registry.example"},
+        ),
+    ],
+)
+def test_bearer_challenge_parameters(
+    challenge: str, expected_params: ty.Dict[str, str]
+) -> None:
+    session = Mock()
+    session.get.return_value = json_response({"token": "registry-token"})
+    client = OCIRegistryClient("registry.example/org/image:1.0", session=session)
+
+    client._authenticate(challenge)
+
+    assert session.get.call_args.args == ("https://auth.example/token",)
+    assert session.get.call_args.kwargs["params"] == expected_params
+
+
+@pytest.mark.parametrize(
+    "challenge",
+    [
+        'Bearer realm="https://auth.example/token",,service="registry.example"',
+        'Bearer realm="https://auth.example/token",service',
+        'Bearer realm="https://auth.example/token" service="registry.example"',
+        'Bearer realm="https://auth.example/token,service="registry.example"',
+    ],
+)
+def test_malformed_bearer_challenge_is_rejected(challenge: str) -> None:
+    client = OCIRegistryClient("registry.example/org/image:1.0", session=Mock())
+
+    with pytest.raises(OCIRegistryError, match="malformed Bearer challenge"):
+        client._authenticate(challenge)
 
 def test_streamed_unauthorized_response_is_closed_before_authentication() -> None:
     unauthorized = response(

@@ -1,20 +1,24 @@
 from __future__ import annotations
-import typing as ty
-from pathlib import Path, PurePath
-import packaging.utils
-import packaging.specifiers
+
 import json
-import importlib_metadata
 import logging
-from urllib.parse import urlparse
 import re
-from itertools import zip_longest
-from typing_extensions import Self
 import site
+import typing as ty
+from itertools import zip_longest
+from pathlib import Path, PurePath
+from urllib.parse import urlparse
+
 import attrs
+import importlib_metadata
+import packaging.specifiers
+import packaging.utils
+import packaging.version
+from frametree.core.serialize import ObjectListConverter
+from typing_extensions import Self
+
 from pydra2app.core import PACKAGE_NAME
 from pydra2app.core.exceptions import Pydra2AppBuildError
-from frametree.core.serialize import ObjectListConverter
 
 logger = logging.getLogger("pydra2app")
 
@@ -213,8 +217,11 @@ def pip_package_extras_converter(
     return list(extras)
 
 
-# Recognised PEP 440 comparison operators that can prefix a version specifier
-PIP_VERSION_OPERATOR_RE = re.compile(r"^\s*(==|!=|<=|>=|~=|===|<|>)")
+# Characters that PEP 440 comparison operators are made of. A version specifier
+# starting with any of them is left as is (and then validated), rather than being
+# treated as a bare version number, so that malformed operators such as "=>" are
+# rejected instead of being turned into an arbitrary-equality ("===") clause
+PIP_VERSION_OPERATOR_RE = re.compile(r"^\s*[=!<>~]")
 
 
 def pip_package_version_converter(v: ty.Optional[str]) -> ty.Optional[str]:
@@ -253,6 +260,19 @@ class PipPackage(BasePackage):
                     f"Invalid version specifier '{version}' for pip package "
                     f"'{self.name}': {e}"
                 ) from e
+
+    def version_matches(self, version: str) -> bool:
+        """Whether the given version satisfies the version specifier of the package.
+        Pre-releases are matched too, as they are commonly installed locally during
+        development. Versions that aren't PEP 440 compliant never match."""
+        if self.version is None:
+            return True
+        try:
+            return packaging.specifiers.SpecifierSet(self.version).contains(
+                version, prereleases=True
+            )
+        except packaging.version.InvalidVersion:
+            return False
 
     @classmethod
     def unique(
@@ -338,10 +358,10 @@ class PipPackage(BasePackage):
             and (
                 not (dist.version.endswith(".dirty") or self.version.endswith(".dirty"))
             )
-            and dist.version != self.version
+            and not self.version_matches(dist.version)
         ):
             msg = (
-                f"Requested package {self.name}=={self.version} does "
+                f"Requested package {self.name}{self.version} does "
                 "not match installed " + dist.version
             )
             if pypi_fallback:
@@ -641,3 +661,4 @@ class Version:
         ),
         re.VERBOSE | re.IGNORECASE,
     )
+
