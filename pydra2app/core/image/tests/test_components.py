@@ -303,6 +303,8 @@ def test_download_command_only_removes_tools_it_installed(tmp_path: Path) -> Non
         stub.write_text(f"#!/bin/sh\n{body}\n")
         stub.chmod(0o755)
 
+    # NB: only the archive's own path is redirected into tmp_path, as on Linux tmp_path
+    # is itself within /tmp
     command = (
         extraction.download_command(
             "https://example.org/data.tar.gz",
@@ -310,7 +312,7 @@ def test_download_command_only_removes_tools_it_installed(tmp_path: Path) -> Non
             "apt",
             extraction.method_for("data.tar.gz"),
         )
-        .replace("/tmp/", f"{tmp_path}/")
+        .replace('"/tmp/dest-data.tar.gz"', f'"{tmp_path}/dest-data.tar.gz"')
         .replace("/var/lib/apt/lists", str(tmp_path / "lists"))
     )
     subprocess.run(["/bin/sh", "-c", command], check=True, env={"PATH": str(bin_dir)})

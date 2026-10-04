@@ -442,6 +442,7 @@ def test_add_resources_extracted(tmp_path: Path) -> None:
     assert "pydra2app" in run("ls", "/opt/remote")
     # and neither archive was left behind in the image
     assert run("sh", "-c", "ls /tmp/*.tar.gz 2>/dev/null; true").strip() == ""
-    # nor were the tools installed to download and extract the remote one, which the
-    # base image doesn't have
-    assert run("sh", "-c", "command -v curl; true").strip() == ""
+    # NB: whether the tools installed to download and extract the remote archive are
+    # removed again can't be checked in the final image, as later layers may install
+    # them (e.g. neurodocker's miniconda installation needs curl). It is tested against
+    # the generated command in test_download_command_only_removes_tools_it_installed
