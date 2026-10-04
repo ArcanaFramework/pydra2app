@@ -1,6 +1,7 @@
 """Tests for deferring the loading of tasks that can't be loaded on the build host to
 within the image being built"""
 
+import errno
 import json
 import typing as ty
 from pathlib import Path
@@ -10,12 +11,30 @@ from frametree.core.exceptions import FrameTreeUsageError
 from frametree.core.serialize import ClassResolver
 
 from pydra2app.core import App
+from pydra2app.core.command import components
 from pydra2app.core.command.base import ContainerCommand
 from pydra2app.core.command.components import task_serializer
 
-pytest.importorskip("pydra.compose.monai")
-
 BUNDLE_PATH = "/monai-bundles/spleen_ct_segmentation"
+
+
+@pytest.fixture
+def fake_monai(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Loads 'monai' tasks the way pydra-compose-monai does, without it (and MONAI)
+    needing to be installed: a bundle that doesn't exist raises a FileNotFoundError
+    with its path, and one that does but can't be parsed raises a ValueError. Other
+    tasks are loaded as normal"""
+    structure = components.structure
+
+    def fake_structure(task_class: ty.Any) -> ty.Any:
+        if isinstance(task_class, dict) and task_class.get("type") == "monai":
+            bundle = task_class["bundle"]
+            if not Path(bundle).exists():
+                raise FileNotFoundError(errno.ENOENT, "MONAI bundle not found", bundle)
+            raise ValueError(f"Could not parse MONAI bundle at {bundle}")
+        return structure(task_class)
+
+    monkeypatch.setattr(components, "structure", fake_structure)
 
 
 def _app_spec(bundle: str, resources: ty.Dict[str, ty.Any]) -> ty.Dict[str, ty.Any]:
@@ -51,7 +70,7 @@ BUNDLE_RESOURCE = {"spleen_ct_segmentation-bundle": {"path": BUNDLE_PATH}}
     "bundle",
     [BUNDLE_PATH, BUNDLE_PATH + "/configs/metadata.json"],
 )
-def test_missing_path_within_resources_is_deferred(bundle: str) -> None:
+def test_missing_path_within_resources_is_deferred(bundle: str, fake_monai: None) -> None:
     app = App.load(_app_spec(bundle, BUNDLE_RESOURCE), allow_deferred=True)
     command = app.command()
     assert command.deferred
@@ -74,7 +93,7 @@ def test_missing_path_within_resources_is_deferred(bundle: str) -> None:
     ],
 )
 def test_missing_path_outside_resources_is_raised(
-    bundle: str, resources: ty.Dict[str, ty.Any]
+    bundle: str, resources: ty.Dict[str, ty.Any], fake_monai: None
 ) -> None:
     with pytest.raises(FileNotFoundError) as excinfo:
         App.load(_app_spec(bundle, resources), allow_deferred=True)
@@ -84,7 +103,7 @@ def test_missing_path_outside_resources_is_raised(
     )
 
 
-def test_missing_path_without_image_is_raised() -> None:
+def test_missing_path_without_image_is_raised(fake_monai: None) -> None:
     """Outside of an app there are no resources to provide the path"""
     with pytest.raises(FileNotFoundError):
         ContainerCommand(
@@ -94,9 +113,21 @@ def test_missing_path_without_image_is_raised() -> None:
         )
 
 
-def test_broken_task_is_not_deferred(tmp_path: Path) -> None:
+def test_broken_task_is_not_deferred(tmp_path: Path, fake_monai: None) -> None:
     """A task that fails to load for a reason other than a missing path is reported,
     even if it is within the path of one of the image's resources"""
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    with pytest.raises(ValueError, match="Could not parse"):
+        App.load(
+            _app_spec(str(bundle), {"bundle": {"path": str(bundle)}}),
+            allow_deferred=True,
+        )
+
+
+def test_broken_monai_bundle_is_not_deferred(tmp_path: Path) -> None:
+    """As above, with pydra-compose-monai itself"""
+    pytest.importorskip("pydra.compose.monai")
     bundle = tmp_path / "bundle"
     (bundle / "configs").mkdir(parents=True)
     (bundle / "configs" / "metadata.json").write_text("{not json")
@@ -105,6 +136,14 @@ def test_broken_task_is_not_deferred(tmp_path: Path) -> None:
             _app_spec(str(bundle), {"bundle": {"path": str(bundle)}}),
             allow_deferred=True,
         )
+
+
+def test_missing_monai_bundle_within_resources_is_deferred() -> None:
+    """The deferral of a bundle that is only present within the image, with
+    pydra-compose-monai itself"""
+    pytest.importorskip("pydra.compose.monai")
+    app = App.load(_app_spec(BUNDLE_PATH, BUNDLE_RESOURCE), allow_deferred=True)
+    assert app.command().deferred
 
 
 def test_missing_provider_package_is_deferred() -> None:
@@ -119,7 +158,7 @@ def test_missing_provider_package_is_deferred() -> None:
     assert app.command().deferred
 
 
-def test_deferred_app_roundtrip(tmp_path: Path) -> None:
+def test_deferred_app_roundtrip(tmp_path: Path, fake_monai: None) -> None:
     app = App.load(_app_spec(BUNDLE_PATH, BUNDLE_RESOURCE), allow_deferred=True)
     save_path = tmp_path / (app.name + ".yaml")
     app.save(save_path)
@@ -131,7 +170,7 @@ def test_deferred_app_roundtrip(tmp_path: Path) -> None:
     assert reloaded == app
 
 
-def test_missing_path_not_deferred_unless_enabled() -> None:
+def test_missing_path_not_deferred_unless_enabled(fake_monai: None) -> None:
     """Deferral has to be enabled explicitly, e.g. it shouldn't happen when the spec is
     loaded within the image, where everything the task needs should be present"""
     with pytest.raises(FileNotFoundError) as excinfo:
@@ -196,7 +235,7 @@ def test_allow_deferred_leaves_outer_fallback_enabled() -> None:
     assert not ClassResolver.FALLBACK_TO_STR.permit
 
 
-def test_load_doesnt_modify_spec() -> None:
+def test_load_doesnt_modify_spec(fake_monai: None) -> None:
     """The commands of the spec are copied before the name of each command and the
     back-reference to the app are added to them, so that the spec can still be saved"""
     spec = _app_spec(BUNDLE_PATH, BUNDLE_RESOURCE)
@@ -204,3 +243,22 @@ def test_load_doesnt_modify_spec() -> None:
     keys_before = set(command_spec)
     App.load(spec, allow_deferred=True)
     assert set(command_spec) == keys_before
+
+
+def test_missing_path_without_filename_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A FileNotFoundError that doesn't say which file is missing can't be checked
+    against the image's resources, so isn't deferred"""
+
+    def no_filename(*args: ty.Any, **kwargs: ty.Any) -> ty.NoReturn:
+        raise FileNotFoundError("something is missing")
+
+    monkeypatch.setattr(components, "structure", no_filename)
+    with pytest.raises(FileNotFoundError, match="something is missing"):
+        App.load(_app_spec(BUNDLE_PATH, BUNDLE_RESOURCE), allow_deferred=True)
+
+
+def test_commands_required() -> None:
+    spec = _app_spec(BUNDLE_PATH, BUNDLE_RESOURCE)
+    spec["commands"] = None
+    with pytest.raises(ValueError):
+        App(**{k: v for k, v in spec.items()})
