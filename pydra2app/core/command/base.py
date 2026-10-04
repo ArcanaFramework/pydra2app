@@ -84,7 +84,7 @@ class ContainerCommand:
     AXES: type[Axes] | None = None
 
     task: type[pydra.compose.base.Task] = attrs.field(
-        converter=task_converter,
+        converter=attrs.Converter(task_converter, takes_self=True),
         metadata={"serializer": task_serializer},
         eq=task_equals,
     )

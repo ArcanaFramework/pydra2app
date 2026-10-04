@@ -21,9 +21,11 @@ from pydra.utils.typing import is_container, is_optional, is_union
 
 from pydra2app.core import PACKAGE_NAME
 from pydra2app.core.exceptions import Pydra2AppUsageError
+from pydra2app.core.image.app import App
 
 if ty.TYPE_CHECKING:
     from .base import ContainerCommand
+    from ..image import App
 
 
 # Just until this gets added to Pydra, as pydra.utils.typing.is_subclass_or_union
@@ -106,7 +108,7 @@ def _make_deferred_task_class(task_type: ty.Any) -> type:
 
 
 def task_converter(
-    task_class: str | dict[str, ty.Any],
+    task_class: str | dict[str, ty.Any], self: "App"
 ) -> type[pydra.compose.base.Task]:
 
     task_cls: type[pydra.compose.base.Task]
@@ -138,7 +140,13 @@ def task_converter(
 
         try:
             task_cls = structure(task_class)
-        except (ModuleNotFoundError, ImportError) as e:
+        except (ModuleNotFoundError, ImportError, FileNotFoundError) as e:
+            if isinstance(e, FileNotFoundError) and not any(
+                e.filename in str(path) for path in self.image.resource_paths
+            ):
+                # Check to see whether the missing path is one that will be provided by the image's resource paths
+                # to the image's resource paths
+                raise
             # The task's own type couldn't be resolved at all (e.g. 'type: bidsapp'
             # but 'pydra-compose-bidsapp' isn't installed) -- unlike an unresolvable
             # 'python' function, there's no provider module to structure any part of

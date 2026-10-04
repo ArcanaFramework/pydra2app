@@ -28,7 +28,6 @@ from frametree.core.axes import Axes
 from frametree.core.serialize import ClassResolver, ObjectConverter, ObjectListConverter
 from looseversion import LooseVersion
 from neurodocker.reproenv import DockerRenderer
-from typing_extensions import Self
 
 from pydra2app.core import PACKAGE_NAME, __version__
 from pydra2app.core.exceptions import Pydra2AppBuildError
@@ -157,6 +156,11 @@ class P2AImage:
         prefix = self.registry + "/" if self.registry != DOCKER_HUB else ""
         org_str = self.org + "/" if self.org else ""
         return (prefix + org_str + self.name).lower()
+
+    @property
+    def resource_paths(self) -> ty.Iterable[Path]:
+        for resource in self.resources:
+            yield resource.path
 
     def make(
         self,
