@@ -83,8 +83,16 @@ class ContainerCommand:
     STORE_TYPE = "file_system"
     AXES: type[Axes] | None = None
 
+    # defined before `task` so that it is already set when the task is converted, which
+    # uses it to decide whether a task that can't be loaded on the build host can be
+    # deferred to be loaded within the image instead
+    image: App = attrs.field(
+        default=None, eq=False, hash=False, metadata={"asdict": False}
+    )
     task: type[pydra.compose.base.Task] = attrs.field(
-        converter=task_converter,
+        converter=attrs.Converter(  # type: ignore[call-overload]
+            task_converter, takes_self=True
+        ),
         metadata={"serializer": task_serializer},
         eq=task_equals,
     )
@@ -116,9 +124,6 @@ class ContainerCommand:
         metadata={"serializer": parameters_serialiser},
     )
     # parameters: list[str] = attrs.field(converter=list)
-    image: App = attrs.field(
-        default=None, eq=False, hash=False, metadata={"asdict": False}
-    )
     save_frameset: bool = False
 
     @name.default  # pyright: ignore[reportAttributeAccessIssue]

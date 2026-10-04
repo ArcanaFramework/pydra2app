@@ -171,17 +171,17 @@ def plan_builds(
         paths_to_load = sorted(set(paths_to_load))
 
     target_cls: ty.Type[App] = ClassResolver(App, package=PACKAGE_NAME)(target)
-    with ClassResolver.FALLBACK_TO_STR:
-        image_specs = [
-            image_spec
-            for path_to_load in paths_to_load
-            for image_spec in target_cls.load_tree(
-                path_to_load,
-                root_dir=spec_root,
-                registry=registry,
-                access_token=access_token,
-            )
-        ]
+    image_specs = [
+        image_spec
+        for path_to_load in paths_to_load
+        for image_spec in target_cls.load_tree(
+            path_to_load,
+            root_dir=spec_root,
+            allow_deferred=True,
+            registry=registry,
+            access_token=access_token,
+        )
+    ]
 
     planned: ty.Dict[str, ty.List[str]] = {
         ReleaseStatus.BUILD.value: [],
@@ -560,16 +560,16 @@ def make(
     # Don't error if the modules the task, data stores, data types, etc...
     # aren't present in the build environment
     # FIXME: need to test for this
-    with ClassResolver.FALLBACK_TO_STR:
-        image_specs: ty.List[App] = target_cls.load_tree(
-            spec_path,
-            root_dir=spec_root,
-            registry=registry,
-            license_paths=license_paths,
-            licenses_to_download=set(license_to_download),
-            source_packages=source_package,
-            access_token=access_token,
-        )
+    image_specs: ty.List[App] = target_cls.load_tree(
+        spec_path,
+        root_dir=spec_root,
+        allow_deferred=True,
+        registry=registry,
+        license_paths=license_paths,
+        licenses_to_download=set(license_to_download),
+        source_packages=source_package,
+        access_token=access_token,
+    )
 
     # Check the target registry to see a) if the images with the same tag
     # already exists and b) whether it was built with the same specs
@@ -767,7 +767,9 @@ def list_images(spec_root: Path, registry: str) -> None:
     if isinstance(spec_root, bytes):  # FIXME: This shouldn't be necessary
         spec_root = Path(spec_root.decode("utf-8"))
 
-    for image_spec in App.load_tree(spec_root, registry=registry):
+    for image_spec in App.load_tree(
+        spec_root, registry=registry, allow_deferred=True
+    ):
         click.echo(image_spec.reference)
 
 
@@ -836,13 +838,13 @@ def make_docs(
                 ) from e
             default_axes = getattr(mod, "Axes")
 
-    with ClassResolver.FALLBACK_TO_STR:
-        image_specs = App.load_tree(
-            spec_path,
-            registry=registry,
-            root_dir=spec_root,
-            default_axes=default_axes,
-        )
+    image_specs = App.load_tree(
+        spec_path,
+        registry=registry,
+        root_dir=spec_root,
+        allow_deferred=True,
+        default_axes=default_axes,
+    )
 
     for image_spec in image_specs:
         image_spec.autodoc(output, flatten=flatten)
