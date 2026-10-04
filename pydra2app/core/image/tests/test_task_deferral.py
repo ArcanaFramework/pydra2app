@@ -145,8 +145,21 @@ def test_missing_provider_package_not_deferred_unless_enabled() -> None:
         "type": "notarealcomposetype",
         "executable": "foo",
     }
-    with pytest.raises(ImportError):
+    with pytest.raises(ModuleNotFoundError):
         App.load(spec)
+
+
+def test_broken_module_is_not_deferred(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Import errors other than a module not being found mean that the module is
+    present but broken or incompatible, which won't be fixed within the image"""
+    from pydra2app.core.command import components
+
+    def broken_structure(*args: ty.Any, **kwargs: ty.Any) -> ty.NoReturn:
+        raise ImportError("cannot import name 'thing' from 'pydra.compose.monai'")
+
+    monkeypatch.setattr(components, "structure", broken_structure)
+    with pytest.raises(ImportError, match="cannot import name"):
+        App.load(_app_spec(BUNDLE_PATH, BUNDLE_RESOURCE), allow_deferred=True)
 
 
 def _unresolvable_python_spec() -> ty.Dict[str, ty.Any]:

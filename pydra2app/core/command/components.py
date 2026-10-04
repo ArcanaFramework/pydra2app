@@ -139,7 +139,7 @@ def task_converter(
 
         try:
             task_cls = structure(task_class)
-        except (ModuleNotFoundError, ImportError, FileNotFoundError) as e:
+        except (ModuleNotFoundError, FileNotFoundError) as e:
             # The task couldn't be loaded in the current environment, e.g. its
             # 'pydra.compose.<type>' provider module isn't installed (type: bidsapp but
             # 'pydra-compose-bidsapp' isn't installed), or it references a path that

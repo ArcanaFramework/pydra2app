@@ -4,6 +4,7 @@ import logging
 import re
 import shutil
 import typing as ty
+from contextlib import contextmanager
 from copy import deepcopy
 from itertools import chain
 from pathlib import Path, PurePosixPath
@@ -29,6 +30,7 @@ from .components import ContainerAuthor, Docs, License, PipPackage
 logger = logging.getLogger("pydra2app")
 
 
+@contextmanager
 def _fallback_to_str(permit: bool) -> ty.Generator[None]:
     """Permits classes that can't be resolved in the current environment to be left as
     strings (i.e. `ClassResolver.FALLBACK_TO_STR`) if `permit` is True, restoring the
@@ -182,8 +184,10 @@ class App(P2AImage):
             )
             return False
         # The modules a task needs can't be reliably matched to the packages that will
-        # be installed in the image, so they are assumed to be provided by it
-        return isinstance(error, ImportError)
+        # be installed in the image, so missing ones are assumed to be provided by it.
+        # Other import errors (e.g. "cannot import name") mean the module was found but
+        # is broken or incompatible, which the image won't fix
+        return isinstance(error, ModuleNotFoundError)
 
     def command(self, name: ty.Optional[str] = None) -> ContainerCommand:
         if name is None:
