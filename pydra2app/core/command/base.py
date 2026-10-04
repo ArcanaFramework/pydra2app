@@ -651,12 +651,17 @@ class ContainerCommand:
             )
             if param.type is not str:
                 if param_value == "":
-                    assert not param.mandatory
-                    param_value = None
+                    # Unset parameters are passed as empty strings by some front-ends,
+                    # e.g. the XNAT container service, so the task's default is used
+                    # rather than overriding it (e.g. with None, which may not be a
+                    # valid value for the parameter). Empty mandatory parameters have
+                    # already been rejected above
                     logger.info(
-                        "Non-string parameter '%s' passed empty string, setting to None",
+                        "Non-string parameter '%s' passed empty string, using the "
+                        "default of the task",
                         param_name,
                     )
+                    continue
                 else:
                     # Convert field from string if necessary
                     field_type = optional_type(param.type)

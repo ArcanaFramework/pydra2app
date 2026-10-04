@@ -125,6 +125,60 @@ def test_command_execute(
         assert contents == expected_contents
 
 
+
+def test_command_execute_unset_parameter_uses_default(
+    saved_dataset: FrameSet, work_dir: Path
+) -> None:
+    """Parameters passed as empty strings (e.g. by the XNAT container service when they
+    aren't set) are omitted, so the default of the task is used rather than None"""
+    bp = saved_dataset.__annotations__["blueprint"]
+    command_spec = ContainerCommand(
+        name="concatenate",
+        task="frametree.testing.tasks:Concatenate",  # duplicates defaults to 1
+        operates_on=bp.axes.default(),
+    )
+    command_spec.execute(
+        address=saved_dataset.address,
+        input_values=[("in_file1", "file1"), ("in_file2", "file2")],
+        output_values=[("out_file", "sink_unset")],
+        parameter_values=[("duplicates", "")],
+        raise_errors=True,
+        worker="debug",
+        work_dir=str(work_dir),
+        loglevel="debug",
+        dataset_hierarchy=",".join(bp.hierarchy),
+        pipeline_name="test_pipeline_unset",
+        save_frameset=True,
+    )
+    sink = saved_dataset.reload()["sink_unset"]
+    for item in sink:
+        with open(item) as f:
+            assert f.read() == "file1.txt\nfile2.txt"
+
+
+def test_command_execute_unset_mandatory_parameter(
+    saved_dataset: FrameSet, work_dir: Path
+) -> None:
+    bp = saved_dataset.__annotations__["blueprint"]
+    command_spec = ContainerCommand(
+        name="concatenate",
+        task="frametree.testing.tasks:ConcatenateReverse",  # duplicates is mandatory
+        operates_on=bp.axes.default(),
+    )
+    with pytest.raises(ValueError, match="Missing mandatory parameter values"):
+        command_spec.execute(
+            address=saved_dataset.address,
+            input_values=[("in_file1", "file1"), ("in_file2", "file2")],
+            output_values=[("out_file", "sink_unset_mandatory")],
+            parameter_values=[("duplicates", "")],
+            raise_errors=True,
+            worker="debug",
+            work_dir=str(work_dir),
+            loglevel="debug",
+            dataset_hierarchy=",".join(bp.hierarchy),
+            pipeline_name="test_pipeline_unset_mandatory",
+        )
+
 def test_command_execute_fail(
     ConcatenateTask: ty.Callable[..., ty.Any], saved_dataset: FrameSet, work_dir: Path
 ) -> None:
