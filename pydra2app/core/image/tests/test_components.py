@@ -1,3 +1,6 @@
+import gzip
+import io
+import shutil
 import subprocess
 import tarfile
 import typing as ty
@@ -6,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from pydra2app.core.exceptions import Pydra2AppBuildError
 from pydra2app.core.image import P2AImage, extraction
 from pydra2app.core.image.components import (
     CondaPackage,
@@ -168,14 +172,15 @@ def _render_resources(
 
 
 def test_add_resources_from_url(tmp_path: Path) -> None:
-    """Resources that aren't provided locally are downloaded from their URL, which
-    requires an ADD instruction as COPY only works with the build context"""
+    """Resources that aren't provided locally are downloaded from their URL with curl,
+    rather than ADD, so that the download is cached along with the layer"""
     img = _resource_image(
         {"a-resource": {"path": "/internal/path/to/LICENSE", "url": RESOURCE_URL}}
     )
-    lines = _render_resources(img, tmp_path / "build-dir")
-    assert f"ADD {RESOURCE_URL} /internal/path/to/LICENSE" in lines
-    assert not any(ln.startswith("COPY") and RESOURCE_URL in ln for ln in lines)
+    rendered = "\n".join(_render_resources(img, tmp_path / "build-dir"))
+    assert f'curl -fsSL "{RESOURCE_URL}" -o "/internal/path/to/LICENSE"' in rendered
+    assert 'mkdir -p "$(dirname "/internal/path/to/LICENSE")"' in rendered
+    assert "ADD " not in rendered
 
 
 def test_add_resources_local_overrides_url(tmp_path: Path) -> None:
@@ -199,46 +204,153 @@ def test_add_resources_missing_without_url(tmp_path: Path) -> None:
         _render_resources(img, tmp_path / "build-dir")
 
 
+def _run_instructions(rendered: str) -> ty.List[str]:
+    """Splits a rendered Dockerfile into its RUN instructions, joining continuations,
+    excluding the one Neurodocker adds to save its specification"""
+    return [
+        line
+        for line in rendered.replace("\\\n", " ").splitlines()
+        if line.startswith("RUN ") and not line.startswith("RUN printf")
+    ]
+
+
 def test_add_resources_extract_remote(tmp_path: Path) -> None:
-    """A remote archive is downloaded, unpacked and deleted in the one layer, so that
-    it doesn't take up space in the image"""
-    img = P2AImage(
-        name="test-extract-remote",
-        version="1.0",
-        packages={"system": ["vim"]},
-        resources={
+    """A remote archive is downloaded, unpacked and deleted in the one layer, which
+    also installs the tools needed and removes them again, so that neither the archive
+    nor the tools take up space in the image"""
+    img = _resource_image(
+        {
             "archive": {
                 "path": "/opt/archive",
                 "url": "https://example.org/data.tar.gz",
                 "extract": True,
             }
+        }
+    )
+    rendered = "\n".join(_render_resources(img, tmp_path / "build"))
+    assert "ADD " not in rendered
+    runs = _run_instructions(rendered)
+    assert len(runs) == 1
+    run = runs[0]
+    steps = [
+        "apt-get install -y -qq --no-install-recommends $missing",
+        'curl -fsSL "https://example.org/data.tar.gz" -o "/tmp/archive-data.tar.gz"',
+        'tar -xzf "/tmp/archive-data.tar.gz" -C "/opt/archive"',
+        'rm -f "/tmp/archive-data.tar.gz"',
+        "apt-get purge -y -qq --auto-remove $missing",
+    ]
+    positions = [run.index(step) for step in steps]
+    assert positions == sorted(positions)
+    for command, packages in [
+        ("curl", "curl ca-certificates"),
+        ("tar", "tar"),
+        ("gzip", "gzip"),
+    ]:
+        assert f"command -v {command} >/dev/null 2>&1 || for p in {packages};" in run
+
+
+def test_add_resources_remote_with_yum(tmp_path: Path) -> None:
+    img = P2AImage(
+        name="test-extract-remote-yum",
+        version="1.0",
+        base_image={
+            "name": "rockylinux",
+            "tag": "9",
+            "python": "python3",
+            "package_manager": "yum",
+            "conda_env": None,
+        },
+        resources={
+            "archive": {
+                "path": "/opt/archive",
+                "url": "https://example.org/data.zip",
+                "extract": True,
+            }
         },
     )
-    build_dir = tmp_path / "build"
-    build_dir.mkdir()
-    plan = img.plan_resources(build_dir, resources=None, resources_dir=None)
+    rendered = "\n".join(_render_resources(img, tmp_path / "build"))
+    assert "yum install -y -q $missing" in rendered
+    assert "yum remove -y -q $missing" in rendered
+    assert 'rpm -q "$p"' in rendered
+    assert "for p in unzip;" in rendered
+    assert "apt-get" not in rendered
 
-    # the tools it needs are installed, the ones already asked for aren't repeated
-    assert img.extraction_packages(plan) == ["tar", "gzip", "curl"]
 
-    dockerfile = img.init_dockerfile()
-    img.apply_resource_plan(dockerfile, plan)
-    rendered = dockerfile.render()
-    run_commands = [
-        ln for ln in rendered.splitlines() if ln.startswith("RUN") or "&&" in ln
+def test_download_command_only_removes_tools_it_installed(tmp_path: Path) -> None:
+    """Runs the generated command against stubbed tools, to check that only packages
+    that weren't there before are installed, and that they are removed afterwards"""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "log"
+    # the only real tools on the path, so that the commands that are checked for
+    # can be stubbed in or left out as required
+    for tool in ("mkdir", "rm", "chmod", "touch"):
+        (bin_dir / tool).symlink_to(shutil.which(tool))  # type: ignore[arg-type]
+    curl_stub = f'#!/bin/sh\necho "curl $*" >> "{log}"\ntouch "$4"\n'
+    stubs = {
+        # 'ca-certificates' and 'tar' are installed, 'curl' and 'gzip' aren't
+        "dpkg": 'shift; [ "$1" = "ca-certificates" ] || [ "$1" = "tar" ]',
+        # installing 'curl' makes the 'curl' command available
+        "apt-get": (
+            f'echo "apt-get $*" >> "{log}"\n'
+            f'if [ "$1" = "install" ]; then printf \'{curl_stub}\' > "{bin_dir}/curl"; '
+            f'chmod +x "{bin_dir}/curl"; fi'
+        ),
+        "tar": f'echo "tar $*" >> "{log}"',
+    }
+    for name, body in stubs.items():
+        stub = bin_dir / name
+        stub.write_text(f"#!/bin/sh\n{body}\n")
+        stub.chmod(0o755)
+
+    # NB: only the archive's own path is redirected into tmp_path, as on Linux tmp_path
+    # is itself within /tmp
+    command = (
+        extraction.download_command(
+            "https://example.org/data.tar.gz",
+            str(tmp_path / "dest"),
+            "apt",
+            extraction.method_for("data.tar.gz"),
+        )
+        .replace('"/tmp/dest-data.tar.gz"', f'"{tmp_path}/dest-data.tar.gz"')
+        .replace("/var/lib/apt/lists", str(tmp_path / "lists"))
+    )
+    subprocess.run(["/bin/sh", "-c", command], check=True, env={"PATH": str(bin_dir)})
+
+    archive = tmp_path / "dest-data.tar.gz"
+    assert log.read_text().splitlines() == [
+        "apt-get update -qq",
+        "apt-get install -y -qq --no-install-recommends curl gzip",
+        f"curl -fsSL https://example.org/data.tar.gz -o {archive}",
+        f"tar -xzf {archive} -C {tmp_path / 'dest'}",
+        "apt-get purge -y -qq --auto-remove curl gzip",
     ]
-    joined = "\n".join(run_commands)
-    assert 'curl -fsSL "https://example.org/data.tar.gz"' in joined
-    assert 'tar -xzf "/tmp/archive-data.tar.gz" -C "/opt/archive"' in joined
-    assert 'rm -f "/tmp/archive-data.tar.gz"' in joined
-    # downloading, extracting and deleting must be the one layer, otherwise deleting
-    # the archive doesn't reclaim the space it took
-    assert rendered.count('RUN mkdir -p "/opt/archive"') == 1
-    assert "ADD https://example.org/data.tar.gz" not in rendered
+    assert not archive.exists()
+
+
+def test_download_command_installs_nothing_when_tools_present(tmp_path: Path) -> None:
+    command = extraction.download_command(
+        "https://example.org/file.txt", "/opt/file.txt", "apt"
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "log"
+    for tool in ("mkdir", "dirname"):
+        (bin_dir / tool).symlink_to(shutil.which(tool))  # type: ignore[arg-type]
+    for name in ("curl", "apt-get", "dpkg"):
+        stub = bin_dir / name
+        stub.write_text(f'#!/bin/sh\necho "{name} $*" >> "{log}"\n')
+        stub.chmod(0o755)
+    command = command.replace("/opt/file.txt", str(tmp_path / "opt" / "file.txt"))
+    subprocess.run(["/bin/sh", "-c", command], check=True, env={"PATH": str(bin_dir)})
+    assert log.read_text().splitlines() == [
+        f"curl -fsSL https://example.org/file.txt -o {tmp_path / 'opt' / 'file.txt'}"
+    ]
+    assert (tmp_path / "opt").is_dir()
 
 
 def test_add_resources_extract_local(tmp_path: Path) -> None:
-    """A local archive that can be extracted on the build host doesn't enter the image
+    """A local archive is extracted on the build host, so it doesn't enter the image
     at all, and needs no extraction tool installed in it"""
     archive = tmp_path / "payload.zip"
     contents = tmp_path / "payload"
@@ -247,57 +359,26 @@ def test_add_resources_extract_local(tmp_path: Path) -> None:
     with zipfile.ZipFile(archive, "w") as zfile:
         zfile.write(contents / "nested" / "a.txt", "payload/nested/a.txt")
 
-    img = P2AImage(
-        name="test-extract-local",
-        version="1.0",
-        resources={"payload": {"path": "/opt/payload", "extract": True}},
-    )
+    img = _resource_image({"payload": {"path": "/opt/payload", "extract": True}})
     build_dir = tmp_path / "build"
-    build_dir.mkdir()
-    plan = img.plan_resources(build_dir, {"payload": archive}, resources_dir=None)
-
-    assert img.extraction_packages(plan) == []
-    assert plan[0].method is None  # nothing left to extract within the image
-    staged = build_dir / plan[0].source  # type: ignore[operator]
-    assert staged.is_dir()
-    # the same layout as extracting within the image would give, i.e. the archive's
-    # top-level entries, so that it doesn't matter which of the two extracted it
+    rendered = "\n".join(
+        _render_resources(img, build_dir, resources={"payload": archive})
+    )
+    assert 'COPY ["resources/payload", \\\n      "/opt/payload"]' in rendered
+    # nothing to install or extract within the image
+    assert _run_instructions(rendered) == []
+    # the archive's top-level entries, as extracting within the image would give
+    staged = build_dir / "resources" / "payload"
     assert (staged / "payload" / "nested" / "a.txt").read_text() == "a"
 
-    dockerfile = img.init_dockerfile()
-    img.apply_resource_plan(dockerfile, plan)
-    assert "unzip" not in dockerfile.render()
 
-
-def test_add_resources_extract_local_fallback(tmp_path: Path) -> None:
-    """When the archive can't be extracted on the build host it is copied in and
-    extracted within the image instead"""
-    archive = tmp_path / "multi.zip"
-    with zipfile.ZipFile(archive, "w") as zfile:
-        # more than one member at the top level, which the fileformats converter
-        # doesn't handle, so it falls back to extracting in the image
-        zfile.writestr("one.txt", "one")
-        zfile.writestr("two.txt", "two")
-
-    img = P2AImage(
-        name="test-extract-fallback",
-        version="1.0",
-        resources={"multi": {"path": "/opt/multi", "extract": True}},
-    )
-    build_dir = tmp_path / "build"
-    build_dir.mkdir()
-    plan = img.plan_resources(build_dir, {"multi": archive}, resources_dir=None)
-
-    assert img.extraction_packages(plan) == ["unzip"]
-    assert plan[0].method is not None
-    # staged under its own name, as the extension is what the tool is chosen by
-    assert plan[0].source.name == "multi.zip"  # type: ignore[union-attr]
-
-    dockerfile = img.init_dockerfile()
-    img.apply_resource_plan(dockerfile, plan)
-    rendered = dockerfile.render()
-    assert 'unzip -q "/tmp/multi.zip" -d "/opt/multi"' in rendered
-    assert 'rm -f "/tmp/multi.zip"' in rendered
+def test_add_resources_extract_local_failure(tmp_path: Path) -> None:
+    """A local archive that can't be extracted is reported rather than copied in"""
+    archive = tmp_path / "broken.tar.gz"
+    archive.write_text("not really an archive")
+    img = _resource_image({"broken": {"path": "/opt/broken", "extract": True}})
+    with pytest.raises(Pydra2AppBuildError, match="Could not extract 'broken'"):
+        _render_resources(img, tmp_path / "build", resources={"broken": archive})
 
 
 def test_extraction_method_detection() -> None:
@@ -321,95 +402,114 @@ def test_extraction_packages_differ_by_package_manager() -> None:
     assert method.system_packages("yum") == ("tar", "xz")
 
 
-def test_extract_locally_prefers_the_most_specific_format(tmp_path: Path) -> None:
-    """A '.tar.gz' matches both Gzip and TarGzip, and has to be extracted as the latter
-    to yield its contents rather than the tar it holds"""
-    contents = tmp_path / "src" / "payload"
-    contents.mkdir(parents=True)
-    (contents / "hello.txt").write_text("hi")
-    archive = tmp_path / "a.tar.gz"
-    with tarfile.open(archive, "w:gz") as tfile:
-        tfile.add(contents, arcname="payload")
+def _make_archive(path: Path, members: dict[str, str]) -> None:
+    """Writes `members` (relative path -> contents) into an archive at `path`, of the
+    type given by its extension"""
+    name = path.name
+    if name.endswith(".zip"):
+        with zipfile.ZipFile(path, "w") as zfile:
+            for member, text in members.items():
+                zfile.writestr(member, text)
+        return
+    for suffix, mode in [
+        (".tar.gz", "w:gz"),
+        (".tar.bz2", "w:bz2"),
+        (".tar.xz", "w:xz"),
+        (".tar", "w"),
+    ]:
+        if name.endswith(suffix):
+            with tarfile.open(path, mode) as tfile:  # type: ignore[call-overload]
+                for member, text in members.items():
+                    data = text.encode()
+                    info = tarfile.TarInfo(member)
+                    info.size = len(data)
+                    tfile.addfile(info, io.BytesIO(data))
+            return
+    raise ValueError(name)
 
-    dest = tmp_path / "dest"
-    assert extraction.extract_locally(archive, dest)
-    # extracted as a gzipped tar, not as a gzip holding a tar
-    assert (dest / "payload" / "hello.txt").read_text() == "hi"
 
-
-def test_extract_locally_matches_the_in_image_layout(tmp_path: Path) -> None:
-    """However the archive is extracted, what ends up at the resource's path is the
-    same, so that falling back to extracting in the image isn't noticeable"""
-    contents = tmp_path / "src" / "payload"
-    contents.mkdir(parents=True)
-    (contents / "hello.txt").write_text("hi")
-    archive = tmp_path / "a.tar.gz"
-    with tarfile.open(archive, "w:gz") as tfile:
-        tfile.add(contents, arcname="payload")
+@pytest.mark.parametrize(
+    "archive_name,members",
+    [
+        # a single top-level directory
+        ("a.tar.gz", {"payload/hello.txt": "hi"}),
+        ("a.zip", {"payload/nested/hello.txt": "hi"}),
+        # several top-level entries, which the previous fileformats-based extraction
+        # couldn't handle
+        ("a.zip", {"one.txt": "one", "two.txt": "two"}),
+        ("a.tar.bz2", {"one.txt": "one", "sub/two.txt": "two"}),
+        # a single file
+        ("a.tar.xz", {"lone.txt": "just a file"}),
+        ("a.zip", {"lone.txt": "just a file"}),
+        ("a.tar", {"lone.txt": "just a file"}),
+    ],
+)
+def test_extract_locally_matches_the_in_image_layout(
+    tmp_path: Path, archive_name: str, members: dict[str, str]
+) -> None:
+    """Extracting on the build host gives the same layout as the command that would
+    extract it within the image"""
+    archive = tmp_path / archive_name
+    _make_archive(archive, members)
 
     host = tmp_path / "host"
-    assert extraction.extract_locally(archive, host)
+    extraction.extract_locally(archive, host)
+    for member, text in members.items():
+        assert (host / member).read_text() == text
 
+    if shutil.which("unzip") is None and archive_name.endswith(".zip"):
+        return
     in_image = tmp_path / "in-image"
     in_image.mkdir()
     subprocess.run(
         extraction.extract_command(
-            extraction.method_for(archive.name), str(archive), str(in_image)
+            extraction.method_for(archive_name), str(archive), str(in_image)
         ),
         shell=True,
         check=True,
     )
-
     assert sorted(str(p.relative_to(host)) for p in host.rglob("*")) == sorted(
         str(p.relative_to(in_image)) for p in in_image.rglob("*")
     )
 
 
-def test_extractable_archives_union_order_decides() -> None:
-    """The order of the union is what picks between formats that both match, so it is
-    pinned here: a '.tar.gz' matches both TarGzip and Gzip, and TarGzip has to win"""
-    members = ty.get_args(extraction.EXTRACTABLE_ARCHIVES)
-    names = [c.__name__ for c in members]
-    assert names.index("TarGzip") < names.index("Gzip")
+def test_extract_locally_single_compressed_file(tmp_path: Path) -> None:
+    """A compressed file that isn't a tar is decompressed under its own stem"""
+    archive = tmp_path / "data.csv.gz"
+    with gzip.open(archive, "wb") as f:
+        f.write(b"a,b\n1,2\n")
+    dest = tmp_path / "dest"
+    extraction.extract_locally(archive, dest)
+    assert (dest / "data.csv").read_bytes() == b"a,b\n1,2\n"
 
 
-def test_extract_locally_declines_archives_that_dont_hold_a_directory(
-    tmp_path: Path,
-) -> None:
-    """An archive holding a single file rather than a directory isn't extracted on the
-    build host, and falls back to being extracted within the image.
-
-    NB: the obvious extension of this, to also try `Zip[File]` for such archives, does
-    not work: a zip *is* a file, so the conversion is a no-op that hands back the
-    archive itself, which would then be copied to the resource's path still zipped.
-    """
-    lone = tmp_path / "lone.txt"
-    lone.write_text("just a file")
-    archive = tmp_path / "file.zip"
+def test_extract_locally_keeps_zip_permissions(tmp_path: Path) -> None:
+    """Executables in a zip stay executable, as they would be when unzipped"""
+    archive = tmp_path / "tools.zip"
     with zipfile.ZipFile(archive, "w") as zfile:
-        zfile.write(lone, "lone.txt")
+        info = zipfile.ZipInfo("bin/run.sh")
+        info.external_attr = 0o755 << 16
+        zfile.writestr(info, "#!/bin/sh\necho hi\n")
+    dest = tmp_path / "dest"
+    extraction.extract_locally(archive, dest)
+    assert (dest / "bin" / "run.sh").stat().st_mode & 0o777 == 0o755
 
-    assert not extraction.extract_locally(archive, tmp_path / "dest")
 
-    # the trap, pinned so that it isn't "fixed" into silently shipping the archive
-    from fileformats.application import Zip
-    from fileformats.generic import File
+def test_extract_locally_rejects_paths_outside_dest(tmp_path: Path) -> None:
+    """A tar member that would be written outside of the destination is refused"""
+    archive = tmp_path / "evil.tar"
+    _make_archive(archive, {"../escaped.txt": "gotcha"})
+    with pytest.raises(tarfile.OutsideDestinationError):
+        extraction.extract_locally(archive, tmp_path / "dest")
+    assert not (tmp_path / "escaped.txt").exists()
 
-    unconverted = File.convert(Zip[File](archive))
-    assert Path(unconverted.fspath) == archive  # i.e. nothing was extracted
 
-    # the fallback handles it: the resource is copied in and extracted there instead
-    img = P2AImage(
-        name="test-file-archive",
-        version="1.0",
-        resources={"lone": {"path": "/opt/lone", "extract": True}},
-    )
-    build_dir = tmp_path / "build"
-    build_dir.mkdir()
-    plan = img.plan_resources(build_dir, {"lone": archive}, resources_dir=None)
-    assert plan[0].method is not None
-    assert img.extraction_packages(plan) == ["unzip"]
-
+def test_extract_locally_unsupported_type(tmp_path: Path) -> None:
+    """Archive types that can only be extracted in the image are reported"""
+    archive = tmp_path / "a.7z"
+    archive.write_bytes(b"")
+    with pytest.raises(extraction.UnrecognisedArchiveError, match="build host"):
+        extraction.extract_locally(archive, tmp_path / "dest")
 
 
 @pytest.mark.parametrize(
