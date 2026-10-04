@@ -194,3 +194,13 @@ def test_allow_deferred_leaves_outer_fallback_enabled() -> None:
         App.load(_unresolvable_python_spec(), allow_deferred=True)
         assert ClassResolver.FALLBACK_TO_STR.permit
     assert not ClassResolver.FALLBACK_TO_STR.permit
+
+
+def test_load_doesnt_modify_spec() -> None:
+    """The commands of the spec are copied before the name of each command and the
+    back-reference to the app are added to them, so that the spec can still be saved"""
+    spec = _app_spec(BUNDLE_PATH, BUNDLE_RESOURCE)
+    command_spec = spec["commands"]["spleen_ct_segmentation"]
+    keys_before = set(command_spec)
+    App.load(spec, allow_deferred=True)
+    assert set(command_spec) == keys_before

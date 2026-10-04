@@ -59,14 +59,21 @@ def commands_converter(klass: type[ContainerCommand]) -> ty.Any:
     def convert(value: ty.Any, self_: "App") -> ty.List[ContainerCommand]:
         if value is None:
             return object_converter(value)  # type: ignore[no-any-return]
+        # `_create_object` adds the keyword arguments to the dicts it is passed, so they
+        # are copied to avoid writing the name and the back-reference to the app into
+        # the caller's spec
+        def copy(item: ty.Any) -> ty.Any:
+            return dict(item) if isinstance(item, dict) else item
+
         with _fallback_to_str(self_.allow_deferred):
             if isinstance(value, dict):
                 return [
-                    object_converter._create_object(item, name=name, image=self_)
+                    object_converter._create_object(copy(item), name=name, image=self_)
                     for name, item in value.items()
                 ]
             return [
-                object_converter._create_object(item, image=self_) for item in value
+                object_converter._create_object(copy(item), image=self_)
+                for item in value
             ]
 
     return attrs.Converter(convert, takes_self=True)  # type: ignore[call-overload]
