@@ -21,11 +21,9 @@ from pydra.utils.typing import is_container, is_optional, is_union
 
 from pydra2app.core import PACKAGE_NAME
 from pydra2app.core.exceptions import Pydra2AppUsageError
-from pydra2app.core.image.app import App
 
 if ty.TYPE_CHECKING:
     from .base import ContainerCommand
-    from ..image import App
 
 
 # Just until this gets added to Pydra, as pydra.utils.typing.is_subclass_or_union
@@ -108,7 +106,8 @@ def _make_deferred_task_class(task_type: ty.Any) -> type:
 
 
 def task_converter(
-    task_class: str | dict[str, ty.Any], self: "App"
+    task_class: str | dict[str, ty.Any],
+    self_: ty.Optional["ContainerCommand"] = None,
 ) -> type[pydra.compose.base.Task]:
 
     task_cls: type[pydra.compose.base.Task]
@@ -141,21 +140,24 @@ def task_converter(
         try:
             task_cls = structure(task_class)
         except (ModuleNotFoundError, ImportError, FileNotFoundError) as e:
-            if isinstance(e, FileNotFoundError) and not any(
-                e.filename in str(path) for path in self.image.resource_paths
-            ):
-                # Check to see whether the missing path is one that will be provided by the image's resource paths
-                # to the image's resource paths
+            # The task couldn't be loaded in the current environment, e.g. its
+            # 'pydra.compose.<type>' provider module isn't installed (type: bidsapp but
+            # 'pydra-compose-bidsapp' isn't installed), or it references a path that
+            # only exists within the image being built (e.g. an unpacked MONAI bundle).
+            # Whether it can be deferred to be loaded within the image instead is up to
+            # the image the command belongs to. Sources/sinks/parameters explicitly
+            # declared in the command's own YAML (as opposed to inferred from the task)
+            # still work; further introspection happens inside the image being built.
+            image = getattr(self_, "image", None)
+            if image is not None:
+                can_defer = image.can_defer_task(e)
+            else:
+                # without an image to provide them, missing paths can't be deferred
+                can_defer = not isinstance(e, FileNotFoundError)
+            if not can_defer:
                 raise
-            # The task's own type couldn't be resolved at all (e.g. 'type: bidsapp'
-            # but 'pydra-compose-bidsapp' isn't installed) -- unlike an unresolvable
-            # 'python' function, there's no provider module to structure any part of
-            # the task against, so defer the whole thing rather than crashing.
-            # Sources/sinks/parameters explicitly declared in the command's own YAML
-            # (as opposed to inferred from the task) still work; further
-            # introspection happens inside the image being built.
             logger.warning(
-                "Could not resolve task type %r (%s); its fields will only be "
+                "Could not load %r task (%s); its fields will only be "
                 "introspectable within the image being built",
                 task_class.get("type"),
                 e,

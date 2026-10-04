@@ -6,7 +6,7 @@ import shutil
 import typing as ty
 from copy import deepcopy
 from itertools import chain
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Self
 
 import attrs
@@ -27,6 +27,47 @@ from .base import P2AImage
 from .components import ContainerAuthor, Docs, License, PipPackage
 
 logger = logging.getLogger("pydra2app")
+
+
+def _fallback_to_str(permit: bool) -> ty.Generator[None]:
+    """Permits classes that can't be resolved in the current environment to be left as
+    strings (i.e. `ClassResolver.FALLBACK_TO_STR`) if `permit` is True, restoring the
+    previous setting on exit, so that it can be safely nested"""
+    fallback = ClassResolver.FALLBACK_TO_STR
+    previous = fallback.permit
+    fallback.permit = previous or permit
+    try:
+        yield
+    finally:
+        fallback.permit = previous
+
+
+def commands_converter(klass: type[ContainerCommand]) -> ty.Any:
+    """Converter for the `commands` field of an app, which creates the commands with a
+    back-reference to the app they belong to, so that it is already set when their
+    tasks are loaded (see `App.can_defer_task`)
+
+    Parameters
+    ----------
+    klass : type[ContainerCommand]
+        the command class to create
+    """
+    object_converter = ObjectListConverter(klass)
+
+    def convert(value: ty.Any, self_: "App") -> ty.List[ContainerCommand]:
+        if value is None:
+            return object_converter(value)  # type: ignore[no-any-return]
+        with _fallback_to_str(self_.allow_deferred):
+            if isinstance(value, dict):
+                return [
+                    object_converter._create_object(item, name=name, image=self_)
+                    for name, item in value.items()
+                ]
+            return [
+                object_converter._create_object(item, image=self_) for item in value
+            ]
+
+    return attrs.Converter(convert, takes_self=True)  # type: ignore[call-overload]
 
 
 @attrs.define(kw_only=True)
@@ -61,6 +102,10 @@ class App(P2AImage):
         information for automatically generated documentation
     loaded_from : Path
         the file the spec was loaded from, if applicable
+    allow_deferred : bool
+        whether the tasks of commands that can't be loaded in the current environment
+        can be deferred to be loaded within the image instead (see `can_defer_task`).
+        Only appropriate where the image is being built or documented, rather than run
     """
 
     SUBPACKAGE = "deploy"
@@ -76,8 +121,12 @@ class App(P2AImage):
         metadata={"serializer": ObjectListConverter.asdict},
     )
     docs: Docs = attrs.field(converter=ObjectConverter(Docs))  # type: ignore[misc]
+    # defined before `commands` so that it is set when their tasks are loaded
+    allow_deferred: bool = attrs.field(
+        default=False, metadata={"asdict": False}, eq=False, hash=False
+    )
     commands: ty.List[ContainerCommand] = attrs.field(
-        converter=ObjectListConverter(ContainerCommand),  # type: ignore[misc]
+        converter=commands_converter(ContainerCommand),  # type: ignore[misc]
     )
     loaded_from: Path = attrs.field(
         default=None, metadata={"asdict": False}, eq=False, hash=False
@@ -93,10 +142,48 @@ class App(P2AImage):
         if not commands:
             raise ValueError("At least one command must be defined within that app")
 
-    def __attrs_post_init__(self) -> None:
-        # Set back-references to this image in the command spec
-        for command in self.commands:
-            command.image = self
+    def can_defer_task(self, error: Exception) -> bool:
+        """Whether a command's task that raised `error` when it was loaded on the build
+        host can be deferred to be loaded within the image instead, where everything
+        the task needs is expected to be present.
+
+        Parameters
+        ----------
+        error : Exception
+            the error raised when the task was loaded
+
+        Returns
+        -------
+        bool
+            whether the task can be deferred
+        """
+        if not self.allow_deferred:
+            error.add_note(
+                "Deferring the loading of tasks to within the image isn't enabled for "
+                "this app (see `allow_deferred`)"
+            )
+            return False
+        if isinstance(error, FileNotFoundError):
+            # only paths provided by the image's resources will be there. Relative paths
+            # aren't accepted, as what they refer to within the image would depend on
+            # the working directory the task is run in
+            if error.filename is None:
+                return False
+            missing = PurePosixPath(error.filename)
+            if missing.is_absolute() and any(
+                missing.is_relative_to(PurePosixPath(p)) for p in self.resource_paths
+            ):
+                return True
+            error.add_note(
+                f"'{missing}' doesn't exist on this host, so to be loaded within the "
+                "image instead it would need to be an absolute path within one of the "
+                "image's resources: "
+                + (", ".join(f"'{p}'" for p in self.resource_paths) or "<none>")
+            )
+            return False
+        # The modules a task needs can't be reliably matched to the packages that will
+        # be installed in the image, so they are assumed to be provided by it
+        return isinstance(error, ImportError)
 
     def command(self, name: ty.Optional[str] = None) -> ContainerCommand:
         if name is None:
@@ -211,6 +298,7 @@ class App(P2AImage):
         licenses_to_download: ty.Optional[ty.Set[str]] = None,
         default_axes: ty.Optional[ty.Type[Axes]] = None,
         source_packages: ty.Sequence[Path] = (),
+        allow_deferred: bool = False,
         **kwargs: ty.Any,
     ) -> Self:
         """Loads a deploy-build specification from a YAML file
@@ -236,6 +324,12 @@ class App(P2AImage):
         source_packages : Sequence[Path]
             Paths to source packages to include in the image, will be used to determine
             the local version of the package to install
+        allow_deferred : bool
+            whether classes and tasks that can't be loaded in the current environment
+            (e.g. their packages aren't installed, or they refer to paths that are only
+            present within the image) can be deferred to be loaded within the image
+            instead. Appropriate where the image is being built or documented, rather
+            than run. See `App.can_defer_task`
         **kwargs
             additional keyword arguments that override/augment the values loaded from
             the spec file
@@ -283,16 +377,24 @@ class App(P2AImage):
         commands = yml_dict["commands"]
         if isinstance(commands, dict):
             commands = commands.values()
-        for cmd in commands:
-            if (
-                "operates_on" in cmd
-                and re.match(r"^\w+$", cmd["operates_on"])
-                and default_axes
-            ):
-                cmd["operates_on"] = default_axes[cmd["operates_on"]]
-            if isinstance(cmd["task"], dict) and cmd["task"].get("type") == "python":
-                cmd["task"]["function"] = ClassResolver.fromstr(cmd["task"]["function"])
-        image = cls(source_spec=source_spec, **yml_dict)
+        with _fallback_to_str(allow_deferred):
+            for cmd in commands:
+                if (
+                    "operates_on" in cmd
+                    and re.match(r"^\w+$", cmd["operates_on"])
+                    and default_axes
+                ):
+                    cmd["operates_on"] = default_axes[cmd["operates_on"]]
+                if (
+                    isinstance(cmd["task"], dict)
+                    and cmd["task"].get("type") == "python"
+                ):
+                    cmd["task"]["function"] = ClassResolver.fromstr(
+                        cmd["task"]["function"]
+                    )
+            image = cls(
+                source_spec=source_spec, allow_deferred=allow_deferred, **yml_dict
+            )
 
         # Replace any pip packages with local source packages
         for source_package in source_packages:

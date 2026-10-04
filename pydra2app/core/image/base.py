@@ -644,7 +644,7 @@ class P2AImage:
         yml: ty.Union[Path, ty.Dict[str, ty.Any]],
         name: ty.Optional[str] = None,
         **kwargs: ty.Any,
-    ) -> Self:
+    ) -> ty.Self:
         """Loads a deploy-build specification from a YAML file
 
         Parameters
