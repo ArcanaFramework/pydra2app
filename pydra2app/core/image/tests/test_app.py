@@ -442,3 +442,6 @@ def test_add_resources_extracted(tmp_path: Path) -> None:
     assert "pydra2app" in run("ls", "/opt/remote")
     # and neither archive was left behind in the image
     assert run("sh", "-c", "ls /tmp/*.tar.gz 2>/dev/null; true").strip() == ""
+    # nor were the tools installed to download and extract the remote one, which the
+    # base image doesn't have
+    assert run("sh", "-c", "command -v curl; true").strip() == ""
