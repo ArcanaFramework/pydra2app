@@ -25,6 +25,7 @@ from pydra2app.core import App
 from frametree.core.exceptions import FrameTreeDataMatchError
 from frametree.core.serialize import ClassResolver
 from pydra.utils import get_fields
+from pydra.utils.typing import strip_annotated
 
 
 def test_unresolved_python_task_roundtrip() -> None:
@@ -468,7 +469,11 @@ def test_command_convertible_source_types() -> None:
         operates_on="samples/sample",
     )
 
-    assert command_spec.source("in_file").type == Png | RasterImage
+    source_type = command_spec.source("in_file").type
+    # Annotated with the type it is convertible to, so it is saved as
+    # "image/png+convertible-to"
+    assert source_type == Png.convertible_from()
+    assert strip_annotated(source_type) == Png | RasterImage
 
 
 def test_command_execute_with_converter_args(saved_dataset: FrameSet, work_dir: Path):
@@ -697,14 +702,14 @@ def test_shell_command_execute(saved_dataset, work_dir):
                 "parameter_names": ["template", "param"],
                 "sources[0].name": "an_image",
                 "sources[0].field": "in_file",
-                "sources[0].type": File,
+                "sources[0].type": File.convertible_from(),
                 "sources[0].help": "",
                 # "sources[1].name": "file_pair",
                 # "sources[1].field": "file_pair",
                 # "sources[1].type": tuple[PlainText, PlainText] | None,
                 "sources[1].name": "optional_file",
                 "sources[1].field": "optional_file",
-                "sources[1].type": File | None,
+                "sources[1].type": File.convertible_from() | None,
                 "sinks[0].name": "my_app_out_file",
                 "sinks[0].field": "out_file",
                 "sinks[0].type": Png,

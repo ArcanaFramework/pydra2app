@@ -547,6 +547,11 @@ def parameters_serialiser(
 
 
 def convert_to_datatype(type_: type) -> type[DataType]:
+    if ty.get_origin(type_) is ty.Annotated:
+        # Annotations, e.g. those of the types a datatype is convertible from (see
+        # `frametree.core.utils.convertible_from`), are retained
+        inner, *metadata = ty.get_args(type_)
+        return ty.Annotated[(convert_to_datatype(inner), *metadata)]  # type: ignore
     if is_optional(type_):
         non_none = [a for a in ty.get_args(type_) if a is not type(None)]
         if len(non_none) == 1:
