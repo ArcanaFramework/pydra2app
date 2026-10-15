@@ -10,6 +10,7 @@ import fileformats.field as ffield
 import pydra.compose.base
 import pydra.utils.general
 from fileformats.core import DataType, Field
+from fileformats.core.exceptions import FormatMismatchError
 from frametree.core.axes import Axes
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from frametree.core.row import DataRow
@@ -547,6 +548,15 @@ def parameters_serialiser(
 
 
 def convert_to_datatype(type_: type) -> type[DataType]:
+    # fileformats >=0.21 wraps a datatype that has registered converters in
+    # `Annotated[<datatype or union of convertible types>, ConvertibleToMarker]`.
+    # The annotation carries no information this function needs -- the command
+    # interface only needs the datatype itself, and conversion is applied later
+    # by frametree -- so strip it. Without this an `Annotated` alias matches
+    # none of the branches below and reaches `issubclass()`, which raises
+    # `TypeError: issubclass() arg 1 must be a class`.
+    while ty.get_origin(type_) is not None and hasattr(type_, "__metadata__"):
+        type_ = ty.get_args(type_)[0]
     if is_optional(type_):
         non_none = [a for a in ty.get_args(type_) if a is not type(None)]
         if len(non_none) == 1:
@@ -558,9 +568,9 @@ def convert_to_datatype(type_: type) -> type[DataType]:
         return ty.get_origin(type_)[tuple(convert_to_datatype(t) for t in ty.get_args(type_))]  # type: ignore
     if inspect.isclass(type_) and issubclass(type_, DataType):
         return type_
-    if issubclass(type_, (str, os.PathLike)):
+    if inspect.isclass(type_) and issubclass(type_, (str, os.PathLike)):
         return ffield.Text
     try:
         return Field.from_primitive(type_)
-    except StopIteration:
+    except (StopIteration, FormatMismatchError):
         raise Pydra2AppUsageError(f"Cannot convert type '{type_}' to a DataType")
