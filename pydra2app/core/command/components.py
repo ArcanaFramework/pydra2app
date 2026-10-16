@@ -547,6 +547,8 @@ def parameters_serialiser(
 
 
 def convert_to_datatype(type_: type) -> type[DataType]:
+    if ty.get_origin(type_) is ty.Annotated:
+        return convert_to_datatype(ty.get_args(type_)[0])
     if is_optional(type_):
         non_none = [a for a in ty.get_args(type_) if a is not type(None)]
         if len(non_none) == 1:
