@@ -5,6 +5,7 @@ import typing as ty
 import pytest
 from fileformats.core import DataType
 from fileformats.generic import Directory, File
+from fileformats.medimage import DicomDir, DicomSeries, NiftiGz
 from fileformats.text import TextFile
 import fileformats.field as ffield
 
@@ -95,3 +96,44 @@ def test_annotated_unconvertible_type_still_raises_usefully() -> None:
 
 def test_datatype_subclasses_are_recognised() -> None:
     assert issubclass(convert_to_datatype(File), DataType)
+
+
+# The tests above build the `Annotated` by hand so they do not depend on a
+# particular fileformats version. These two exercise the real thing, which is
+# what actually broke: the wrapper fileformats itself produces.
+# From @jamesdidathing's #70.
+
+
+@pytest.mark.parametrize(
+    "datatype",
+    [
+        NiftiGz,
+        NiftiGz | DicomDir | DicomSeries,
+        NiftiGz | None,
+        ty.List[NiftiGz],
+    ],
+)
+def test_annotated_is_transparent_for_real_datatypes(datatype: ty.Any) -> None:
+    """Wrapping a type in `Annotated` must not change what it converts to."""
+    assert convert_to_datatype(ty.Annotated[datatype, "conversion metadata"]) == (
+        convert_to_datatype(datatype)
+    )
+
+
+def test_real_convertible_from_is_unwrapped() -> None:
+    """The actual failing case: `convertible_from()` output from fileformats.
+
+    `NiftiGz.convertible_from()` returns an `Annotated[<union>,
+    ConvertibleToMarker(NiftiGz)]`, which is precisely what raised
+    `TypeError: issubclass() arg 1 must be a class`.
+
+    The union's exact membership depends on which converters are installed
+    (`fileformats-extras` adds the archive types, for instance), so this
+    asserts the wrapper is gone and the known converters are present rather
+    than pinning the whole set.
+    """
+    converted = convert_to_datatype(NiftiGz.convertible_from())
+
+    assert ty.get_origin(converted) is not ty.Annotated
+    members = set(ty.get_args(converted))
+    assert {NiftiGz, DicomDir, DicomSeries} <= members

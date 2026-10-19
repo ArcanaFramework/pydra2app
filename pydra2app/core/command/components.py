@@ -555,8 +555,8 @@ def convert_to_datatype(type_: type) -> type[DataType]:
     # by frametree -- so strip it. Without this an `Annotated` alias matches
     # none of the branches below and reaches `issubclass()`, which raises
     # `TypeError: issubclass() arg 1 must be a class`.
-    while ty.get_origin(type_) is not None and hasattr(type_, "__metadata__"):
-        type_ = ty.get_args(type_)[0]
+    if ty.get_origin(type_) is ty.Annotated:
+        return convert_to_datatype(ty.get_args(type_)[0])
     if is_optional(type_):
         non_none = [a for a in ty.get_args(type_) if a is not type(None)]
         if len(non_none) == 1:
