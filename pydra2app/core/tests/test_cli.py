@@ -241,7 +241,7 @@ a test of the YAML join functionality
 #### Inputs
 |Name|Data-type(s)|Required|Description|
 |----|------------|--------|-----------|
-|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file\|testing/encoded-text" aria-label="text/text-file\|testing/encoded-text">text/text-file\|testing/encoded-text</span>|Y|the input text file|
+|`in_file`|<span data-toggle="tooltip" data-placement="bottom" title="text/text-file+convertible-to" aria-label="text/text-file+convertible-to">text/text-file+convertible-to</span>|Y|the input text file|
 
 #### Outputs
 |Name|Data-type(s)|Always generated|Description|
