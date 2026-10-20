@@ -32,42 +32,50 @@ def test_optional_datatype() -> None:
     assert convert_to_datatype(ty.Optional[TextFile]) == ty.Optional[TextFile]
 
 
-def test_annotated_datatype_is_unwrapped() -> None:
+def test_annotated_datatype_is_retained() -> None:
     """fileformats >=0.21 wraps convertible datatypes in `Annotated`.
 
-    Without unwrapping, an `Annotated` alias matches none of the branches and
-    falls through to `issubclass(type_, (str, os.PathLike))`, which raises
+    The annotation is retained so the datatype is written to MIME-like strings as
+    "<namespace>/<format>+convertible-to". Without handling it, an `Annotated` alias
+    matches none of the branches and falls through to
+    `issubclass(type_, (str, os.PathLike))`, which raises
     `TypeError: issubclass() arg 1 must be a class`.
     """
-    annotated = ty.Annotated[TextFile, ConvertibleToMarker(format=TextFile)]
-    assert convert_to_datatype(annotated) is TextFile
+    marker = ConvertibleToMarker(format=TextFile)
+    annotated = ty.Annotated[TextFile, marker]
+    assert convert_to_datatype(annotated) == annotated
 
 
-def test_annotated_union_is_unwrapped() -> None:
+def test_annotated_union_is_retained() -> None:
     """The real-world case: a union of the target and everything convertible to it.
 
     e.g. Annotated[NiftiGzX | DicomDir | DicomSeries, ConvertibleToMarker(...)]
     """
-    annotated = ty.Annotated[
-        ty.Union[TextFile, Directory], ConvertibleToMarker(format=TextFile)
-    ]
-    assert convert_to_datatype(annotated) == ty.Union[TextFile, Directory]
+    marker = ConvertibleToMarker(format=TextFile)
+    annotated = ty.Annotated[ty.Union[TextFile, Directory], marker]
+    assert convert_to_datatype(annotated) == annotated
 
 
-def test_annotated_optional_is_unwrapped() -> None:
+def test_annotated_optional_is_retained() -> None:
     """An optional source of a convertible type -- both wrappers at once."""
-    annotated = ty.Optional[
-        ty.Annotated[TextFile, ConvertibleToMarker(format=TextFile)]
-    ]
-    assert convert_to_datatype(annotated) == ty.Optional[TextFile]
+    marker = ConvertibleToMarker(format=TextFile)
+    annotated = ty.Optional[ty.Annotated[TextFile, marker]]
+    assert convert_to_datatype(annotated) == annotated
 
 
-def test_nested_annotated_is_unwrapped() -> None:
-    """Unwrapping is recursive, so nesting does not reintroduce the failure."""
-    annotated = ty.Annotated[
-        ty.Annotated[TextFile, ConvertibleToMarker(format=TextFile)], "other"
-    ]
-    assert convert_to_datatype(annotated) is TextFile
+def test_annotated_inner_type_is_converted() -> None:
+    """Only the annotation is retained, the type it wraps is still converted"""
+    marker = ConvertibleToMarker(format=TextFile)
+    assert convert_to_datatype(ty.Annotated[str, marker]) == (
+        ty.Annotated[ffield.Text, marker]
+    )
+
+
+def test_nested_annotated_is_retained() -> None:
+    """Nested annotations are flattened by `typing`, and all their metadata kept"""
+    marker = ConvertibleToMarker(format=TextFile)
+    annotated = ty.Annotated[ty.Annotated[TextFile, marker], "other"]
+    assert convert_to_datatype(annotated) == ty.Annotated[TextFile, marker, "other"]
 
 
 def test_primitive_is_converted_to_a_field() -> None:
@@ -114,13 +122,15 @@ def test_datatype_subclasses_are_recognised() -> None:
     ],
 )
 def test_annotated_is_transparent_for_real_datatypes(datatype: ty.Any) -> None:
-    """Wrapping a type in `Annotated` must not change what it converts to."""
-    assert convert_to_datatype(ty.Annotated[datatype, "conversion metadata"]) == (
-        convert_to_datatype(datatype)
+    """Wrapping a type in `Annotated` must not change what the type it wraps
+    converts to"""
+    converted = convert_to_datatype(ty.Annotated[datatype, "conversion metadata"])
+    assert (
+        converted == ty.Annotated[convert_to_datatype(datatype), "conversion metadata"]
     )
 
 
-def test_real_convertible_from_is_unwrapped() -> None:
+def test_real_convertible_from_is_retained() -> None:
     """The actual failing case: `convertible_from()` output from fileformats.
 
     `NiftiGz.convertible_from()` returns an `Annotated[<union>,
@@ -129,11 +139,13 @@ def test_real_convertible_from_is_unwrapped() -> None:
 
     The union's exact membership depends on which converters are installed
     (`fileformats-extras` adds the archive types, for instance), so this
-    asserts the wrapper is gone and the known converters are present rather
+    asserts the wrapper is retained and the known converters are present rather
     than pinning the whole set.
     """
-    converted = convert_to_datatype(NiftiGz.convertible_from())
+    accepted = NiftiGz.convertible_from()
+    converted = convert_to_datatype(accepted)
 
-    assert ty.get_origin(converted) is not ty.Annotated
-    members = set(ty.get_args(converted))
+    assert converted == accepted
+    assert ty.get_origin(converted) is ty.Annotated
+    members = set(ty.get_args(ty.get_args(converted)[0]))
     assert {NiftiGz, DicomDir, DicomSeries} <= members
