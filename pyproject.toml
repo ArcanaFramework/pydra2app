@@ -14,8 +14,8 @@ dependencies = [
     "click-option-group>=0.5.5",
     "deepdiff>=3.3",
     "docker>=5.0.2",
-    "fileformats >=0.19.1",
-    "fileformats-extras >=0.19.1",
+    "fileformats >=0.22.2",
+    "fileformats-extras >=0.22.2",
     "flit_scm >=1.7.0",
     "frametree >= 0.11.2",
     "hatchling >=1.12.2",
@@ -68,9 +68,9 @@ docs = [
     "sphinx-togglebutton",
 ]
 test = [
-    "fileformats-medimage-extras",
-    "fileformats-extras[image,vendor_openxmlformats_officedocument]",
-    "pytest>=6.2.5",
+    "fileformats-medimage-extras >= 0.15.4",
+    "fileformats-extras[image,vendor_openxmlformats_officedocument] >= 0.22.2",
+    "pytest>=8",
     "pytest-cov>=2.12.1",
     "pytest-env>=0.6.2",
 ]
