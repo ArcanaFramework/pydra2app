@@ -1,30 +1,34 @@
 import os
+import re
 import typing as ty
 from functools import reduce
 from operator import mul
 from pathlib import Path
-import re
-import pytest
-from frametree.testing.blueprint import (
-    TestDatasetBlueprint,
-    FileSetEntryBlueprint as FileBP,
-)
-from pydra.compose import python
-from fileformats.text import TextFile
-from fileformats.testing import EncodedText
-from fileformats.core import converter
-from fileformats.image import RasterImage, Png
+
 import fileformats.field as ffield
+import pytest
+from fileformats.core import converter
 from fileformats.generic import File
+from fileformats.image import Png, RasterImage
+from fileformats.testing import EncodedText
+from fileformats.text import TextFile
+from frametree.core.exceptions import FrameTreeDataMatchError
 from frametree.core.frameset import FrameSet
+from frametree.core.serialize import ClassResolver
 from frametree.file_system import FileSystem
 from frametree.testing import TestAxes
+from frametree.testing.blueprint import (
+    FileSetEntryBlueprint as FileBP,
+)
+from frametree.testing.blueprint import (
+    TestDatasetBlueprint,
+)
+from pydra.utils import get_fields
+from pydra.utils.typing import strip_annotated
+
+from pydra2app.core import App
 from pydra2app.core.command.base import ContainerCommand
 from pydra2app.core.command.components import task_serializer
-from pydra2app.core import App
-from frametree.core.exceptions import FrameTreeDataMatchError
-from frametree.core.serialize import ClassResolver
-from pydra.utils import get_fields
 
 
 def test_unresolved_python_task_roundtrip() -> None:
@@ -67,7 +71,9 @@ def test_unresolved_python_task_roundtrip() -> None:
             "mode",
             "function",
         ]
-        assert [field.name for field in get_fields(command.task.Outputs)] == ["out_file"]
+        assert [field.name for field in get_fields(command.task.Outputs)] == [
+            "out_file"
+        ]
         assert command.source_names == ["source"]
         assert command.sink_names == ["sink"]
         assert command.parameter_names == ["threshold"]
@@ -125,7 +131,6 @@ def test_command_execute(
         assert contents == expected_contents
 
 
-
 def test_command_execute_unset_parameter_uses_default(
     saved_dataset: FrameSet, work_dir: Path
 ) -> None:
@@ -178,6 +183,7 @@ def test_command_execute_unset_mandatory_parameter(
             dataset_hierarchy=",".join(bp.hierarchy),
             pipeline_name="test_pipeline_unset_mandatory",
         )
+
 
 def test_command_execute_fail(
     ConcatenateTask: ty.Callable[..., ty.Any], saved_dataset: FrameSet, work_dir: Path
@@ -430,7 +436,9 @@ def test_command_execute_at_root_frequency_with_data_row(work_dir: Path) -> None
     with dataset.tree:
         for i in filenumbers:
             entry_bp = FileBP(path=str(i), datatype=TextFile, filenames=[f"{i}.txt"])
-            dataset.add_sink(entry_bp.path, datatype=TextFile, row_frequency=TestAxes.__)
+            dataset.add_sink(
+                entry_bp.path, datatype=TextFile, row_frequency=TestAxes.__
+            )
             root_row[entry_bp.path] = entry_bp.make_item(index=i)
     dataset.save()
 
@@ -468,7 +476,13 @@ def test_command_convertible_source_types() -> None:
         operates_on="samples/sample",
     )
 
-    assert command_spec.source("in_file").type == Png | RasterImage
+    source_type = command_spec.source("in_file").type
+    # Annotated with the type it is convertible to, so it is saved as
+    # "image/png+convertible-to"
+    assert source_type == Png.convertible_from()
+    # Also includes the types that generic converters can convert from (e.g. archives
+    # of Png), which depend on the converters that are installed
+    assert {Png, RasterImage}.issubset(ty.get_args(strip_annotated(source_type)))
 
 
 def test_command_execute_with_converter_args(saved_dataset: FrameSet, work_dir: Path):
@@ -697,14 +711,14 @@ def test_shell_command_execute(saved_dataset, work_dir):
                 "parameter_names": ["template", "param"],
                 "sources[0].name": "an_image",
                 "sources[0].field": "in_file",
-                "sources[0].type": File,
+                "sources[0].type": File.convertible_from(),
                 "sources[0].help": "",
                 # "sources[1].name": "file_pair",
                 # "sources[1].field": "file_pair",
                 # "sources[1].type": tuple[PlainText, PlainText] | None,
                 "sources[1].name": "optional_file",
                 "sources[1].field": "optional_file",
-                "sources[1].type": File | None,
+                "sources[1].type": File.convertible_from() | None,
                 "sinks[0].name": "my_app_out_file",
                 "sinks[0].field": "out_file",
                 "sinks[0].type": Png,

@@ -18,7 +18,7 @@ from frametree.core.axes import Axes
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from frametree.core.serialize import ClassResolver, ObjectConverter, ObjectListConverter
 from neurodocker.reproenv import DockerRenderer
-from pydra.utils.typing import is_optional, optional_type
+from pydra.utils.typing import is_optional
 
 from pydra2app.core import __version__
 from pydra2app.core.utils import is_relative_to
@@ -625,7 +625,7 @@ class App(P2AImage):
                     for sink in command.sinks:
                         tbl_outputs.write_row(
                             escaped_md(sink.name),
-                            self._data_format_html(optional_type(sink.type)),
+                            self._data_format_html(sink.type),
                             "Y" if not is_optional(sink.type) else "N",
                             sink.help,
                         )
@@ -656,12 +656,12 @@ class App(P2AImage):
     @classmethod
     def _data_format_html(cls, datatype: ty.Union[str, DataType]) -> str:
         datatype_str = (
-            to_mime(optional_type(datatype), official=False)
+            to_mime(datatype, official=False)
             if not isinstance(datatype, str)
             else datatype
         )
-        if is_optional(datatype):
-            datatype_str += " (optional)"
+        if datatype_str.endswith("?"):
+            datatype_str = datatype_str[:-1] + " (optional)"
 
         return (
             f'<span data-toggle="tooltip" data-placement="bottom" title="{datatype_str}" '
