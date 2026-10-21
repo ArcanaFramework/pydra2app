@@ -469,7 +469,7 @@ class P2AImage:
         self.insert_spec(dockerfile, build_dir)
 
         # Create writable directories
-        for dpath in (self.IN_DOCKER_FRAMETREE_HOME_DIR, "/.cache"):
+        for dpath in (self.IN_DOCKER_FRAMETREE_HOME_DIR, "/.cache", "/.config"):
             dockerfile.run(f"mkdir {dpath}")
             dockerfile.run(f"chmod 777 {dpath}")
         dockerfile.env(FRAMETREE_HOME=self.IN_DOCKER_FRAMETREE_HOME_DIR)
