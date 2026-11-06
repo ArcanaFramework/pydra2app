@@ -4,6 +4,7 @@ import logging
 import re
 import shutil
 import typing as ty
+import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from itertools import chain
@@ -103,7 +104,9 @@ class App(P2AImage):
         list of authors of the package
     command : ContainerCommand
         description of the command that is to be run within the image
-    licenses : list[License], optional
+    license : str, optional
+        licence identifier covering the published pipeline material
+    required_licenses : list[License], optional
         specification of licenses required by the commands in the container. Each dict
         should contain the 'name' of the license and the 'destination' it should be
         installed inside the container.
@@ -120,6 +123,12 @@ class App(P2AImage):
     SUBPACKAGE = "deploy"
 
     title: str
+    license: ty.Optional[str] = attrs.field(
+        default=None,
+        validator=attrs.validators.optional(
+            attrs.validators.matches_re(r"[A-Za-z0-9][A-Za-z0-9.+-]*")
+        ),
+    )
     authors: ty.List[ContainerAuthor] = attrs.field(
         converter=ObjectListConverter(ContainerAuthor),  # type: ignore[misc]
         metadata={"serializer": ObjectListConverter.asdict},
@@ -141,6 +150,17 @@ class App(P2AImage):
         default=None, metadata={"asdict": False}, eq=False, hash=False
     )
     pydra2app_version: str = __version__
+
+    @property
+    def required_licenses(self) -> ty.List[License]:
+        """Runtime licences; retain the internal name for existing Python callers."""
+        return self.licenses
+
+    def asdict(self) -> ty.Dict[str, ty.Any]:
+        result = super().asdict()
+        if "licenses" in result:
+            result["required_licenses"] = result.pop("licenses")
+        return result
 
     @commands.validator
     def _validate_commands(
@@ -383,6 +403,17 @@ class App(P2AImage):
             source_spec = deepcopy(yml_dict)
             source_spec.pop("loaded_from", None)
             source_spec.pop("access_token", None)
+
+        if "licenses" in yml_dict and "required_licenses" in yml_dict:
+            raise ValueError("Specify only 'required_licenses', not both licence keys")
+        if "required_licenses" in yml_dict:
+            yml_dict["licenses"] = yml_dict.pop("required_licenses")
+        elif "licenses" in yml_dict:
+            warnings.warn(
+                "'licenses' is deprecated; use 'required_licenses' instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         # If data-space is not defined, default to `default_axes`
         commands = yml_dict["commands"]
