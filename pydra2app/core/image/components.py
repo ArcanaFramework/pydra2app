@@ -661,4 +661,3 @@ class Version:
         ),
         re.VERBOSE | re.IGNORECASE,
     )
-

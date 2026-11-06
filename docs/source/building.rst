@@ -149,6 +149,38 @@ to the specification root, repeat ``--spec``. Extensions may be omitted:
 
 
 
+Publication metadata
+--------------------
+
+The optional top-level ``license`` field specifies the licence identifier for the
+pipeline material being published, for example:
+
+.. code-block:: yaml
+
+    license: mit
+    docs:
+        info_url: https://example.org/my-pipeline
+        description: A description of the analysis performed by this pipeline.
+
+Use an identifier accepted by the publication service (for Zenodo, its licence
+registry). It is distinct from ``required_licenses``, which describes licence
+files required at runtime:
+
+.. code-block:: yaml
+
+    required_licenses:
+        freesurfer:
+            destination: /opt/freesurfer/license.txt
+            info_url: https://surfer.nmr.mgh.harvard.edu/registration.html
+            description: Required to run FreeSurfer.
+
+The old YAML key ``licenses`` remains a deprecated alias. Supplying both names
+is an error; saved specs use ``required_licenses``. 
+
+The existing ``title``, ``version``, ``authors`` and ``docs.description`` fields
+provide the other citation metadata. Adding or changing publication metadata in
+an already released spec requires a pipeline version increment.
+
 Autodocs
 --------
 

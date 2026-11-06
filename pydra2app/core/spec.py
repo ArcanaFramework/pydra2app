@@ -123,7 +123,10 @@ def _canonicalize(
                 )
                 for key, item in sorted(value.items(), key=lambda pair: pair[0])
                 if not (
-                    (path[:1] == ("licenses",) and key == "source")
+                    (
+                        path[:1] in (("licenses",), ("required_licenses",))
+                        and key == "source"
+                    )
                     or (path[:2] == ("packages", "pip") and key == "file_path")
                 )
             }
