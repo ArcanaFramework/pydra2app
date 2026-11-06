@@ -149,6 +149,27 @@ to the specification root, repeat ``--spec``. Extensions may be omitted:
 
 
 
+Publication metadata
+--------------------
+
+The optional ``docs.license`` field specifies the licence identifier for the
+pipeline material being published, for example:
+
+.. code-block:: yaml
+
+    docs:
+        info_url: https://example.org/my-pipeline
+        description: A description of the analysis performed by this pipeline.
+        license: mit
+
+Use an identifier accepted by the publication service (for Zenodo, its licence
+registry). It is distinct from the top-level ``licenses`` field,
+which describes licence files required at runtime.
+
+The existing ``title``, ``version``, ``authors`` and ``docs.description`` fields
+provide the other citation metadata. Adding or changing publication metadata in
+an already released spec requires a pipeline version increment.
+
 Autodocs
 --------
 

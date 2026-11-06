@@ -141,6 +141,12 @@ class Docs:
         converter=ObjectListConverter(KnownIssue),  # type: ignore[misc]
         metadata={"serializer": ObjectListConverter.aslist},
     )
+    license: ty.Optional[str] = attrs.field(
+        default=None,
+        validator=attrs.validators.optional(
+            attrs.validators.matches_re(r"[A-Za-z0-9][A-Za-z0-9.+-]*")
+        ),
+    )
 
 
 def optional_path_converter(value: ty.Optional[str]) -> ty.Optional[Path]:
@@ -661,4 +667,3 @@ class Version:
         ),
         re.VERBOSE | re.IGNORECASE,
     )
-

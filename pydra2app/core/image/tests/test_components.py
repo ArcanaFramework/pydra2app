@@ -138,6 +138,12 @@ def test_url_validator_optional() -> None:
     valid strings"""
     assert KnownIssue(description="an issue").url is None
     assert Resource(name="a-resource", path=Path("/opt/resource")).url is None
+
+
+@pytest.mark.parametrize("license_id", ["", " ", "MIT OR Apache-2.0", "mit\n"])
+def test_docs_rejects_invalid_license_identifier(license_id: str) -> None:
+    with pytest.raises(ValueError):
+        Docs(info_url="https://example.org", license=license_id)
     with pytest.raises(TypeError, match="Invalid URL"):
         Docs(info_url=None)  # type: ignore[arg-type]
 

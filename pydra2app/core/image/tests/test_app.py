@@ -1,6 +1,7 @@
 import os
 import tarfile
 import docker
+import pytest
 from pathlib import Path
 from copy import deepcopy
 from pydra.utils import get_fields
@@ -328,7 +329,8 @@ def test_multi_command(
             assert contents == expected_contents
 
 
-def test_serialization_roundtrip(tmp_path: Path) -> None:
+@pytest.mark.parametrize("license_id", [None, "mit", "cc-by-nc-sa-4.0"])
+def test_serialization_roundtrip(tmp_path: Path, license_id: str | None) -> None:
 
     test_spec = {
         "name": "native_python_test",
@@ -377,10 +379,15 @@ def test_serialization_roundtrip(tmp_path: Path) -> None:
 
     app = App.load(test_spec)
 
+    if license_id is not None:
+        test_spec["docs"]["license"] = license_id
+        app = App.load(test_spec)
+
     # Serialize the app to a file
     save_path = tmp_path / (app.name + ".yaml")
     app.save(save_path)
     reloaded_app = App.load(save_path)
+    assert reloaded_app.docs.license == license_id
     assert app.commands[0] == reloaded_app.commands[0]
     assert app == reloaded_app
 
