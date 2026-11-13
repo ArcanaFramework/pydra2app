@@ -49,15 +49,16 @@ def test_release_checksum_ignores_legacy_serialized_access_token() -> None:
     assert spec_sha256(first) == spec_sha256(second)
 
 
-def test_release_checksum_ignores_build_host_paths() -> None:
+@pytest.mark.parametrize("runtime_key", ["licenses", "required_licenses"])
+def test_release_checksum_ignores_build_host_paths(runtime_key: str) -> None:
     first = {
         "name": "example",
-        "licenses": [{"name": "tool", "source": "/runner-a/license"}],
+        runtime_key: [{"name": "tool", "source": "/runner-a/license"}],
         "packages": {"pip": [{"name": "package", "file_path": "/runner-a/package"}]},
     }
     second = {
         "name": "example",
-        "licenses": [{"name": "tool", "source": "/runner-b/license"}],
+        runtime_key: [{"name": "tool", "source": "/runner-b/license"}],
         "packages": {"pip": [{"name": "package", "file_path": "/runner-b/package"}]},
     }
 

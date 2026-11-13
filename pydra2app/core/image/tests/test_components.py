@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from pydra2app.core.exceptions import Pydra2AppBuildError
-from pydra2app.core.image import P2AImage, extraction
+from pydra2app.core.image import App, P2AImage, extraction
 from pydra2app.core.image.components import (
     CondaPackage,
     Docs,
@@ -140,6 +140,20 @@ def test_url_validator_optional() -> None:
     assert Resource(name="a-resource", path=Path("/opt/resource")).url is None
     with pytest.raises(TypeError, match="Invalid URL"):
         Docs(info_url=None)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("license_id", ["", " ", "MIT OR Apache-2.0", "mit\n"])
+def test_app_rejects_invalid_license_identifier(license_id: str) -> None:
+    with pytest.raises(ValueError):
+        App(
+            name="test",
+            version="1.0",
+            title="Test",
+            authors=[],
+            docs={"info_url": "https://example.org"},
+            commands=[],
+            license=license_id,
+        )
 
 
 RESOURCE_URL = (
