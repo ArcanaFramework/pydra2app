@@ -14,7 +14,7 @@ from typing import Self
 import attrs
 import toml
 import yaml
-from fileformats.core import DataType, to_mime
+from fileformats.core import DataType
 from frametree.core.axes import Axes
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
 from frametree.core.serialize import ClassResolver, ObjectConverter, ObjectListConverter
@@ -25,6 +25,7 @@ from pydra2app.core import __version__
 from pydra2app.core.utils import is_relative_to
 
 from ..command.base import ContainerCommand
+from ..command.components import datatype_label
 from .base import P2AImage
 from .components import ContainerAuthor, Docs, License, PipPackage
 
@@ -687,9 +688,7 @@ class App(P2AImage):
     @classmethod
     def _data_format_html(cls, datatype: ty.Union[str, DataType]) -> str:
         datatype_str = (
-            to_mime(datatype, official=False)
-            if not isinstance(datatype, str)
-            else datatype
+            datatype_label(datatype) if not isinstance(datatype, str) else datatype
         )
         if datatype_str.endswith("?"):
             datatype_str = datatype_str[:-1] + " (optional)"

@@ -3,13 +3,14 @@ from __future__ import annotations
 import inspect
 import logging
 import os
+import shlex
 import typing as ty
 
 import attrs
 import fileformats.field as ffield
 import pydra.compose.base
 import pydra.utils.general
-from fileformats.core import DataType, Field
+from fileformats.core import DataType, Field, to_mime
 from fileformats.core.exceptions import FormatMismatchError
 from frametree.core.axes import Axes
 from frametree.core.exceptions import FrametreeCannotSerializeDynamicDefinitionError
@@ -18,7 +19,7 @@ from frametree.core.serialize import ClassResolver
 from frametree.core.utils import convertible_from
 from pydra.compose.base import Arg, Out
 from pydra.utils import get_fields, structure, unstructure
-from pydra.utils.typing import is_container, is_optional, is_union
+from pydra.utils.typing import is_container, is_optional, is_union, optional_type
 
 from pydra2app.core import PACKAGE_NAME
 from pydra2app.core.exceptions import Pydra2AppUsageError
@@ -575,3 +576,92 @@ def convert_to_datatype(type_: type) -> type[DataType]:
         return Field.from_primitive(type_)
     except (StopIteration, FormatMismatchError):
         raise Pydra2AppUsageError(f"Cannot convert type '{type_}' to a DataType")
+
+
+def dict_member(type_: ty.Any) -> ty.Any | None:
+    """The dict type that a parameter type is, or is a member of if it is a union
+    (e.g. ``dict[str, str] | list[tuple[str, str]] | None``), or None if it isn't one"""
+    if ty.get_origin(type_) is ty.Annotated:
+        type_ = ty.get_args(type_)[0]
+    members = ty.get_args(type_) if is_union(type_) else (type_,)
+    return next(
+        (m for m in members if m is dict or ty.get_origin(m) is dict), None
+    )
+
+
+def parse_parameter_value(type_: ty.Any, value: str) -> ty.Any:
+    """Convert the string passed to a parameter (e.g. on the command line or by the
+    XNAT container service) into a value of the parameter's type.
+
+    Parameters with a dict type (or a union containing one) are passed as
+    whitespace-separated ``name=value`` pairs, which are split on the first ``=``,
+    e.g. ``'a=1 b="two words" c=x=y'`` -> ``{"a": "1", "b": "two words", "c": "x=y"}``.
+    Quotes can be used, as in a shell, to include whitespace within a name or value.
+    Names and values are converted to the key and value types of the dict.
+
+    Parameters
+    ----------
+    type_ : type
+        the type of the parameter, as converted by `convert_to_datatype`
+    value : str
+        the string passed to the parameter
+
+    Returns
+    -------
+    Any
+        the converted value
+    """
+    dict_type = dict_member(type_)
+    if dict_type is not None:
+        key_type, value_type = ty.get_args(dict_type) or (str, str)
+        parsed = {}
+        try:
+            tokens = shlex.split(value)
+        except ValueError as e:
+            raise Pydra2AppUsageError(
+                f"Could not parse {value!r} into name=value pairs: {e}"
+            ) from e
+        for token in tokens:
+            name, sep, val = token.partition("=")
+            if not sep or not name:
+                raise Pydra2AppUsageError(
+                    f"Invalid pair {token!r} in {value!r}, expected whitespace-separated "
+                    "name=value pairs (quote values containing whitespace)"
+                )
+            parsed[_from_str(key_type, name)] = _from_str(value_type, val)
+        return parsed
+    field_type = optional_type(type_)
+    try:
+        field_type = Field.from_primitive(field_type)
+    except TypeError:
+        pass
+    return field_type(value)
+
+
+def _from_str(type_: ty.Any, value: str) -> ty.Any:
+    """Convert a string into a primitive value of the given (field) type"""
+    if type_ in (str, ty.Any) or (
+        inspect.isclass(type_) and issubclass(type_, ffield.Text)
+    ):
+        return value
+    if not (inspect.isclass(type_) and issubclass(type_, Field)):
+        type_ = Field.from_primitive(type_)
+    return type_(value).to_primitive()
+
+
+def datatype_label(type_: ty.Any) -> str:
+    """A label for the type of a source, sink or parameter, for use in documentation.
+    The MIME-like string of the type, apart from dict parameters, which are described
+    by how values are passed to them (see `parse_parameter_value`), e.g.
+    "field/text=field/integer pairs". Optional types are suffixed with "?"."""
+    dict_type = dict_member(type_)
+    if dict_type is None:
+        return to_mime(type_, official=False)
+    key_type, value_type = ty.get_args(dict_type) or (ffield.Text, ffield.Text)
+    label = (
+        f"{to_mime(convert_to_datatype(key_type), official=False)}="
+        f"{to_mime(convert_to_datatype(value_type), official=False)} pairs"
+    )
+    if is_optional(type_):
+        label += "?"
+    return label
