@@ -17,7 +17,6 @@ import attrs
 import pydra.compose.base
 import pydra.utils.general
 from attrs.converters import default_if_none
-from fileformats.core import Field
 from frametree.core.axes import Axes
 from frametree.core.frameset.base import FrameSet
 from frametree.core.row import DataRow
@@ -25,11 +24,12 @@ from frametree.core.store import Store
 from frametree.core.utils import path2label, show_workflow_errors
 from pydra.compose.base import Out
 from pydra.utils import get_fields
-from pydra.utils.typing import is_fileset_or_union, optional_type
+from pydra.utils.typing import is_fileset_or_union
 
 from pydra2app.core.exceptions import Pydra2AppUnresolvedTaskError, Pydra2AppUsageError
 
 from .components import (
+    parse_parameter_value,
     DEFERRED_TASK_DEFINITION,
     ContainerCommandParameter,
     ContainerCommandSink,
@@ -664,12 +664,7 @@ class ContainerCommand:
                     continue
                 else:
                     # Convert field from string if necessary
-                    field_type = optional_type(param.type)
-                    try:
-                        field_type = Field.from_primitive(field_type)
-                    except TypeError:
-                        pass
-                    param_value = field_type(param_value)
+                    param_value = parse_parameter_value(param.type, param_value)
 
             task_kwargs[param.field] = param_value
 
