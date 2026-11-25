@@ -14,7 +14,7 @@ import importlib_metadata
 import packaging.specifiers
 import packaging.utils
 import packaging.version
-from frametree.core.serialize import ObjectListConverter
+from frametree.core.serialize import ObjectConverter, ObjectListConverter
 from typing_extensions import Self
 
 from pydra2app.core import PACKAGE_NAME
@@ -141,6 +141,34 @@ class Docs:
         converter=ObjectListConverter(KnownIssue),  # type: ignore[misc]
         metadata={"serializer": ObjectListConverter.aslist},
     )
+
+
+@attrs.define
+class UpstreamWork:
+    """An external software work that an XNAT wrapper runs."""
+
+    title: str
+    url: str = attrs.field(validator=url_validator)
+
+
+@attrs.define
+class PublicationMetadata:
+    """Publication context used to describe a pipeline reference."""
+
+    kind: str = attrs.field(
+        validator=attrs.validators.in_(("wrapper", "ais-developed"))
+    )
+    upstream: ty.Optional[UpstreamWork] = attrs.field(
+        default=None,
+        converter=attrs.converters.optional(ObjectConverter(UpstreamWork)),
+    )
+
+    @upstream.validator
+    def _validate_upstream(
+        self, attribute: attrs.Attribute[ty.Optional[UpstreamWork]], value
+    ) -> None:
+        if self.kind == "wrapper" and value is None:
+            raise ValueError("Wrapper publication metadata requires an upstream work")
 
 
 def optional_path_converter(value: ty.Optional[str]) -> ty.Optional[Path]:

@@ -26,7 +26,13 @@ from pydra2app.core.utils import is_relative_to
 
 from ..command.base import ContainerCommand
 from .base import P2AImage
-from .components import ContainerAuthor, Docs, License, PipPackage
+from .components import (
+    ContainerAuthor,
+    Docs,
+    License,
+    PublicationMetadata,
+    PipPackage,
+)
 
 logger = logging.getLogger("pydra2app")
 
@@ -112,12 +118,18 @@ class App(P2AImage):
         installed inside the container.
     docs : Docs
         information for automatically generated documentation
+    publication : PublicationMetadata, optional
+        whether this is an XNAT wrapper around upstream software or an AIS-developed
+        pipeline, with the upstream work identified for wrappers
     loaded_from : Path
         the file the spec was loaded from, if applicable
     allow_deferred : bool
         whether the tasks of commands that can't be loaded in the current environment
         can be deferred to be loaded within the image instead (see `can_defer_task`).
         Only appropriate where the image is being built or documented, rather than run
+    internal_packages : Sequence[str]
+        Python module prefixes whose tasks are considered internal to the publisher.
+        This is runtime metadata and is not included in the serialized app spec.
     """
 
     SUBPACKAGE = "deploy"
@@ -139,9 +151,16 @@ class App(P2AImage):
         metadata={"serializer": ObjectListConverter.asdict},
     )
     docs: Docs = attrs.field(converter=ObjectConverter(Docs))  # type: ignore[misc]
+    publication: ty.Optional[PublicationMetadata] = attrs.field(
+        default=None,
+        converter=attrs.converters.optional(ObjectConverter(PublicationMetadata)),
+    )
     # defined before `commands` so that it is set when their tasks are loaded
     allow_deferred: bool = attrs.field(
         default=False, metadata={"asdict": False}, eq=False, hash=False
+    )
+    internal_packages: ty.Tuple[str, ...] = attrs.field(
+        factory=tuple, converter=tuple, metadata={"asdict": False}
     )
     commands: ty.List[ContainerCommand] = attrs.field(
         converter=commands_converter(ContainerCommand),  # type: ignore[misc]
@@ -330,6 +349,7 @@ class App(P2AImage):
         default_axes: ty.Optional[ty.Type[Axes]] = None,
         source_packages: ty.Sequence[Path] = (),
         allow_deferred: bool = False,
+        internal_packages: ty.Sequence[str] = (),
         **kwargs: ty.Any,
     ) -> Self:
         """Loads a deploy-build specification from a YAML file
@@ -361,6 +381,10 @@ class App(P2AImage):
             present within the image) can be deferred to be loaded within the image
             instead. Appropriate where the image is being built or documented, rather
             than run. See `App.can_defer_task`
+        internal_packages : sequence[str]
+            Python module prefixes whose tasks should be identified as internal. This
+            setting is for downstream metadata generation and is not stored in the
+            serialized app specification.
         **kwargs
             additional keyword arguments that override/augment the values loaded from
             the spec file
@@ -435,7 +459,10 @@ class App(P2AImage):
                         cmd["task"]["function"]
                     )
             image = cls(
-                source_spec=source_spec, allow_deferred=allow_deferred, **yml_dict
+                source_spec=source_spec,
+                allow_deferred=allow_deferred,
+                internal_packages=internal_packages,
+                **yml_dict,
             )
 
         # Replace any pip packages with local source packages
