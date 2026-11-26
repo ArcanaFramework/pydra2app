@@ -242,37 +242,6 @@ class ContainerCommand:
             self.task, DEFERRED_TASK_DEFINITION
         )
 
-    @property
-    def task_module(self) -> str | None:
-        """The Python module defining the command task, when it can be identified."""
-        definition = task_serializer(self.task)
-        if isinstance(definition, str):
-            module, separator, _ = definition.partition(":")
-            return module if separator else None
-        if definition.get("type") == "python":
-            function = definition.get("function")
-            if isinstance(function, str):
-                module, separator, _ = function.partition(":")
-                return module if separator else None
-            if callable(function):
-                return function.__module__
-        return None
-
-    @property
-    def is_internal(self) -> bool:
-        """Whether the task's module is within an app's configured internal packages.
-
-        This identifies task-code ownership only; it does not determine whether that
-        task wraps or depends on external software.
-        """
-        module = self.task_module
-        if self.image is None or module is None:
-            return False
-        return any(
-            module == package or module.startswith(f"{package}.")
-            for package in self.image.internal_packages
-        )
-
     @cached_property
     def _input_fields(self) -> pydra.utils.general._TaskFieldsList:
         if self.deferred:

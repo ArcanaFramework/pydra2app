@@ -310,20 +310,6 @@ def test_generated_dockerfile_has_spec_checksum_and_custom_labels(
     assert 'org.example.custom="custom-value"' in rendered
 
 
-def test_internal_package_classification(
-    image_spec: ty.Dict[str, ty.Any],
-) -> None:
-    app = App.load(image_spec, internal_packages=["frametree.testing"])
-    command = app.commands[0]
-
-    assert command.task_module == "frametree.testing.tasks"
-    assert command.is_internal
-    assert "internal_packages" not in app.asdict()
-
-    app = App.load(image_spec, internal_packages=["frametree.test"])
-    assert not app.commands[0].is_internal
-
-
 def test_publication_metadata_roundtrip(image_spec: ty.Dict[str, ty.Any]) -> None:
     publication = {
         "kind": "wrapper",
@@ -342,41 +328,6 @@ def test_wrapper_publication_requires_upstream(
 ) -> None:
     with pytest.raises(ValueError, match="requires an upstream work"):
         App.load(image_spec, publication={"kind": "wrapper"})
-
-
-def test_internal_package_classification_for_python_function(
-    image_spec: ty.Dict[str, ty.Any],
-) -> None:
-    spec = deepcopy(image_spec)
-    spec["commands"]["concatenate-test"]["task"] = {
-        "type": "python",
-        "function": f"{__name__}:checksum_test_task",
-    }
-
-    app = App.load(spec, internal_packages=[__name__])
-
-    assert app.commands[0].task_module == __name__
-    assert app.commands[0].is_internal
-
-
-def test_external_provider_task_is_not_internal(
-    image_spec: ty.Dict[str, ty.Any],
-) -> None:
-    spec = deepcopy(image_spec)
-    spec["commands"]["concatenate-test"]["task"] = {
-        "type": "bidsapp",
-        "app": "nipreps/fmriprep",
-        "inputs": {},
-        "outputs": {},
-    }
-
-    app = App.load(
-        spec,
-        allow_deferred=True,
-        internal_packages=["australianimagingservice"],
-    )
-
-    assert not app.commands[0].is_internal
 
 
 def checksum_test_task(value: str = "default") -> str:

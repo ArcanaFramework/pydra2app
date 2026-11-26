@@ -127,9 +127,6 @@ class App(P2AImage):
         whether the tasks of commands that can't be loaded in the current environment
         can be deferred to be loaded within the image instead (see `can_defer_task`).
         Only appropriate where the image is being built or documented, rather than run
-    internal_packages : Sequence[str]
-        Python module prefixes whose tasks are considered internal to the publisher.
-        This is runtime metadata and is not included in the serialized app spec.
     """
 
     SUBPACKAGE = "deploy"
@@ -158,9 +155,6 @@ class App(P2AImage):
     # defined before `commands` so that it is set when their tasks are loaded
     allow_deferred: bool = attrs.field(
         default=False, metadata={"asdict": False}, eq=False, hash=False
-    )
-    internal_packages: ty.Tuple[str, ...] = attrs.field(
-        factory=tuple, converter=tuple, metadata={"asdict": False}
     )
     commands: ty.List[ContainerCommand] = attrs.field(
         converter=commands_converter(ContainerCommand),  # type: ignore[misc]
@@ -349,7 +343,6 @@ class App(P2AImage):
         default_axes: ty.Optional[ty.Type[Axes]] = None,
         source_packages: ty.Sequence[Path] = (),
         allow_deferred: bool = False,
-        internal_packages: ty.Sequence[str] = (),
         **kwargs: ty.Any,
     ) -> Self:
         """Loads a deploy-build specification from a YAML file
@@ -381,10 +374,6 @@ class App(P2AImage):
             present within the image) can be deferred to be loaded within the image
             instead. Appropriate where the image is being built or documented, rather
             than run. See `App.can_defer_task`
-        internal_packages : sequence[str]
-            Python module prefixes whose tasks should be identified as internal. This
-            setting is for downstream metadata generation and is not stored in the
-            serialized app specification.
         **kwargs
             additional keyword arguments that override/augment the values loaded from
             the spec file
@@ -461,7 +450,6 @@ class App(P2AImage):
             image = cls(
                 source_spec=source_spec,
                 allow_deferred=allow_deferred,
-                internal_packages=internal_packages,
                 **yml_dict,
             )
 
