@@ -27,7 +27,13 @@ from pydra2app.core.utils import is_relative_to
 from ..command.base import ContainerCommand
 from ..command.components import datatype_label
 from .base import P2AImage
-from .components import ContainerAuthor, Docs, License, PipPackage
+from .components import (
+    ContainerAuthor,
+    Docs,
+    License,
+    PublicationMetadata,
+    PipPackage,
+)
 
 logger = logging.getLogger("pydra2app")
 
@@ -113,6 +119,9 @@ class App(P2AImage):
         installed inside the container.
     docs : Docs
         information for automatically generated documentation
+    publication : PublicationMetadata, optional
+        whether this is an XNAT wrapper around upstream software or an AIS-developed
+        pipeline, with the upstream work identified for wrappers
     loaded_from : Path
         the file the spec was loaded from, if applicable
     allow_deferred : bool
@@ -140,6 +149,10 @@ class App(P2AImage):
         metadata={"serializer": ObjectListConverter.asdict},
     )
     docs: Docs = attrs.field(converter=ObjectConverter(Docs))  # type: ignore[misc]
+    publication: ty.Optional[PublicationMetadata] = attrs.field(
+        default=None,
+        converter=attrs.converters.optional(ObjectConverter(PublicationMetadata)),
+    )
     # defined before `commands` so that it is set when their tasks are loaded
     allow_deferred: bool = attrs.field(
         default=False, metadata={"asdict": False}, eq=False, hash=False
@@ -436,7 +449,9 @@ class App(P2AImage):
                         cmd["task"]["function"]
                     )
             image = cls(
-                source_spec=source_spec, allow_deferred=allow_deferred, **yml_dict
+                source_spec=source_spec,
+                allow_deferred=allow_deferred,
+                **yml_dict,
             )
 
         # Replace any pip packages with local source packages

@@ -310,6 +310,26 @@ def test_generated_dockerfile_has_spec_checksum_and_custom_labels(
     assert 'org.example.custom="custom-value"' in rendered
 
 
+def test_publication_metadata_roundtrip(image_spec: ty.Dict[str, ty.Any]) -> None:
+    publication = {
+        "kind": "wrapper",
+        "upstream": {"title": "External tool", "url": "https://example.org"},
+    }
+
+    app = App.load(image_spec, publication=publication)
+
+    assert app.publication.kind == "wrapper"
+    assert app.publication.upstream.title == "External tool"
+    assert app.asdict()["publication"] == publication
+
+
+def test_wrapper_publication_requires_upstream(
+    image_spec: ty.Dict[str, ty.Any],
+) -> None:
+    with pytest.raises(ValueError, match="requires an upstream work"):
+        App.load(image_spec, publication={"kind": "wrapper"})
+
+
 def checksum_test_task(value: str = "default") -> str:
     return value
 

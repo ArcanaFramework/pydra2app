@@ -181,6 +181,23 @@ The existing ``title``, ``version``, ``authors`` and ``docs.description`` fields
 provide the other citation metadata. Adding or changing publication metadata in
 an already released spec requires a pipeline version increment.
 
+For Zenodo references, the optional ``publication`` block distinguishes an
+XNAT wrapper from an AIS-developed pipeline. A wrapper must identify the
+upstream software; this describes the wrapper and does not claim authorship of
+the upstream work:
+
+.. code-block:: yaml
+
+    publication:
+        kind: wrapper
+        upstream:
+            title: fMRIPrep
+            url: https://fmriprep.org
+
+Use ``kind: ais-developed`` for an AIS-developed pipeline. Confirm this
+classification and the upstream details with the contributors; task package
+names alone do not establish authorship.
+
 Autodocs
 --------
 
